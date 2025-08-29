@@ -5,6 +5,7 @@ import { useShopStore } from '@/stores/useShopStore';
 import { useHabitStore } from '@/stores/useHabitStore';
 import { db } from '@/lib/database';
 import { storage } from '@/lib/storage';
+import { supabase } from '@/lib/supabase';
 
 // Debounce function
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number): T {
@@ -19,9 +20,26 @@ export function useAutoSync() {
   const { user, isAuthenticated } = useAuthStore();
   const syncTimeoutRef = useRef<NodeJS.Timeout>();
 
+  // Função para verificar conectividade com Supabase
+  const checkSupabaseConnection = async (): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.from('profiles').select('id').limit(1);
+      return !error;
+    } catch {
+      return false;
+    }
+  };
+
   // Função para sincronizar dados para o Supabase
   const syncToSupabase = async (userId: string) => {
     try {
+      // Verificar conectividade antes de sincronizar
+      const isConnected = await checkSupabaseConnection();
+      if (!isConnected) {
+        console.log('⏳ Auto-sync: Aguardando conexão com Supabase...');
+        return;
+      }
+
       console.log('🔄 Auto-sync: Sincronizando dados para o Supabase...');
       
       // 1. Sincronizar dados de gamificação
@@ -65,25 +83,31 @@ export function useAutoSync() {
         await db.saveHabit(userId, habit);
       }
 
-             // 5. Sincronizar hábitos do store Zustand
-       const habitStoreState = useHabitStore.getState();
-       const zustandHabits = Object.values(habitStoreState.habits);
-       for (const habit of zustandHabits) {
-         // Converter do formato Zustand para o formato do banco
-         const dbHabit = {
-           id: habit.id,
-           title: habit.name,
-           description: habit.description || '',
-           frequency: habit.targetInterval,
-           targetDays: habit.activeDays || [0,1,2,3,4,5,6],
-           streak: 0,
-           longestStreak: 0,
-           isActive: true,
-           createdAt: habit.createdAt,
-           updatedAt: new Date().toISOString()
-         };
-         await db.saveHabit(userId, dbHabit as any);
-       }
+      // 5. Sincronizar hábitos do store Zustand
+      const habitStoreState = useHabitStore.getState();
+      const zustandHabits = Object.values(habitStoreState.habits);
+      for (const habit of zustandHabits) {
+        // Converter do formato Zustand para o formato do banco
+        const dbHabit = {
+          id: habit.id,
+          title: habit.name,
+          description: habit.description || '',
+          color: habit.color || '#3B82F6',
+          icon_type: habit.iconType || 'emoji',
+          icon_value: habit.iconValue || '📝',
+          categories: habit.categories || [],
+          frequency: habit.targetInterval === 'daily' ? 'daily' : 'weekly',
+          target_days: habit.activeDays || [0,1,2,3,4,5,6],
+          target_count: habit.targetCount || 1,
+          order_index: habit.order || 0,
+          streak: 0,
+          longest_streak: 0,
+          is_active: true,
+          created_at: habit.createdAt,
+          updated_at: new Date().toISOString()
+        };
+        await db.saveHabit(userId, dbHabit as any);
+      }
 
       // 6. Sincronizar metas
       const goals = await storage.getGoals();
@@ -105,42 +129,57 @@ export function useAutoSync() {
   useEffect(() => {
     if (!isAuthenticated || !user) return;
 
-    const unsubscribe = useGamificationStore.subscribe(
-      (state) => {
-        // Sincronizar quando houver mudanças
-        debouncedSync(user.id);
-      }
-    );
+    // Aguardar um pouco para garantir que a conexão com Supabase esteja estabelecida
+    const initialDelay = setTimeout(() => {
+      const unsubscribe = useGamificationStore.subscribe(
+        (state) => {
+          // Sincronizar quando houver mudanças
+          debouncedSync(user.id);
+        }
+      );
 
-    return unsubscribe;
+      return unsubscribe;
+    }, 3000); // 3 segundos de delay inicial
+
+    return () => clearTimeout(initialDelay);
   }, [isAuthenticated, user, debouncedSync]);
 
   // Monitorar mudanças no store da loja
   useEffect(() => {
     if (!isAuthenticated || !user) return;
 
-    const unsubscribe = useShopStore.subscribe(
-      (state) => {
-        // Sincronizar quando houver mudanças
-        debouncedSync(user.id);
-      }
-    );
+    // Aguardar um pouco para garantir que a conexão com Supabase esteja estabelecida
+    const initialDelay = setTimeout(() => {
+      const unsubscribe = useShopStore.subscribe(
+        (state) => {
+          // Sincronizar quando houver mudanças
+          debouncedSync(user.id);
+        }
+      );
 
-    return unsubscribe;
+      return unsubscribe;
+    }, 3000); // 3 segundos de delay inicial
+
+    return () => clearTimeout(initialDelay);
   }, [isAuthenticated, user, debouncedSync]);
 
   // Monitorar mudanças no store de hábitos
   useEffect(() => {
     if (!isAuthenticated || !user) return;
 
-    const unsubscribe = useHabitStore.subscribe(
-      (state) => {
-        // Sincronizar quando houver mudanças
-        debouncedSync(user.id);
-      }
-    );
+    // Aguardar um pouco para garantir que a conexão com Supabase esteja estabelecida
+    const initialDelay = setTimeout(() => {
+      const unsubscribe = useHabitStore.subscribe(
+        (state) => {
+          // Sincronizar quando houver mudanças
+          debouncedSync(user.id);
+        }
+      );
 
-    return unsubscribe;
+      return unsubscribe;
+    }, 3000); // 3 segundos de delay inicial
+
+    return () => clearTimeout(initialDelay);
   }, [isAuthenticated, user, debouncedSync]);
 
   // Sincronizar antes de sair da página
