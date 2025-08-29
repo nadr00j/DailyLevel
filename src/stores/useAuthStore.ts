@@ -21,7 +21,8 @@ async function getUsernameFromDatabase(userId: string): Promise<string | null> {
     console.log('Usando mapeamento direto por ID...')
     const idToUsername: Record<string, string> = {
       'f2e29d54-3de1-449b-9146-5c007a1ec439': 'Nadr00J',
-      'c7620efd-2aa1-4498-8a9b-14c60940889e': 'Aroriel'
+      'c7620efd-2aa1-4498-8a9b-14c60940889e': 'Aroriel',
+      '7ceee0d2-d938-4106-880e-dbb7e976bb47': 'Nadr00J'
     }
     
     const mappedUsername = idToUsername[userId]
