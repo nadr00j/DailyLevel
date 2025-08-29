@@ -109,7 +109,7 @@ export function useSupabaseSync() {
         const uniqueSupabaseItems = new Map();
         shopItems.forEach(item => {
           const key = `${item.name}_${item.category}`;
-          if (!uniqueSupabaseItems.has(key) || item.updated_at > uniqueSupabaseItems.get(key).updated_at) {
+          if (!uniqueSupabaseItems.has(key) || item.created_at > uniqueSupabaseItems.get(key).created_at) {
             uniqueSupabaseItems.set(key, item);
           }
         });

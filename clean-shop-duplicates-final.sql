@@ -19,7 +19,7 @@ WITH duplicates AS (
         id,
         name,
         category,
-        ROW_NUMBER() OVER (PARTITION BY name, category ORDER BY updated_at DESC, created_at DESC) as rn
+        ROW_NUMBER() OVER (PARTITION BY name, category ORDER BY created_at DESC) as rn
     FROM shop_items 
     WHERE user_id = '7ceee0d2-d938-4106-880e-dbb7e976bb47'
 )
