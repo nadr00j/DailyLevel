@@ -146,14 +146,19 @@ export class DatabaseService {
       title: habit.title,
       description: habit.description,
       color: habit.color,
+      icon_type: habit.icon_type,
+      icon_value: habit.icon_value,
+      categories: habit.categories,
       frequency: habit.frequency,
-      targetDays: habit.target_days,
+      target_days: habit.target_days,
+      target_count: habit.target_count,
+      order_index: habit.order_index,
       streak: habit.streak,
-      longestStreak: habit.longest_streak,
-      completedDates: habit.habit_completions?.map((c: any) => c.completion_date) || [],
-      createdAt: habit.created_at,
-      updatedAt: habit.updated_at,
-      isActive: habit.is_active
+      longest_streak: habit.longest_streak,
+      is_active: habit.is_active,
+      created_at: habit.created_at,
+      updated_at: habit.updated_at,
+      completedDates: habit.habit_completions?.map((c: any) => c.completion_date) || []
     }))
   }
 

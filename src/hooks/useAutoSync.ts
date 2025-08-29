@@ -93,7 +93,8 @@ export function useAutoSync() {
           targetCount: habit.targetCount,
           targetInterval: habit.targetInterval,
           activeDays: habit.activeDays,
-          order: habit.order
+          order: habit.order,
+          description: habit.description
         });
         
         // Converter do formato Zustand para o formato do banco

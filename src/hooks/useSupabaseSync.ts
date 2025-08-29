@@ -61,6 +61,8 @@ export function useSupabaseSync() {
         
         // Converter para o formato do store Zustand
         const habitsObject = habits.reduce((acc: any, habit: any) => {
+          console.log('🔍 [DEBUG] Carregando hábito do Supabase:', habit);
+          
           acc[habit.id] = {
             ...habit,
             name: habit.title, // Mapear title -> name
@@ -72,6 +74,8 @@ export function useSupabaseSync() {
             targetCount: habit.target_count || 1,
             order: habit.order_index || 0
           };
+          
+          console.log('🔍 [DEBUG] Hábito convertido para Zustand:', acc[habit.id]);
           return acc;
         }, {});
         
