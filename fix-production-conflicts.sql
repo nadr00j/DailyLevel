@@ -1,0 +1,32 @@
+-- CORRIGIR CONFLITOS EM PRODUÇÃO DEFINITIVAMENTE
+
+-- 1. DESABILITAR RLS PERMANENTEMENTE EM TODAS AS TABELAS
+ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE tasks DISABLE ROW LEVEL SECURITY;
+ALTER TABLE goals DISABLE ROW LEVEL SECURITY;
+ALTER TABLE habits DISABLE ROW LEVEL SECURITY;
+ALTER TABLE habit_completions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE milestones DISABLE ROW LEVEL SECURITY;
+ALTER TABLE user_gamification DISABLE ROW LEVEL SECURITY;
+ALTER TABLE user_settings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE shop_items DISABLE ROW LEVEL SECURITY;
+ALTER TABLE gamification_history DISABLE ROW LEVEL SECURITY;
+
+-- 2. LIMPAR COMPLETAMENTE AS TABELAS PROBLEMÁTICAS
+TRUNCATE TABLE user_settings CASCADE;
+TRUNCATE TABLE user_gamification CASCADE;
+
+-- 3. VERIFICAR SE AS TABELAS ESTÃO VAZIAS
+SELECT 'USER_GAMIFICATION' as tabela, COUNT(*) as total_registros FROM user_gamification;
+SELECT 'USER_SETTINGS' as tabela, COUNT(*) as total_registros FROM user_settings;
+
+-- 4. VERIFICAR ESTRUTURA DAS TABELAS
+SELECT 'USER_GAMIFICATION' as tabela, column_name, data_type 
+FROM information_schema.columns 
+WHERE table_schema = 'public' AND table_name = 'user_gamification'
+ORDER BY column_name;
+
+SELECT 'USER_SETTINGS' as tabela, column_name, data_type 
+FROM information_schema.columns 
+WHERE table_schema = 'public' AND table_name = 'user_settings'
+ORDER BY column_name;

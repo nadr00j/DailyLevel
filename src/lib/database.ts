@@ -361,51 +361,104 @@ export class DatabaseService {
   }
 
   async saveGamificationData(data: GamificationData): Promise<GamificationData> {
-    const { data: result, error } = await supabase
-      .from('user_gamification')
-      .upsert({
-        id: data.id,
-        user_id: data.userId,
-        xp: data.xp,
-        coins: data.coins,
-        xp30d: data.xp30d,
-        vitality: data.vitality,
-        mood: data.mood,
-        xp_multiplier: data.xpMultiplier,
-        xp_multiplier_expiry: data.xpMultiplierExpiry,
-        str: data.str,
-        int: data.int,
-        cre: data.cre,
-        soc: data.soc,
-        aspect: data.aspect,
-        rank_idx: data.rankIdx,
-        rank_tier: data.rankTier,
-        rank_div: data.rankDiv,
-        updated_at: new Date().toISOString()
-      })
-      .select()
-      .single()
+    // Primeiro, verificar se já existe um registro para este usuário
+    const existingData = await this.getGamificationData(data.userId)
     
-    if (error) throw error
-    
-    return {
-      id: result.id,
-      userId: result.user_id,
-      xp: result.xp,
-      coins: result.coins,
-      xp30d: result.xp30d,
-      vitality: result.vitality,
-      mood: result.mood,
-      xpMultiplier: result.xp_multiplier,
-      xpMultiplierExpiry: result.xp_multiplier_expiry,
-      str: result.str,
-      int: result.int,
-      cre: result.cre,
-      soc: result.soc,
-      aspect: result.aspect,
-      rankIdx: result.rank_idx,
-      rankTier: result.rank_tier,
-      rankDiv: result.rank_div
+    if (existingData) {
+      // Se existe, fazer update
+      const { data: result, error } = await supabase
+        .from('user_gamification')
+        .update({
+          xp: data.xp,
+          coins: data.coins,
+          xp30d: data.xp30d,
+          vitality: data.vitality,
+          mood: data.mood,
+          xp_multiplier: data.xpMultiplier,
+          xp_multiplier_expiry: data.xpMultiplierExpiry,
+          str: data.str,
+          int: data.int,
+          cre: data.cre,
+          soc: data.soc,
+          aspect: data.aspect,
+          rank_idx: data.rankIdx,
+          rank_tier: data.rankTier,
+          rank_div: data.rankDiv,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', data.userId)
+        .select()
+        .single()
+      
+      if (error) throw error
+      
+      return {
+        id: result.id,
+        userId: result.user_id,
+        xp: result.xp,
+        coins: result.coins,
+        xp30d: result.xp30d,
+        vitality: result.vitality,
+        mood: result.mood,
+        xpMultiplier: result.xp_multiplier,
+        xpMultiplierExpiry: result.xp_multiplier_expiry,
+        str: result.str,
+        int: result.int,
+        cre: result.cre,
+        soc: result.soc,
+        aspect: result.aspect,
+        rankIdx: result.rank_idx,
+        rankTier: result.rank_tier,
+        rankDiv: result.rank_div
+      }
+    } else {
+      // Se não existe, fazer insert
+      const { data: result, error } = await supabase
+        .from('user_gamification')
+        .insert({
+          user_id: data.userId,
+          xp: data.xp,
+          coins: data.coins,
+          xp30d: data.xp30d,
+          vitality: data.vitality,
+          mood: data.mood,
+          xp_multiplier: data.xpMultiplier,
+          xp_multiplier_expiry: data.xpMultiplierExpiry,
+          str: data.str,
+          int: data.int,
+          cre: data.cre,
+          soc: data.soc,
+          aspect: data.aspect,
+          rank_idx: data.rankIdx,
+          rank_tier: data.rankTier,
+          rank_div: data.rankDiv,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+      
+      if (error) throw error
+      
+      return {
+        id: result.id,
+        userId: result.user_id,
+        xp: result.xp,
+        coins: result.coins,
+        xp30d: result.xp30d,
+        vitality: result.vitality,
+        mood: result.mood,
+        xpMultiplier: result.xp_multiplier,
+        xpMultiplierExpiry: result.xp_multiplier_expiry,
+        str: result.str,
+        int: result.int,
+        cre: result.cre,
+        soc: result.soc,
+        aspect: result.aspect,
+        rankIdx: result.rank_idx,
+        rankTier: result.rank_tier,
+        rankDiv: result.rank_div
+      }
     }
   }
 
@@ -497,25 +550,52 @@ export class DatabaseService {
   }
 
   async saveUserSettings(settings: UserSettings): Promise<UserSettings> {
-    const { data, error } = await supabase
-      .from('user_settings')
-      .upsert({
-        id: settings.id,
-        user_id: settings.userId,
-        confetti_enabled: settings.confettiEnabled,
-        gamification_config: settings.gamificationConfig,
-        updated_at: new Date().toISOString()
-      })
-      .select()
-      .single()
+    // Primeiro, verificar se já existe um registro para este usuário
+    const existingSettings = await this.getUserSettings(settings.userId)
     
-    if (error) throw error
-    
-    return {
-      id: data.id,
-      userId: data.user_id,
-      confettiEnabled: data.confetti_enabled,
-      gamificationConfig: data.gamification_config
+    if (existingSettings) {
+      // Se existe, fazer update
+      const { data, error } = await supabase
+        .from('user_settings')
+        .update({
+          confetti_enabled: settings.confettiEnabled,
+          gamification_config: settings.gamificationConfig,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', settings.userId)
+        .select()
+        .single()
+      
+      if (error) throw error
+      
+      return {
+        id: data.id,
+        userId: data.user_id,
+        confettiEnabled: data.confetti_enabled,
+        gamificationConfig: data.gamification_config
+      }
+    } else {
+      // Se não existe, fazer insert
+      const { data, error } = await supabase
+        .from('user_settings')
+        .insert({
+          user_id: settings.userId,
+          confetti_enabled: settings.confettiEnabled,
+          gamification_config: settings.gamificationConfig,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+      
+      if (error) throw error
+      
+      return {
+        id: data.id,
+        userId: data.user_id,
+        confettiEnabled: data.confetti_enabled,
+        gamificationConfig: data.gamification_config
+      }
     }
   }
 }
