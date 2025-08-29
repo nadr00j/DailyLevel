@@ -15,6 +15,7 @@ interface AuthState {
 // Função para buscar username do banco de dados
 async function getUsernameFromDatabase(userId: string): Promise<string | null> {
   try {
+    console.log('Buscando username para userId:', userId)
     const { data, error } = await supabase
       .from('profiles')
       .select('username')
@@ -26,6 +27,7 @@ async function getUsernameFromDatabase(userId: string): Promise<string | null> {
       return null
     }
     
+    console.log('Username encontrado no banco:', data?.username)
     return data?.username || null
   } catch (error) {
     console.error('Erro inesperado ao buscar username:', error)
@@ -102,13 +104,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (session?.user) {
         console.log('Usuário encontrado na sessão:', session.user.id)
         // Buscar username do banco de dados
-        const username = await getUsernameFromDatabase(session.user.id)
-        
-        if (username) {
-          console.log('Username encontrado:', username)
-          set({ user: session.user, username, isAuthenticated: true, isLoading: false })
-        } else {
-          console.warn('Username não encontrado para o usuário:', session.user.id)
+        try {
+          const username = await getUsernameFromDatabase(session.user.id)
+          
+          if (username) {
+            console.log('Username encontrado:', username)
+            set({ user: session.user, username, isAuthenticated: true, isLoading: false })
+          } else {
+            console.warn('Username não encontrado para o usuário:', session.user.id)
+            set({ user: session.user, username: 'Nadr00J', isAuthenticated: true, isLoading: false })
+          }
+        } catch (usernameError) {
+          console.error('Erro ao buscar username:', usernameError)
           set({ user: session.user, username: 'Nadr00J', isAuthenticated: true, isLoading: false })
         }
       } else {
