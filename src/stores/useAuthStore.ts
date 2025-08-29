@@ -17,33 +17,63 @@ async function getUsernameFromDatabase(userId: string): Promise<string | null> {
   try {
     console.log('Buscando username para userId:', userId)
     
-    // Criar uma Promise com timeout para evitar travamento
-    const timeoutPromise = new Promise<null>((_, reject) => {
-      setTimeout(() => reject(new Error('Timeout na consulta')), 5000)
-    })
-    
-    const queryPromise = supabase
-      .from('profiles')
-      .select('username')
-      .eq('id', userId)
-      .maybeSingle() // Usar maybeSingle() em vez de single()
-    
-    const result = await Promise.race([queryPromise, timeoutPromise])
-    
-    console.log('Resultado da consulta:', result)
-    
-    if (result && 'data' in result) {
-      const { data, error } = result
+    // Tentar múltiplas abordagens para contornar problemas de RLS
+    const strategies = [
+      // Estratégia 1: Consulta normal com maybeSingle
+      () => supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', userId)
+        .maybeSingle(),
       
-      if (error) {
-        console.error('Erro ao buscar username:', error)
-        return null
+      // Estratégia 2: Consulta sem maybeSingle
+      () => supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', userId),
+      
+      // Estratégia 3: Consulta usando RPC (se existir)
+      () => supabase
+        .rpc('get_user_profile', { user_id: userId })
+        .single()
+    ]
+    
+    for (let i = 0; i < strategies.length; i++) {
+      try {
+        console.log(`Tentando estratégia ${i + 1}...`)
+        
+        const timeoutPromise = new Promise<null>((_, reject) => {
+          setTimeout(() => reject(new Error('Timeout na consulta')), 3000)
+        })
+        
+        const queryPromise = strategies[i]()
+        const result = await Promise.race([queryPromise, timeoutPromise])
+        
+        console.log(`Resultado da estratégia ${i + 1}:`, result)
+        
+        if (result && 'data' in result) {
+          const { data, error } = result
+          
+          if (error) {
+            console.error(`Erro na estratégia ${i + 1}:`, error)
+            continue
+          }
+          
+          // Se data é um array, pegar o primeiro item
+          const username = Array.isArray(data) ? data[0]?.username : data?.username
+          
+          if (username) {
+            console.log('Username encontrado no banco:', username)
+            return username
+          }
+        }
+      } catch (error) {
+        console.error(`Erro na estratégia ${i + 1}:`, error)
+        continue
       }
-      
-      console.log('Username encontrado no banco:', data?.username)
-      return data?.username || null
     }
     
+    console.log('Todas as estratégias falharam')
     return null
   } catch (error) {
     console.error('Erro inesperado ao buscar username:', error)
