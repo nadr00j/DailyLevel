@@ -143,6 +143,19 @@ export function useAutoSync() {
         await db.saveGoal(userId, goal);
       }
 
+      // 6. Sincronizar itens da loja
+      const shopState = useShopStore.getState();
+      console.log('🔍 [DEBUG] Sincronizando itens da loja:', shopState.items.length);
+      
+      for (const item of shopState.items) {
+        try {
+          await db.saveShopItem(item);
+          console.log('✅ [DEBUG] Item da loja salvo:', item.name);
+        } catch (error) {
+          console.error('❌ [DEBUG] Erro ao salvar item da loja:', error);
+        }
+      }
+
       console.log('✅ Auto-sync: Dados sincronizados com sucesso!');
       
     } catch (error) {

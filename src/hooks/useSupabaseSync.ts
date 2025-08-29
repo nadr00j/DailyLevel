@@ -100,11 +100,16 @@ export function useSupabaseSync() {
 
       // 6. Carregar itens da loja
       const shopItems = await db.getShopItems(userId);
+      console.log(`🔍 [DEBUG] Itens da loja do Supabase:`, shopItems);
+      
       if (shopItems && shopItems.length > 0) {
         console.log(`✅ ${shopItems.length} itens da loja carregados`);
         useShopStore.setState({
-          items: shopItems
+          items: shopItems // Substituir completamente os itens
         });
+      } else {
+        console.log('⚠️ Nenhum item da loja encontrado no Supabase');
+        // Se não há itens no Supabase, manter os itens padrão
       }
 
       console.log('🎉 Todos os dados carregados do Supabase!');
