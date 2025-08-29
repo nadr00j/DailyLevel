@@ -97,6 +97,14 @@ export function useAutoSync() {
           description: habit.description
         });
         
+        console.log('🔍 [DEBUG] Valores específicos do ícone:', {
+          iconType: habit.iconType,
+          iconValue: habit.iconValue,
+          iconTypeType: typeof habit.iconType,
+          iconValueType: typeof habit.iconValue,
+          iconValueLength: habit.iconValue?.length
+        });
+        
         // Converter do formato Zustand para o formato do banco
         const dbHabit = {
           id: habit.id,
@@ -104,7 +112,7 @@ export function useAutoSync() {
           description: habit.description || '',
           color: habit.color || '#3B82F6',
           icon_type: habit.iconType || 'emoji',
-          icon_value: habit.iconValue || '📝',
+          icon_value: habit.iconValue || '✨', // Usar emoji mais neutro como fallback
           categories: habit.categories || [],
           frequency: habit.targetInterval === 'daily' ? 'daily' : 'weekly',
           target_days: habit.activeDays || [0,1,2,3,4,5,6],

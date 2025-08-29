@@ -68,7 +68,7 @@ export function useSupabaseSync() {
             name: habit.title, // Mapear title -> name
             color: habit.color || '#3B82F6', // Garantir que color existe
             iconType: habit.icon_type || 'emoji',
-            iconValue: habit.icon_value || '📝',
+            iconValue: habit.icon_value || '✨', // Usar emoji mais neutro como fallback
             categories: habit.categories || [],
             targetInterval: habit.frequency === 'daily' ? 'daily' : 'weekly',
             targetCount: habit.target_count || 1,
