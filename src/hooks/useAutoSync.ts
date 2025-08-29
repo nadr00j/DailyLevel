@@ -143,11 +143,19 @@ export function useAutoSync() {
         await db.saveGoal(userId, goal);
       }
 
-      // 6. Sincronizar itens da loja
+      // 6. Sincronizar apenas itens da loja que foram modificados (comprados/vendidos)
       const shopItemsState = useShopStore.getState();
-      console.log('🔍 [DEBUG] Sincronizando itens da loja:', shopItemsState.items.length);
+      console.log('🔍 [DEBUG] Verificando itens da loja para sincronização:', shopItemsState.items.length);
       
-      for (const item of shopItemsState.items) {
+      // Sincronizar apenas itens que foram comprados ou vendidos (não os itens padrão)
+      const modifiedItems = shopItemsState.items.filter(item => 
+        item.purchased === true || // Itens comprados
+        (item.id.startsWith('user_') || item.id.includes('custom')) // Itens customizados
+      );
+      
+      console.log('🔍 [DEBUG] Itens modificados para sincronizar:', modifiedItems.length);
+      
+      for (const item of modifiedItems) {
         try {
           await db.saveShopItem(item);
           console.log('✅ [DEBUG] Item da loja salvo:', item.name);

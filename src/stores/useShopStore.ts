@@ -370,13 +370,30 @@ export const useShopStore = create<ShopState>()(
       },
       
       cleanupUnwantedItems: () => {
-        set(state => ({
-          items: state.items.filter(item => 
-            item.id !== 'dark_theme_premium' && 
-            item.id !== 'tema_escuro_premium' &&
-            item.name !== 'Tema Escuro Premium'
-          )
-        }));
+        set(state => {
+          // Remover itens indesejados e duplicados
+          const seenItems = new Set<string>();
+          const cleanedItems = state.items.filter(item => {
+            // Remover itens específicos indesejados
+            if (item.id === 'dark_theme_premium' || 
+                item.id === 'tema_escuro_premium' ||
+                item.name === 'Tema Escuro Premium') {
+              return false;
+            }
+            
+            // Remover duplicados baseado no nome
+            const key = `${item.name}_${item.category}`;
+            if (seenItems.has(key)) {
+              console.log(`[Shop Debug] Removendo item duplicado: ${item.name} (${item.category})`);
+              return false;
+            }
+            seenItems.add(key);
+            return true;
+          });
+          
+          console.log(`[Shop Debug] Limpeza concluída: ${state.items.length} -> ${cleanedItems.length} itens`);
+          return { items: cleanedItems };
+        });
       },
       resetShop: () => {
         set({ items: defaultItems });

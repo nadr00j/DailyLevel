@@ -204,7 +204,7 @@ export async function initializeUserData(userId: string) {
         name: 'Boost de XP',
         description: 'Ganha 50% mais XP por 1 hora',
         price: 50,
-        category: 'boost' as const,
+        category: 'vantagens' as const,
         icon: '⚡',
         purchased: false
       },
@@ -213,7 +213,7 @@ export async function initializeUserData(userId: string) {
         name: 'Efeito Confete',
         description: 'Confete dourado ao completar tarefas',
         price: 75,
-        category: 'cosmetic' as const,
+        category: 'vantagens' as const,
         icon: '🎉',
         purchased: false
       }
