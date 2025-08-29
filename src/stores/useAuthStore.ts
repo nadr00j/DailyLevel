@@ -88,22 +88,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initialize: async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      console.log('Inicializando autenticação...')
+      const { data: { session }, error } = await supabase.auth.getSession()
+      
+      if (error) {
+        console.error('Erro ao obter sessão:', error)
+        set({ isLoading: false })
+        return
+      }
+      
+      console.log('Sessão obtida:', session)
       
       if (session?.user) {
+        console.log('Usuário encontrado na sessão:', session.user.id)
         // Buscar username do banco de dados
         const username = await getUsernameFromDatabase(session.user.id)
         
         if (username) {
-          set({ user: session.user, username, isAuthenticated: true })
+          console.log('Username encontrado:', username)
+          set({ user: session.user, username, isAuthenticated: true, isLoading: false })
         } else {
           console.warn('Username não encontrado para o usuário:', session.user.id)
-          set({ user: session.user, username: 'Usuário', isAuthenticated: true })
+          set({ user: session.user, username: 'Nadr00J', isAuthenticated: true, isLoading: false })
         }
+      } else {
+        console.log('Nenhuma sessão ativa')
+        set({ isLoading: false })
       }
     } catch (error) {
       console.error('Erro ao inicializar auth:', error)
-    } finally {
       set({ isLoading: false })
     }
   }
@@ -117,7 +130,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     
     useAuthStore.setState({
       user: session.user,
-      username: username || 'Usuário',
+      username: username || 'Nadr00J',
       isAuthenticated: true
     })
   } else if (event === 'SIGNED_OUT') {

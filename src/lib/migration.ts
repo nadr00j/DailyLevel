@@ -84,6 +84,18 @@ export async function migrateLocalDataToSupabase(userId: string): Promise<Migrat
       }
     }
 
+    // Verificar se o usuário existe na tabela profiles
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single()
+    
+    if (profileError || !profile) {
+      console.error('Usuário não encontrado na tabela profiles:', userId)
+      throw new Error('Usuário não encontrado na tabela profiles')
+    }
+
     // Criar dados de gamificação padrão se não existirem
     const gamificationData = await db.getGamificationData(userId)
     if (!gamificationData) {
@@ -158,6 +170,18 @@ export async function createUserProfile(userId: string, username: string, displa
 
 export async function initializeUserData(userId: string) {
   try {
+    // Verificar se o usuário existe na tabela profiles
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single()
+    
+    if (profileError || !profile) {
+      console.error('Usuário não encontrado na tabela profiles:', userId)
+      throw new Error('Usuário não encontrado na tabela profiles')
+    }
+
     // Verificar se já existe dados de gamificação
     let gamificationData = await db.getGamificationData(userId)
     

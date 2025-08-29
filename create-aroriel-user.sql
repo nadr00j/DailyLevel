@@ -3,7 +3,7 @@
 
 -- 1. Criar usuário usando função admin
 SELECT auth.admin_create_user(
-  'aroriel@dailylevel.local',
+  'lorenzo_oceanoazulcorretora@hotmail.com',
   'senha123',
   '{"username": "Aroriel"}'::jsonb,
   true
@@ -16,7 +16,7 @@ SELECT
   email_confirmed_at,
   raw_user_meta_data->>'username' as username
 FROM auth.users 
-WHERE email = 'aroriel@dailylevel.local';
+WHERE email = 'lorenzo_oceanoazulcorretora@hotmail.com';
 
 -- 3. Criar perfil para Aroriel
 INSERT INTO profiles (id, username, display_name, email, created_at, updated_at)
@@ -24,11 +24,11 @@ SELECT
   id,
   'Aroriel',
   'Aroriel',
-  'aroriel@dailylevel.local',
+  'lorenzo_oceanoazulcorretora@hotmail.com',
   now(),
   now()
 FROM auth.users 
-WHERE email = 'aroriel@dailylevel.local';
+WHERE email = 'lorenzo_oceanoazulcorretora@hotmail.com';
 
 -- 4. Verificar se o perfil foi criado
 SELECT * FROM profiles WHERE username = 'Aroriel';
@@ -51,7 +51,7 @@ SELECT
   'Bronze',
   1
 FROM auth.users 
-WHERE email = 'aroriel@dailylevel.local';
+WHERE email = 'lorenzo_oceanoazulcorretora@hotmail.com';
 
 -- 6. Verificar dados criados
 SELECT 
