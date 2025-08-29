@@ -64,15 +64,19 @@ export function useSupabaseSync() {
           console.log('🔍 [DEBUG] Carregando hábito do Supabase:', habit);
           
           acc[habit.id] = {
-            ...habit,
+            id: habit.id,
             name: habit.title, // Mapear title -> name
+            description: habit.description || '',
             color: habit.color || '#3B82F6', // Garantir que color existe
             iconType: habit.icon_type || 'emoji',
             iconValue: habit.icon_value || '✨', // Usar emoji mais neutro como fallback
             categories: habit.categories || [],
             targetInterval: habit.frequency === 'daily' ? 'daily' : 'weekly',
             targetCount: habit.target_count || 1,
-            order: habit.order_index || 0
+            activeDays: habit.target_days || [0,1,2,3,4,5,6],
+            order: habit.order_index || 0,
+            createdAt: habit.created_at,
+            archivedAt: habit.archived_at
           };
           
           console.log('🔍 [DEBUG] Hábito convertido para Zustand:', acc[habit.id]);

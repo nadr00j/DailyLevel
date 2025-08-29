@@ -105,6 +105,8 @@ export function useAutoSync() {
           iconValueLength: habit.iconValue?.length
         });
         
+        console.log('🔍 [DEBUG] Todos os campos do hábito no Zustand:', Object.keys(habit));
+        
         // Converter do formato Zustand para o formato do banco
         const dbHabit = {
           id: habit.id,
