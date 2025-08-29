@@ -105,12 +105,23 @@ export function useSupabaseSync() {
       if (shopItems && shopItems.length > 0) {
         console.log(`✅ ${shopItems.length} itens da loja carregados do Supabase`);
         
+        // Remover duplicados do Supabase primeiro (manter apenas o mais recente)
+        const uniqueSupabaseItems = new Map();
+        shopItems.forEach(item => {
+          const key = `${item.name}_${item.category}`;
+          if (!uniqueSupabaseItems.has(key) || item.updated_at > uniqueSupabaseItems.get(key).updated_at) {
+            uniqueSupabaseItems.set(key, item);
+          }
+        });
+        const deduplicatedItems = Array.from(uniqueSupabaseItems.values());
+        console.log(`🧹 [DEBUG] Removidos duplicados: ${shopItems.length} -> ${deduplicatedItems.length} itens`);
+        
         // Mesclar itens do Supabase com itens padrão
         const currentItems = useShopStore.getState().items;
         const mergedItems = [...currentItems]; // Começar com itens padrão
         
         // Atualizar itens existentes com dados do Supabase
-        shopItems.forEach(supabaseItem => {
+        deduplicatedItems.forEach(supabaseItem => {
           const existingIndex = mergedItems.findIndex(item => item.id === supabaseItem.id);
           if (existingIndex >= 0) {
             // Atualizar item existente com dados do Supabase (principalmente purchased)
