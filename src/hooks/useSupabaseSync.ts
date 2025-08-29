@@ -62,20 +62,21 @@ export function useSupabaseSync() {
         // Salvar no storage simples
         await storage.saveHabits(habits);
         
-        // Converter para o formato do store Zustand
-        const habitsObject = habits.reduce((acc: any, habit: any) => {
-          acc[habit.id] = {
-            ...habit,
-            name: habit.title, // Mapear title -> name
-            iconType: 'emoji', // Default
-            iconValue: '📝', // Default
-            categories: [], // Default
-            targetInterval: habit.frequency === 'daily' ? 'daily' : 'weekly',
-            targetCount: 1, // Default
-            order: 0 // Default
-          };
-          return acc;
-        }, {});
+                 // Converter para o formato do store Zustand
+         const habitsObject = habits.reduce((acc: any, habit: any) => {
+           acc[habit.id] = {
+             ...habit,
+             name: habit.title, // Mapear title -> name
+             color: habit.color || '#3B82F6', // Garantir que color existe
+             iconType: 'emoji', // Default
+             iconValue: '📝', // Default
+             categories: [], // Default
+             targetInterval: habit.frequency === 'daily' ? 'daily' : 'weekly',
+             targetCount: 1, // Default
+             order: 0 // Default
+           };
+           return acc;
+         }, {});
         
         // Salvar no store Zustand
         await localforage.setItem('dl.habits.v1', {

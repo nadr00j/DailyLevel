@@ -17,7 +17,12 @@ interface Props {
 }
 
 // util para lighten cor rapidamente (0..1)
-function blendWithDark(hex: string, factor: number): string {
+function blendWithDark(hex: string | undefined, factor: number): string {
+  // Se hex for undefined ou inválido, usar cor padrão
+  if (!hex || typeof hex !== 'string') {
+    hex = '#3B82F6'; // Cor padrão azul
+  }
+  
   const h = hex.replace('#', '');
   const r = parseInt(h.substring(0, 2), 16);
   const g = parseInt(h.substring(2, 4), 16);
