@@ -158,6 +158,7 @@ export class DatabaseService {
       is_active: habit.is_active,
       created_at: habit.created_at,
       updated_at: habit.updated_at,
+      archived_at: habit.archived_at,
       completedDates: habit.habit_completions?.map((c: any) => c.completion_date) || []
     }))
   }
