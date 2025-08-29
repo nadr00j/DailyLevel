@@ -72,10 +72,16 @@ export default function Index() {
             variant: 'default',
           });
         }
-      } else {
-        // Inicializar dados padrão para novo usuário
-        await initializeUserData(user.id);
       }
+      
+      // SEMPRE inicializar dados padrão (mesmo se já existirem dados)
+      await initializeUserData(user.id);
+      
+      toast({
+        title: 'Dados inicializados!',
+        description: 'Todos os dados foram atualizados com sucesso.',
+      });
+      
     } catch (error) {
       console.error('Erro na migração:', error);
       toast({

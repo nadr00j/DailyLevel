@@ -182,74 +182,60 @@ export async function initializeUserData(userId: string) {
       throw new Error('Usuário não encontrado na tabela profiles')
     }
 
-    // Verificar se já existe dados de gamificação
-    let gamificationData = await db.getGamificationData(userId)
-    
-    if (!gamificationData) {
-      // Criar dados de gamificação padrão
-      gamificationData = await db.saveGamificationData({
+    // SEMPRE criar/atualizar dados de gamificação
+    const gamificationData = await db.saveGamificationData({
+      userId,
+      xp: 0,
+      coins: 0,
+      xp30d: 0,
+      vitality: 100,
+      mood: 'neutral',
+      xpMultiplier: 1.0,
+      xpMultiplierExpiry: 0,
+      str: 0,
+      int: 0,
+      cre: 0,
+      soc: 0,
+      aspect: 'int',
+      rankIdx: 0,
+      rankTier: 'Bronze',
+      rankDiv: 1
+    })
+
+    // SEMPRE criar/atualizar configurações do usuário
+    const userSettings = await db.saveUserSettings({
+      userId,
+      confettiEnabled: false,
+      gamificationConfig: {}
+    })
+
+    // SEMPRE criar itens da loja padrão
+    const defaultShopItems = [
+      {
         userId,
-        xp: 0,
-        coins: 0,
-        xp30d: 0,
-        vitality: 100,
-        mood: 'neutral',
-        xpMultiplier: 1.0,
-        xpMultiplierExpiry: 0,
-        str: 0,
-        int: 0,
-        cre: 0,
-        soc: 0,
-        aspect: 'int',
-        rankIdx: 0,
-        rankTier: 'Bronze',
-        rankDiv: 1
-      })
-    }
-
-    // Verificar se já existe configurações do usuário
-    let userSettings = await db.getUserSettings(userId)
-    
-    if (!userSettings) {
-      // Criar configurações padrão
-      userSettings = await db.saveUserSettings({
+        name: 'Boost de XP',
+        description: 'Ganha 50% mais XP por 1 hora',
+        price: 50,
+        category: 'boost' as const,
+        icon: '⚡',
+        purchased: false
+      },
+      {
         userId,
-        confettiEnabled: false,
-        gamificationConfig: {}
-      })
-    }
-
-    // Criar itens da loja padrão se não existirem
-    const shopItems = await db.getShopItems(userId)
-    
-    if (shopItems.length === 0) {
-      const defaultShopItems = [
-        {
-          userId,
-          name: 'Boost de XP',
-          description: 'Ganha 50% mais XP por 1 hora',
-          price: 50,
-          category: 'boost' as const,
-          icon: '⚡',
-          purchased: false
-        },
-        {
-          userId,
-          name: 'Efeito Confete',
-          description: 'Confete dourado ao completar tarefas',
-          price: 75,
-          category: 'cosmetic' as const,
-          icon: '🎉',
-          purchased: false
-        }
-      ]
-
-      for (const item of defaultShopItems) {
-        await db.saveShopItem(item)
+        name: 'Efeito Confete',
+        description: 'Confete dourado ao completar tarefas',
+        price: 75,
+        category: 'cosmetic' as const,
+        icon: '🎉',
+        purchased: false
       }
+    ]
+
+    for (const item of defaultShopItems) {
+      await db.saveShopItem(item)
     }
 
-    console.log('Dados do usuário inicializados com sucesso')
+    console.log('Dados do usuário inicializados/atualizados com sucesso')
   } catch (error) {
     console.error('Erro ao inicializar dados do usuário:', error)
     throw error
