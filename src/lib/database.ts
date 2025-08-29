@@ -165,11 +165,18 @@ export class DatabaseService {
       user_id: userId,
       title: habit.title,
       description: habit.description,
+      color: habit.color,
+      icon_type: habit.icon_type,
+      icon_value: habit.icon_value,
+      categories: habit.categories,
       frequency: habit.frequency,
-      target_days: habit.targetDays,
+      target_days: habit.target_days,
+      target_count: habit.target_count,
+      order_index: habit.order_index,
       streak: habit.streak,
-      longest_streak: habit.longestStreak,
-      is_active: habit.isActive,
+      longest_streak: habit.longest_streak,
+      is_active: habit.is_active,
+      created_at: habit.created_at,
       updated_at: new Date().toISOString()
     };
     
