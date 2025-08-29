@@ -17,7 +17,7 @@ const tabs = [
 
 export const TabBar = ({ activeTab, onTabChange }: TabBarProps) => {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 card-glass border-t">
+    <div className="fixed bottom-0 left-0 right-0 z-50 card-glass border-t nav-safe-bottom">
       <div className="max-w-md mx-auto px-4 py-2">
         <div className="flex items-center justify-around">
           {tabs.map((tab) => {

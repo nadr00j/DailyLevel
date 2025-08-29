@@ -13,7 +13,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const { activeTab, setActiveTab } = useTabStore();
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-20 safe-area-top">
       <GamificationListener />
       <main className="max-w-md mx-auto">
         {children}
