@@ -13,6 +13,7 @@ import { VictoryDialog } from '@/components/ui/VictoryDialog';
 import { migrateLocalDataToSupabase, initializeUserData } from '@/lib/migration';
 import { toast } from '@/components/ui/use-toast';
 import { storage } from '@/lib/storage';
+import { loadDataFromSupabase } from '@/lib/supabaseSync';
 import { useVitalityUpdate } from '@/hooks/useVitalityUpdate';
 
 export default function Index() {
@@ -83,6 +84,9 @@ export default function Index() {
       
       // SEMPRE inicializar dados padrão no Supabase
       await initializeUserData(user.id);
+      
+      // Carregar dados do Supabase para o localStorage
+      await loadDataFromSupabase(user.id);
       
       toast({
         title: 'App inicializado!',
