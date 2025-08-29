@@ -17,44 +17,34 @@ async function getUsernameFromDatabase(userId: string): Promise<string | null> {
   try {
     console.log('Buscando username para userId:', userId)
     
-    // Tentar consulta sem RLS primeiro
-    const { data, error } = await supabase
+    // Criar uma Promise com timeout para evitar travamento
+    const timeoutPromise = new Promise<null>((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout na consulta')), 5000)
+    })
+    
+    const queryPromise = supabase
       .from('profiles')
       .select('username')
       .eq('id', userId)
-      .single()
+      .maybeSingle() // Usar maybeSingle() em vez de single()
     
-    console.log('Resultado da consulta:', { data, error })
+    const result = await Promise.race([queryPromise, timeoutPromise])
     
-    if (error) {
-      console.error('Erro ao buscar username:', error)
+    console.log('Resultado da consulta:', result)
+    
+    if (result && 'data' in result) {
+      const { data, error } = result
       
-      // Se for erro 406 (Not Acceptable), tentar sem .single()
-      if (error.code === 'PGRST116' || error.message.includes('406')) {
-        console.log('Tentando consulta sem .single()...')
-        const { data: dataArray, error: errorArray } = await supabase
-          .from('profiles')
-          .select('username')
-          .eq('id', userId)
-        
-        console.log('Resultado da consulta sem .single():', { dataArray, errorArray })
-        
-        if (errorArray) {
-          console.error('Erro na consulta sem .single():', errorArray)
-          return null
-        }
-        
-        if (dataArray && dataArray.length > 0) {
-          console.log('Username encontrado no banco (sem .single()):', dataArray[0]?.username)
-          return dataArray[0]?.username || null
-        }
+      if (error) {
+        console.error('Erro ao buscar username:', error)
+        return null
       }
       
-      return null
+      console.log('Username encontrado no banco:', data?.username)
+      return data?.username || null
     }
     
-    console.log('Username encontrado no banco:', data?.username)
-    return data?.username || null
+    return null
   } catch (error) {
     console.error('Erro inesperado ao buscar username:', error)
     return null
