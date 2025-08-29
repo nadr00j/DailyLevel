@@ -1,0 +1,156 @@
+{
+  "userId": "user_1234567890_abc123",
+  "metadata": {
+    "createdAt": 1703123456789,
+    "lastUpdated": 1703123456789,
+    "version": "1.0.0",
+    "totalXp": 1250,
+    "totalCoins": 125,
+    "tasksCount": 15,
+    "habitsCount": 8,
+    "goalsCount": 3
+  },
+  "data": {
+    "gamification": {
+      "xp": 1250,
+      "coins": 125,
+      "xp30d": 450,
+      "vitality": 90,
+      "mood": "happy",
+      "xpMultiplier": 1,
+      "xpMultiplierExpiry": 0,
+      "str": 15,
+      "int": 20,
+      "cre": 10,
+      "soc": 8,
+      "aspect": "int",
+      "rankIdx": 6,
+      "rankTier": "Ouro",
+      "rankDiv": 1,
+      "history": [
+        {
+          "ts": 1703123456789,
+          "type": "task",
+          "xp": 10,
+          "coins": 1,
+          "tags": ["work"],
+          "category": "Programming"
+        },
+        {
+          "ts": 1703123456788,
+          "type": "habit",
+          "xp": 10,
+          "coins": 1,
+          "tags": ["fitness"],
+          "category": "Fitness"
+        }
+      ],
+      "config": {
+        "points": {
+          "habit": 10,
+          "task": 10,
+          "milestone": 50,
+          "goal": 30,
+          "coinsPerXp": 0.1,
+          "vitalityMonthlyTarget": 500,
+          "vitalityDecayPerMissedDay": 5
+        },
+        "streaks": {
+          "bonus7": 10,
+          "bonus30": 30
+        },
+        "categories": {
+          "Fitness": {
+            "tags": ["fitness", "health"],
+            "target30d": 200,
+            "weight": 1.0
+          },
+          "Programming": {
+            "tags": ["programming", "code"],
+            "target30d": 200,
+            "weight": 1.2
+          }
+        }
+      }
+    },
+    "tasks": [
+      {
+        "id": "task_1",
+        "title": "Implementar sistema de gamificação",
+        "description": "Criar sistema completo de XP e ranks",
+        "bucket": "today",
+        "completed": true,
+        "priority": "high",
+        "createdAt": "2023-12-21T10:00:00.000Z",
+        "updatedAt": "2023-12-21T15:30:00.000Z",
+        "order": 1
+      }
+    ],
+    "habits": [
+      {
+        "id": "habit_1",
+        "title": "Exercício matinal",
+        "description": "30 minutos de exercício",
+        "color": "#4ade80",
+        "frequency": "daily",
+        "streak": 7,
+        "longestStreak": 15,
+        "completedDates": ["2023-12-21", "2023-12-20", "2023-12-19"],
+        "createdAt": "2023-12-01T08:00:00.000Z",
+        "updatedAt": "2023-12-21T08:00:00.000Z",
+        "isActive": true
+      }
+    ],
+    "goals": [
+      {
+        "id": "goal_1",
+        "title": "Ler 12 livros este ano",
+        "description": "Um livro por mês",
+        "color": "#3b82f6",
+        "iconType": "emoji",
+        "iconValue": "📚",
+        "targetValue": 12,
+        "currentValue": 8,
+        "unit": "livros",
+        "category": "learning",
+        "deadline": "2024-12-31T23:59:59.000Z",
+        "milestones": [
+          {
+            "id": "milestone_1",
+            "title": "Primeiro trimestre",
+            "value": 3,
+            "completed": true,
+            "completedAt": "2023-03-31T23:59:59.000Z"
+          }
+        ],
+        "order": 1,
+        "createdAt": "2023-01-01T00:00:00.000Z",
+        "updatedAt": "2023-12-21T10:00:00.000Z",
+        "isCompleted": false
+      }
+    ],
+    "shop": {
+      "items": [
+        {
+          "id": "xp_boost_1",
+          "name": "Boost de XP",
+          "description": "Ganha 50% mais XP por 1 hora",
+          "price": 50,
+          "category": "boost",
+          "icon": "⚡",
+          "purchased": true
+        },
+        {
+          "id": "confetti_effect",
+          "name": "Efeito Confete",
+          "description": "Confete dourado ao completar tarefas",
+          "price": 75,
+          "category": "cosmetic",
+          "icon": "🎉",
+          "purchased": false
+        }
+      ],
+      "confettiEnabled": false
+    }
+  }
+}

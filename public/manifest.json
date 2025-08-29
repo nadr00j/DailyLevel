@@ -1,0 +1,27 @@
+{
+  "name": "DailyLevel - Track Habits, Tasks & Goals",
+  "short_name": "DailyLevel",
+  "description": "Build consistent habits, manage tasks efficiently, and achieve your goals",
+  "theme_color": "#0a0a14",
+  "background_color": "#0a0a14",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "lang": "en",
+  "categories": ["productivity", "lifestyle", "health"],
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

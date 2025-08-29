@@ -1,0 +1,27 @@
+{
+  "points": {
+    "habit": 10,
+    "task": 10,
+    "milestone": 50,
+    "goal": 30,
+    "coinsPerXp": 0.1,
+    "vitalityMonthlyTarget": 500,
+    "vitalityDecayPerMissedDay": 5
+  },
+  "streaks": { "bonus7": 10, "bonus30": 30 },
+  "categories": {
+    "Arte": { "tags": ["arte", "Arte", "art", "drawing", "painting"], "target30d": 120, "weight": 0.9 },
+    "Estudo": { "tags": ["estudo", "Estudo", "study", "learning", "education"], "target30d": 150, "weight": 1.1 },
+    "Finanças": { "tags": ["financas", "Finanças", "finance", "money", "investing"], "target30d": 100, "weight": 0.8 },
+    "Fitness": { "tags": ["fitness", "Fitness", "exercise", "workout", "gym"], "target30d": 200, "weight": 1.0 },
+    "Nutrição": { "tags": ["nutricao", "Nutrição", "nutrition", "diet", "food"], "target30d": 120, "weight": 0.9 },
+    "Saúde": { "tags": ["saude", "Saúde", "health", "medical", "wellness"], "target30d": 150, "weight": 1.0 },
+    "Mente": { "tags": ["mente", "Mente", "mind", "meditation", "mental"], "target30d": 120, "weight": 0.9 },
+    "Social": { "tags": ["social", "Social", "friends", "family", "relationships"], "target30d": 100, "weight": 0.7 },
+    "Trabalho": { "tags": ["trabalho", "Trabalho", "work", "career", "job"], "target30d": 200, "weight": 1.2 },
+    "Imagem Pessoal": { "tags": ["imagem-pessoal", "Imagem Pessoal", "personal-care", "appearance"], "target30d": 80, "weight": 0.6 },
+    "Hobbies": { "tags": ["hobbies", "Hobbies", "guitar", "gaming", "leisure"], "target30d": 100, "weight": 0.7 },
+    "Produtividade": { "tags": ["produtividade", "Produtividade", "productivity", "efficiency"], "target30d": 150, "weight": 1.1 },
+    "Pessoal": { "tags": ["personal", "Pessoal", "life", "self-improvement"], "target30d": 100, "weight": 0.8 }
+  }
+}

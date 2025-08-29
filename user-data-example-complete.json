@@ -1,0 +1,316 @@
+{
+  "userId": "user_1234567890_abc123",
+  "metadata": {
+    "createdAt": 1703123456789,
+    "lastUpdated": 1703123456789,
+    "version": "1.0.0",
+    "totalXp": 1250,
+    "totalCoins": 125,
+    "tasksCount": 8,
+    "habitsCount": 5,
+    "goalsCount": 3
+  },
+  "data": {
+    "gamification": {
+      "xp": 1250,
+      "coins": 125,
+      "xp30d": 450,
+      "vitality": 90,
+      "mood": "happy",
+      "xpMultiplier": 1,
+      "xpMultiplierExpiry": 0,
+      "str": 15,
+      "int": 20,
+      "cre": 10,
+      "soc": 8,
+      "aspect": "int",
+      "rankIdx": 6,
+      "rankTier": "Ouro",
+      "rankDiv": 1,
+      "history": [
+        {
+          "ts": 1703123456789,
+          "type": "task",
+          "xp": 10,
+          "coins": 1,
+          "tags": ["work"],
+          "category": "Programming"
+        },
+        {
+          "ts": 1703123456788,
+          "type": "habit",
+          "xp": 10,
+          "coins": 1,
+          "tags": ["fitness"],
+          "category": "Fitness"
+        }
+      ],
+      "config": {
+        "points": {
+          "habit": 10,
+          "task": 10,
+          "milestone": 50,
+          "goal": 30,
+          "coinsPerXp": 0.1,
+          "vitalityMonthlyTarget": 500,
+          "vitalityDecayPerMissedDay": 5
+        },
+        "streaks": {
+          "bonus7": 10,
+          "bonus30": 30
+        },
+        "categories": {
+          "Fitness": {
+            "tags": ["fitness", "health"],
+            "target30d": 200,
+            "weight": 1.0
+          },
+          "Programming": {
+            "tags": ["programming", "code"],
+            "target30d": 200,
+            "weight": 1.2
+          }
+        }
+      }
+    },
+    "tasks": [
+      {
+        "id": "task_1",
+        "title": "Implementar sistema de gamificação",
+        "description": "Criar sistema completo de XP e ranks",
+        "bucket": "today",
+        "completed": true,
+        "priority": "high",
+        "createdAt": "2023-12-21T10:00:00.000Z",
+        "updatedAt": "2023-12-21T15:30:00.000Z",
+        "order": 1
+      },
+      {
+        "id": "task_2",
+        "title": "Fazer backup dos dados",
+        "description": "Exportar todos os dados do usuário",
+        "bucket": "today",
+        "completed": false,
+        "priority": "medium",
+        "createdAt": "2023-12-21T16:00:00.000Z",
+        "updatedAt": "2023-12-21T16:00:00.000Z",
+        "order": 2
+      },
+      {
+        "id": "task_3",
+        "title": "Estudar React Hooks",
+        "description": "Aprofundar conhecimento em hooks",
+        "bucket": "week",
+        "completed": false,
+        "priority": "medium",
+        "createdAt": "2023-12-20T09:00:00.000Z",
+        "updatedAt": "2023-12-20T09:00:00.000Z",
+        "order": 1
+      },
+      {
+        "id": "task_4",
+        "title": "Planejar férias",
+        "description": "Definir destino e datas",
+        "bucket": "later",
+        "completed": false,
+        "priority": "low",
+        "createdAt": "2023-12-19T14:00:00.000Z",
+        "updatedAt": "2023-12-19T14:00:00.000Z",
+        "order": 1
+      }
+    ],
+    "habits": [
+      {
+        "id": "habit_1",
+        "title": "Exercício matinal",
+        "description": "30 minutos de exercício",
+        "color": "#4ade80",
+        "frequency": "daily",
+        "streak": 7,
+        "longestStreak": 15,
+        "completedDates": ["2023-12-21", "2023-12-20", "2023-12-19", "2023-12-18", "2023-12-17", "2023-12-16", "2023-12-15"],
+        "createdAt": "2023-12-01T08:00:00.000Z",
+        "updatedAt": "2023-12-21T08:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": "habit_2",
+        "title": "Ler 30 minutos",
+        "description": "Leitura diária",
+        "color": "#3b82f6",
+        "frequency": "daily",
+        "streak": 3,
+        "longestStreak": 12,
+        "completedDates": ["2023-12-21", "2023-12-20", "2023-12-19"],
+        "createdAt": "2023-12-10T20:00:00.000Z",
+        "updatedAt": "2023-12-21T20:00:00.000Z",
+        "isActive": true
+      },
+      {
+        "id": "habit_3",
+        "title": "Meditar",
+        "description": "10 minutos de meditação",
+        "color": "#8b5cf6",
+        "frequency": "daily",
+        "streak": 0,
+        "longestStreak": 5,
+        "completedDates": [],
+        "createdAt": "2023-12-15T07:00:00.000Z",
+        "updatedAt": "2023-12-21T07:00:00.000Z",
+        "isActive": true
+      }
+    ],
+    "goals": [
+      {
+        "id": "goal_1",
+        "title": "Ler 12 livros este ano",
+        "description": "Um livro por mês",
+        "color": "#3b82f6",
+        "iconType": "emoji",
+        "iconValue": "📚",
+        "targetValue": 12,
+        "currentValue": 8,
+        "unit": "livros",
+        "category": "learning",
+        "deadline": "2024-12-31T23:59:59.000Z",
+        "milestones": [
+          {
+            "id": "milestone_1",
+            "title": "Primeiro trimestre",
+            "value": 3,
+            "completed": true,
+            "completedAt": "2023-03-31T23:59:59.000Z"
+          },
+          {
+            "id": "milestone_2",
+            "title": "Segundo trimestre",
+            "value": 6,
+            "completed": true,
+            "completedAt": "2023-06-30T23:59:59.000Z"
+          },
+          {
+            "id": "milestone_3",
+            "title": "Terceiro trimestre",
+            "value": 9,
+            "completed": false
+          }
+        ],
+        "order": 1,
+        "createdAt": "2023-01-01T00:00:00.000Z",
+        "updatedAt": "2023-12-21T10:00:00.000Z",
+        "isCompleted": false
+      },
+      {
+        "id": "goal_2",
+        "title": "Aprender TypeScript",
+        "description": "Dominar TypeScript avançado",
+        "color": "#f59e0b",
+        "iconType": "icon",
+        "iconValue": "Code",
+        "targetValue": 100,
+        "currentValue": 75,
+        "unit": "%",
+        "category": "learning",
+        "deadline": "2024-06-30T23:59:59.000Z",
+        "milestones": [
+          {
+            "id": "milestone_4",
+            "title": "Básico",
+            "value": 25,
+            "completed": true,
+            "completedAt": "2023-09-15T23:59:59.000Z"
+          },
+          {
+            "id": "milestone_5",
+            "title": "Intermediário",
+            "value": 50,
+            "completed": true,
+            "completedAt": "2023-11-30T23:59:59.000Z"
+          },
+          {
+            "id": "milestone_6",
+            "title": "Avançado",
+            "value": 75,
+            "completed": true,
+            "completedAt": "2023-12-15T23:59:59.000Z"
+          }
+        ],
+        "order": 2,
+        "createdAt": "2023-08-01T00:00:00.000Z",
+        "updatedAt": "2023-12-21T10:00:00.000Z",
+        "isCompleted": false
+      },
+      {
+        "id": "goal_3",
+        "title": "Correr maratona",
+        "description": "Completar uma maratona completa",
+        "color": "#ef4444",
+        "iconType": "emoji",
+        "iconValue": "🏃",
+        "targetValue": 42.2,
+        "currentValue": 15,
+        "unit": "km",
+        "category": "health",
+        "deadline": "2024-10-15T23:59:59.000Z",
+        "milestones": [
+          {
+            "id": "milestone_7",
+            "title": "5km",
+            "value": 5,
+            "completed": true,
+            "completedAt": "2023-10-01T23:59:59.000Z"
+          },
+          {
+            "id": "milestone_8",
+            "title": "10km",
+            "value": 10,
+            "completed": true,
+            "completedAt": "2023-11-15T23:59:59.000Z"
+          },
+          {
+            "id": "milestone_9",
+            "title": "Meia maratona",
+            "value": 21.1,
+            "completed": false
+          }
+        ],
+        "order": 3,
+        "createdAt": "2023-09-01T00:00:00.000Z",
+        "updatedAt": "2023-12-21T10:00:00.000Z",
+        "isCompleted": false
+      }
+    ],
+    "shop": {
+      "items": [
+        {
+          "id": "xp_boost_1",
+          "name": "Boost de XP",
+          "description": "Ganha 50% mais XP por 1 hora",
+          "price": 50,
+          "category": "boost",
+          "icon": "⚡",
+          "purchased": true
+        },
+        {
+          "id": "vitality_boost",
+          "name": "Vitalidade Extra",
+          "description": "Recupera 50% da vitalidade",
+          "price": 30,
+          "category": "boost",
+          "icon": "❤️",
+          "purchased": false
+        },
+        {
+          "id": "confetti_effect",
+          "name": "Efeito Confete",
+          "description": "Confete dourado ao completar tarefas",
+          "price": 75,
+          "category": "cosmetic",
+          "icon": "🎉",
+          "purchased": false
+        }
+      ],
+      "confettiEnabled": false
+    }
+  }
+}
