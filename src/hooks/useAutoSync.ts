@@ -77,13 +77,7 @@ export function useAutoSync() {
         await db.saveTask(userId, task);
       }
 
-      // 4. Sincronizar hábitos do storage simples
-      const habits = await storage.getHabits();
-      for (const habit of habits) {
-        await db.saveHabit(userId, habit);
-      }
-
-      // 5. Sincronizar hábitos do store Zustand
+      // 4. Sincronizar hábitos do store Zustand
       const habitStoreState = useHabitStore.getState();
       const zustandHabits = Object.values(habitStoreState.habits);
       for (const habit of zustandHabits) {
@@ -109,7 +103,7 @@ export function useAutoSync() {
         await db.saveHabit(userId, dbHabit as any);
       }
 
-      // 6. Sincronizar metas
+      // 5. Sincronizar metas
       const goals = await storage.getGoals();
       for (const goal of goals) {
         await db.saveGoal(userId, goal);

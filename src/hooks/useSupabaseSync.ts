@@ -59,38 +59,27 @@ export function useSupabaseSync() {
       if (habits && habits.length > 0) {
         console.log(`✅ ${habits.length} hábitos carregados`);
         
-        // Salvar no storage simples
-        await storage.saveHabits(habits);
+        // Converter para o formato do store Zustand
+        const habitsObject = habits.reduce((acc: any, habit: any) => {
+          acc[habit.id] = {
+            ...habit,
+            name: habit.title, // Mapear title -> name
+            color: habit.color || '#3B82F6', // Garantir que color existe
+            iconType: habit.icon_type || 'emoji',
+            iconValue: habit.icon_value || '📝',
+            categories: habit.categories || [],
+            targetInterval: habit.frequency === 'daily' ? 'daily' : 'weekly',
+            targetCount: habit.target_count || 1,
+            order: habit.order_index || 0
+          };
+          return acc;
+        }, {});
         
-                 // Converter para o formato do store Zustand
-         const habitsObject = habits.reduce((acc: any, habit: any) => {
-           acc[habit.id] = {
-             ...habit,
-             name: habit.title, // Mapear title -> name
-             color: habit.color || '#3B82F6', // Garantir que color existe
-             iconType: 'emoji', // Default
-             iconValue: '📝', // Default
-             categories: [], // Default
-             targetInterval: habit.frequency === 'daily' ? 'daily' : 'weekly',
-             targetCount: 1, // Default
-             order: 0 // Default
-           };
-           return acc;
-         }, {});
-        
-        // Salvar no store Zustand
-        await localforage.setItem('dl.habits.v1', {
-          state: { 
-            habits: habitsObject, 
-            logs: {}, 
-            habitCategoryOrder: [] 
-          },
-          version: 0
-        });
-        
-        // Atualizar o store Zustand
-        useHabitStore.setState({
-          habits: habitsObject
+        // Atualizar diretamente o store Zustand
+        useHabitStore.setState({ 
+          habits: habitsObject, 
+          logs: {},
+          habitCategoryOrder: []
         });
       }
 
@@ -157,31 +146,31 @@ export function useSupabaseSync() {
         await db.saveTask(userId, task);
       }
 
-      // 4. Sincronizar hábitos (duas formas)
-      const habits = await storage.getHabits();
-      for (const habit of habits) {
-        await db.saveHabit(userId, habit);
+      // 4. Sincronizar hábitos do store Zustand
+      const habitStoreState = useHabitStore.getState();
+      const zustandHabits = Object.values(habitStoreState.habits);
+      for (const habit of zustandHabits) {
+        // Converter do formato Zustand para o formato do banco
+        const dbHabit = {
+          id: habit.id,
+          title: habit.name,
+          description: habit.description || '',
+          color: habit.color || '#3B82F6',
+          icon_type: habit.iconType || 'emoji',
+          icon_value: habit.iconValue || '📝',
+          categories: habit.categories || [],
+          frequency: habit.targetInterval === 'daily' ? 'daily' : 'weekly',
+          target_days: habit.activeDays || [0,1,2,3,4,5,6],
+          target_count: habit.targetCount || 1,
+          order_index: habit.order || 0,
+          streak: 0,
+          longest_streak: 0,
+          is_active: true,
+          created_at: habit.createdAt,
+          updated_at: new Date().toISOString()
+        };
+        await db.saveHabit(userId, dbHabit as any);
       }
-
-             // Sincronizar hábitos do store Zustand também
-       const habitStoreState = useHabitStore.getState();
-       const zustandHabits = Object.values(habitStoreState.habits);
-       for (const habit of zustandHabits) {
-         // Converter do formato Zustand para o formato do banco
-         const dbHabit = {
-           id: habit.id,
-           title: habit.name,
-           description: habit.description || '',
-           frequency: habit.targetInterval,
-           targetDays: habit.activeDays || [0,1,2,3,4,5,6],
-           streak: 0,
-           longestStreak: 0,
-           isActive: true,
-           createdAt: habit.createdAt,
-           updatedAt: new Date().toISOString()
-         };
-         await db.saveHabit(userId, dbHabit as any);
-       }
 
       // 5. Sincronizar metas
       const goals = await storage.getGoals();
