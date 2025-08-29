@@ -33,6 +33,8 @@ export function useAutoSync() {
   // Função para sincronizar dados para o Supabase
   const syncToSupabase = async (userId: string) => {
     try {
+      console.log('🔍 [DEBUG] syncToSupabase iniciado para userId:', userId);
+      
       // Verificar conectividade antes de sincronizar
       const isConnected = await checkSupabaseConnection();
       if (!isConnected) {
@@ -80,7 +82,20 @@ export function useAutoSync() {
       // 4. Sincronizar hábitos do store Zustand
       const habitStoreState = useHabitStore.getState();
       const zustandHabits = Object.values(habitStoreState.habits);
+      console.log('🔍 [DEBUG] Hábitos no Zustand store:', zustandHabits.length, zustandHabits);
+      
       for (const habit of zustandHabits) {
+        console.log('🔍 [DEBUG] Sincronizando hábito:', habit.id, habit.name, {
+          color: habit.color,
+          iconType: habit.iconType,
+          iconValue: habit.iconValue,
+          categories: habit.categories,
+          targetCount: habit.targetCount,
+          targetInterval: habit.targetInterval,
+          activeDays: habit.activeDays,
+          order: habit.order
+        });
+        
         // Converter do formato Zustand para o formato do banco
         const dbHabit = {
           id: habit.id,
@@ -100,7 +115,15 @@ export function useAutoSync() {
           created_at: habit.createdAt,
           updated_at: new Date().toISOString()
         };
-        await db.saveHabit(userId, dbHabit as any);
+        
+        console.log('🔍 [DEBUG] Dados do hábito para o banco:', dbHabit);
+        
+        try {
+          const result = await db.saveHabit(userId, dbHabit as any);
+          console.log('✅ [DEBUG] Hábito salvo com sucesso:', result);
+        } catch (error) {
+          console.error('❌ [DEBUG] Erro ao salvar hábito:', error);
+        }
       }
 
       // 5. Sincronizar metas
@@ -165,6 +188,7 @@ export function useAutoSync() {
     const initialDelay = setTimeout(() => {
       const unsubscribe = useHabitStore.subscribe(
         (state) => {
+          console.log('🔍 [DEBUG] useHabitStore mudou, disparando sync:', state.habits);
           // Sincronizar quando houver mudanças
           debouncedSync(user.id);
         }

@@ -158,24 +158,35 @@ export class DatabaseService {
   }
 
   async saveHabit(userId: string, habit: Habit): Promise<Habit> {
+    console.log('🔍 [DEBUG] saveHabit chamado:', { userId, habit });
+    
+    const upsertData = {
+      id: habit.id,
+      user_id: userId,
+      title: habit.title,
+      description: habit.description,
+      frequency: habit.frequency,
+      target_days: habit.targetDays,
+      streak: habit.streak,
+      longest_streak: habit.longestStreak,
+      is_active: habit.isActive,
+      updated_at: new Date().toISOString()
+    };
+    
+    console.log('🔍 [DEBUG] Dados para upsert:', upsertData);
+    
     const { data, error } = await supabase
       .from('habits')
-      .upsert({
-        id: habit.id,
-        user_id: userId,
-        title: habit.title,
-        description: habit.description,
-        frequency: habit.frequency,
-        target_days: habit.targetDays,
-        streak: habit.streak,
-        longest_streak: habit.longestStreak,
-        is_active: habit.isActive,
-        updated_at: new Date().toISOString()
-      })
+      .upsert(upsertData)
       .select()
       .single()
     
-    if (error) throw error
+    if (error) {
+      console.error('❌ [DEBUG] Erro no saveHabit:', error);
+      throw error;
+    }
+    
+    console.log('✅ [DEBUG] saveHabit sucesso:', data);
     
     return {
       id: data.id,

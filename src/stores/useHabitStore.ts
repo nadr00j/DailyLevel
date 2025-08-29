@@ -50,14 +50,25 @@ export const useHabitStore = create<HabitState>()(
         const currentHabits = get().habits;
         const order = Object.keys(currentHabits).length;
         const habit: Habit = { id, createdAt, targetInterval: 'daily', targetCount: 1, categories: [], order, ...input } as Habit;
+        console.log('🔍 [DEBUG] createHabit chamado:', { input, habit });
         set(state => ({ habits: { ...state.habits, [id]: habit } }));
         return id;
       },
 
       updateHabit: (id, patch) => {
+        console.log('🔍 [DEBUG] updateHabit chamado:', { id, patch });
         set(state => {
-          if (!state.habits[id]) return state;
-          return { habits: { ...state.habits, [id]: { ...state.habits[id], ...patch } } };
+          if (!state.habits[id]) {
+            console.log('❌ [DEBUG] Hábito não encontrado:', id);
+            return state;
+          }
+          const updatedHabit = { ...state.habits[id], ...patch };
+          console.log('🔍 [DEBUG] Hábito atualizado:', { 
+            id, 
+            before: state.habits[id], 
+            after: updatedHabit 
+          });
+          return { habits: { ...state.habits, [id]: updatedHabit } };
         });
       },
 
