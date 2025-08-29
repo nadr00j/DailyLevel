@@ -1,41 +1,49 @@
--- Script para verificar configurações do Supabase
--- Execute este código no SQL Editor do Supabase
+-- VERIFICAR CONFIGURAÇÕES DO SUPABASE
 
--- 1. Verificar configurações de autenticação
-SELECT 
-  key,
-  value
-FROM auth.config 
-WHERE key IN ('SITE_URL', 'DISABLE_SIGNUP', 'JWT_SECRET');
+-- 1. VERIFICAR SE AS TABELAS EXISTEM E SUAS ESTRUTURAS
+SELECT table_name, column_name, data_type, is_nullable, column_default
+FROM information_schema.columns 
+WHERE table_schema = 'public' 
+AND table_name IN ('user_gamification', 'user_settings')
+ORDER BY table_name, ordinal_position;
 
--- 2. Verificar se há problemas com JWT
+-- 2. VERIFICAR CONSTRAINTS E ÍNDICES
 SELECT 
-  key,
-  value
-FROM auth.config 
-WHERE key LIKE '%JWT%';
+    tc.table_name, 
+    tc.constraint_name, 
+    tc.constraint_type,
+    kcu.column_name
+FROM information_schema.table_constraints tc
+JOIN information_schema.key_column_usage kcu 
+    ON tc.constraint_name = kcu.constraint_name
+WHERE tc.table_schema = 'public' 
+AND tc.table_name IN ('user_gamification', 'user_settings')
+ORDER BY tc.table_name, tc.constraint_type;
 
--- 3. Verificar configurações de email
-SELECT 
-  key,
-  value
-FROM auth.config 
-WHERE key LIKE '%EMAIL%';
+-- 3. VERIFICAR SE EXISTEM TRIGGERS
+SELECT trigger_name, event_manipulation, action_statement
+FROM information_schema.triggers 
+WHERE event_object_schema = 'public'
+AND event_object_table IN ('user_gamification', 'user_settings');
 
--- 4. Verificar se há problemas com o schema
+-- 4. VERIFICAR PERMISSÕES DA TABELA
 SELECT 
-  nspname,
-  nspowner,
-  nspacl
-FROM pg_namespace 
-WHERE nspname = 'auth';
+    schemaname,
+    tablename,
+    tableowner,
+    hasindexes,
+    hasrules,
+    hastriggers
+FROM pg_tables 
+WHERE schemaname = 'public' 
+AND tablename IN ('user_gamification', 'user_settings');
 
--- 5. Verificar se há problemas com funções
+-- 5. VERIFICAR SE O RLS ESTÁ REALMENTE DESABILITADO
 SELECT 
-  proname,
-  proargtypes,
-  prorettype,
-  prosrc
-FROM pg_proc 
-WHERE proname LIKE '%auth%' 
-AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'auth');
+    schemaname, 
+    tablename, 
+    rowsecurity,
+    forcerowsecurity
+FROM pg_tables 
+WHERE schemaname = 'public' 
+AND tablename IN ('user_gamification', 'user_settings');
