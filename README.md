@@ -1,8 +1,6 @@
 <div align="center">
   <img src="https://i.postimg.cc/P57vrVJQ/logo-daily-level.png" alt="DailyLevel Logo" width="200" height="200">
-  
-  # DailyLevel
-  
+
   **Transforme sua rotina diária em uma jornada gamificada** 🎮
   
   [![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-000000?style=for-the-badge&logo=vercel)](https://vercel.com)
