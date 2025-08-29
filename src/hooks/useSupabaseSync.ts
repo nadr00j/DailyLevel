@@ -117,6 +117,9 @@ export function useSupabaseSync() {
         const deduplicatedItems = Array.from(uniqueSupabaseItems.values());
         console.log(`🧹 [DEBUG] Removidos duplicados: ${shopItems.length} -> ${deduplicatedItems.length} itens`);
         
+        // Resetar cache da loja para garantir defaultItems frescos
+        await useShopStore.getState().clearShopCache();
+
         // Mesclar itens do Supabase com itens padrão
         const currentItems = defaultItems;
         const mergedItems = [...currentItems]; // Começar com itens padrão
