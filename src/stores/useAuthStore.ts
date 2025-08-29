@@ -103,21 +103,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       if (session?.user) {
         console.log('Usuário encontrado na sessão:', session.user.id)
-        // Buscar username do banco de dados
-        try {
-          const username = await getUsernameFromDatabase(session.user.id)
-          
-          if (username) {
-            console.log('Username encontrado:', username)
-            set({ user: session.user, username, isAuthenticated: true, isLoading: false })
-          } else {
-            console.warn('Username não encontrado para o usuário:', session.user.id)
-            set({ user: session.user, username: 'Nadr00J', isAuthenticated: true, isLoading: false })
-          }
-        } catch (usernameError) {
-          console.error('Erro ao buscar username:', usernameError)
-          set({ user: session.user, username: 'Nadr00J', isAuthenticated: true, isLoading: false })
-        }
+        // O onAuthStateChange já vai lidar com a configuração do usuário
+        // Aqui só precisamos definir isLoading como false
+        set({ isLoading: false })
       } else {
         console.log('Nenhuma sessão ativa')
         set({ isLoading: false })
@@ -131,20 +119,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
 // Listener para mudanças de autenticação
 supabase.auth.onAuthStateChange(async (event, session) => {
+  console.log('Auth state change:', event, session?.user?.id)
+  
   if (event === 'SIGNED_IN' && session?.user) {
     // Buscar username do banco de dados
-    const username = await getUsernameFromDatabase(session.user.id)
-    
-    useAuthStore.setState({
-      user: session.user,
-      username: username || 'Nadr00J',
-      isAuthenticated: true
-    })
+    try {
+      const username = await getUsernameFromDatabase(session.user.id)
+      
+      useAuthStore.setState({
+        user: session.user,
+        username: username || 'Nadr00J',
+        isAuthenticated: true,
+        isLoading: false
+      })
+    } catch (error) {
+      console.error('Erro no onAuthStateChange:', error)
+      useAuthStore.setState({
+        user: session.user,
+        username: 'Nadr00J',
+        isAuthenticated: true,
+        isLoading: false
+      })
+    }
   } else if (event === 'SIGNED_OUT') {
     useAuthStore.setState({
       user: null,
       username: null,
-      isAuthenticated: false
+      isAuthenticated: false,
+      isLoading: false
     })
   }
 })
