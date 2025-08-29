@@ -157,7 +157,8 @@ export function useAutoSync() {
       
       for (const item of modifiedItems) {
         try {
-          await db.saveShopItem(item);
+          const dbItem = { ...item, userId } as any;
+          await db.saveShopItem(dbItem);
           console.log('✅ [DEBUG] Item da loja salvo:', item.name);
         } catch (error) {
           console.error('❌ [DEBUG] Erro ao salvar item da loja:', error);
