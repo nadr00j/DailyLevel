@@ -17,40 +17,22 @@ async function getUsernameFromDatabase(userId: string): Promise<string | null> {
   try {
     console.log('Buscando username para userId:', userId)
     
-    // Estratégia 1: Usar email do usuário para mapear username (mais confiável)
-    try {
-      console.log('Tentando mapear por email...')
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (user?.email) {
-        console.log('Email do usuário:', user.email)
-        
-        // Mapear email para username conhecido
-        const emailToUsername: Record<string, string> = {
-          'companyjfb@gmail.com': 'Nadr00J',
-          'aroriel@example.com': 'Aroriel'
-        }
-        
-        const mappedUsername = emailToUsername[user.email]
-        if (mappedUsername) {
-          console.log('Username mapeado por email:', mappedUsername)
-          return mappedUsername
-        }
-      }
-    } catch (error) {
-      console.log('Erro ao mapear por email:', error)
+    // Estratégia 1: Fallback direto baseado no ID (mais rápido e confiável)
+    console.log('Usando mapeamento direto por ID...')
+    const idToUsername: Record<string, string> = {
+      'f2e29d54-3de1-449b-9146-5c007a1ec439': 'Nadr00J',
+      'c7620efd-2aa1-4498-8a9b-14c60940889e': 'Aroriel'
     }
     
-    // Estratégia 2: Fallback para username padrão baseado no ID
-    console.log('Usando fallback baseado no ID...')
-    if (userId === 'f2e29d54-3de1-449b-9146-5c007a1ec439') {
-      console.log('Usando username padrão: Nadr00J')
-      return 'Nadr00J'
+    const mappedUsername = idToUsername[userId]
+    if (mappedUsername) {
+      console.log('Username mapeado por ID:', mappedUsername)
+      return mappedUsername
     }
     
-    // Estratégia 3: Tentar consulta direta como último recurso
+    // Estratégia 2: Tentar consulta direta como fallback
     try {
-      console.log('Tentando consulta direta como último recurso...')
+      console.log('Tentando consulta direta como fallback...')
       const { data, error } = await supabase
         .from('profiles')
         .select('username')
