@@ -157,8 +157,6 @@ export default function Index() {
         {activeTab === 'goals' && <GoalsView />}
       </AppLayout>
       
-      <ShopModal />
-      <VictoryDialog />
     </>
   );
 }
