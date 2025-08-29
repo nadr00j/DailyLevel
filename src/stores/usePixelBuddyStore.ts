@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { useAuthStore } from './useAuthStore';
 
 export interface PixelBuddyItem {
   id: string;
@@ -37,60 +36,55 @@ function getUserAssetPath(username: string | null): string {
 
 export const usePixelBuddyStore = create<PixelBuddyState>()(
   persist(
-    (set, get) => {
-      // Obter username atual
-      const username = useAuthStore.getState().username;
-      const userPath = getUserAssetPath(username);
-      
-      return {
-        body: `${userPath}/bodies/body_lvl1.png`,
-        head: `${userPath}/heads/head_neutral.png`,
-        clothes: null,
-        accessory: null,
-        hat: null,
-        effect: null,
-        inventory: {},
+    (set, get) => ({
+      body: '/Nadr00J/bodies/body_lvl1.png',
+      head: '/Nadr00J/heads/head_neutral.png',
+      clothes: null,
+      accessory: null,
+      hat: null,
+      effect: null,
+      inventory: {},
 
-        setBase: (layer, spritePath) => {
-          set({ [layer]: spritePath });
-        },
+      setBase: (layer, spritePath) => {
+        set({ [layer]: spritePath });
+      },
 
-        equipItem: (itemId) => {
-          const { inventory } = get();
-          const item = inventory[itemId];
-          if (!item || !item.unlocked) return;
+      equipItem: (itemId) => {
+        const { inventory } = get();
+        const item = inventory[itemId];
+        if (!item || !item.unlocked) return;
 
-          // desequipar anterior do mesmo tipo
-          set((state) => {
-            const updates: Partial<PixelBuddyState> = {};
-            if (item.type === 'clothes') updates.clothes = item.spritePath;
-            if (item.type === 'accessory') updates.accessory = item.spritePath;
-            if (item.type === 'hat') updates.hat = item.spritePath;
-            if (item.type === 'effect') updates.effect = item.spritePath;
-            return updates;
-          });
+        // desequipar anterior do mesmo tipo
+        set((state) => {
+          const updates: Partial<PixelBuddyState> = {};
+          if (item.type === 'clothes') updates.clothes = item.spritePath;
+          if (item.type === 'accessory') updates.accessory = item.spritePath;
+          if (item.type === 'hat') updates.hat = item.spritePath;
+          if (item.type === 'effect') updates.effect = item.spritePath;
+          return updates;
+        });
 
-          // marcar como equipado
-          set((state) => ({
-            inventory: {
-              ...state.inventory,
-              [itemId]: { ...item, equipped: true }
-            }
-          }));
-        },
+        // marcar como equipado
+        set((state) => ({
+          inventory: {
+            ...state.inventory,
+            [itemId]: { ...item, equipped: true }
+          }
+        }));
+      },
 
-        unequipItem: (layer) => {
-          set({ [layer]: null });
-        },
+      unequipItem: (layer) => {
+        set({ [layer]: null });
+      },
 
-        unlockItem: (item) => {
-          set((state) => ({
-            inventory: {
-              ...state.inventory,
-              [item.id]: { ...item, unlocked: true, equipped: false }
-            }
-          }));
-        }
+      unlockItem: (item) => {
+        set((state) => ({
+          inventory: {
+            ...state.inventory,
+            [item.id]: { ...item, unlocked: true, equipped: false }
+          }
+        }));
+      }
     }),
     { name: 'dl.pixelbuddy.v1' }
   )
