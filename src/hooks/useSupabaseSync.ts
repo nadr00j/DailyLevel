@@ -6,6 +6,7 @@ import { useGamificationStore } from '@/stores/useGamificationStore';
 import { useShopStore } from '@/stores/useShopStore';
 import { useHabitStore } from '@/stores/useHabitStore';
 import localforage from 'localforage';
+import { defaultItems } from '@/stores/useShopStore'
 
 export function useSupabaseSync() {
   const { user, isAuthenticated } = useAuthStore();
@@ -117,7 +118,7 @@ export function useSupabaseSync() {
         console.log(`🧹 [DEBUG] Removidos duplicados: ${shopItems.length} -> ${deduplicatedItems.length} itens`);
         
         // Mesclar itens do Supabase com itens padrão
-        const currentItems = useShopStore.getState().items;
+        const currentItems = defaultItems;
         const mergedItems = [...currentItems]; // Começar com itens padrão
         
         // Atualizar itens existentes com dados do Supabase
