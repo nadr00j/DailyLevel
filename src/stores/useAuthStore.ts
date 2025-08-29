@@ -16,14 +16,40 @@ interface AuthState {
 async function getUsernameFromDatabase(userId: string): Promise<string | null> {
   try {
     console.log('Buscando username para userId:', userId)
+    
+    // Tentar consulta sem RLS primeiro
     const { data, error } = await supabase
       .from('profiles')
       .select('username')
       .eq('id', userId)
       .single()
     
+    console.log('Resultado da consulta:', { data, error })
+    
     if (error) {
       console.error('Erro ao buscar username:', error)
+      
+      // Se for erro 406 (Not Acceptable), tentar sem .single()
+      if (error.code === 'PGRST116' || error.message.includes('406')) {
+        console.log('Tentando consulta sem .single()...')
+        const { data: dataArray, error: errorArray } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', userId)
+        
+        console.log('Resultado da consulta sem .single():', { dataArray, errorArray })
+        
+        if (errorArray) {
+          console.error('Erro na consulta sem .single():', errorArray)
+          return null
+        }
+        
+        if (dataArray && dataArray.length > 0) {
+          console.log('Username encontrado no banco (sem .single()):', dataArray[0]?.username)
+          return dataArray[0]?.username || null
+        }
+      }
+      
       return null
     }
     
