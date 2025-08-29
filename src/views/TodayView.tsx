@@ -2,22 +2,24 @@ import React, { useEffect, useState } from 'react';
 import { TodayViewContent } from '@/components/today/TodayViewContent';
 import { PixelBuddyCard } from '@/components/gamification/PixelBuddyCard';
 import { AssetPreloader } from '@/lib/assetPreloader';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export const TodayView = () => {
   const [assetsLoaded, setAssetsLoaded] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const { username } = useAuthStore();
 
   useEffect(() => {
     const preloadAssets = async () => {
       try {
-        // Pré-carregar sprites essenciais primeiro
-        await AssetPreloader.preloadEssentialSprites();
+        // Pré-carregar sprites essenciais primeiro para o usuário atual
+        await AssetPreloader.preloadEssentialSprites(username);
         setAssetsLoaded(true);
         
         // Continuar carregando o resto em background
-        AssetPreloader.preloadAllSprites();
+        AssetPreloader.preloadAllSprites(username);
       } catch (error) {
         console.error('[TodayView] Error preloading assets:', error);
         setAssetsLoaded(true); // Continuar mesmo com erro
@@ -25,19 +27,19 @@ export const TodayView = () => {
     };
 
     preloadAssets();
-  }, []);
+  }, [username]);
 
   // Monitorar progresso do carregamento
   useEffect(() => {
     if (!assetsLoaded) return;
 
     const interval = setInterval(() => {
-      const progress = AssetPreloader.getLoadingProgress();
+      const progress = AssetPreloader.getLoadingProgress(username);
       setLoadingProgress(progress);
     }, 100);
 
     return () => clearInterval(interval);
-  }, [assetsLoaded]);
+  }, [assetsLoaded, username]);
 
   // Formatar data atual
   const currentDate = new Date();

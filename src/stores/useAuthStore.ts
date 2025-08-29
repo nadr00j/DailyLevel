@@ -12,6 +12,27 @@ interface AuthState {
   initialize: () => Promise<void>
 }
 
+// Função para buscar username do banco de dados
+async function getUsernameFromDatabase(userId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', userId)
+      .single()
+    
+    if (error) {
+      console.error('Erro ao buscar username:', error)
+      return null
+    }
+    
+    return data?.username || null
+  } catch (error) {
+    console.error('Erro inesperado ao buscar username:', error)
+    return null
+  }
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   username: null,
@@ -22,23 +43,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       console.log('Tentando login para:', username)
       
-      // Mapear username para email diretamente
-      const emailMap: Record<string, string> = {
-        'Nadr00J': 'companyjfb@gmail.com',
-        'User2': 'user2@dailylevel.local',
-        'User3': 'user3@dailylevel.local'
-      }
-
-      const email = emailMap[username]
-      if (!email) {
+      // Buscar email do usuário na tabela profiles
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, username, email')
+        .eq('username', username)
+        .single()
+      
+      if (profileError || !profile) {
         return { success: false, error: 'Usuário não encontrado' }
       }
 
-      console.log('Tentando login com email:', email)
+      if (!profile.email) {
+        return { success: false, error: 'Email não configurado para este usuário' }
+      }
+
+      console.log('Perfil encontrado:', profile)
       
-      // Fazer login diretamente com o email
+      // Fazer login com o email do perfil
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: profile.email,
         password
       })
 
@@ -49,7 +73,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { success: false, error: `Erro: ${error.message}` }
       }
 
-      set({ user: data.user, username, isAuthenticated: true })
+      set({ user: data.user, username: profile.username, isAuthenticated: true })
       return { success: true }
     } catch (error) {
       console.error('Erro inesperado:', error)
@@ -67,15 +91,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { data: { session } } = await supabase.auth.getSession()
       
       if (session?.user) {
-        // Mapear email de volta para username
-        const emailMap: Record<string, string> = {
-          'companyjfb@gmail.com': 'Nadr00J',
-          'user2@dailylevel.local': 'User2',
-          'user3@dailylevel.local': 'User3'
-        }
+        // Buscar username do banco de dados
+        const username = await getUsernameFromDatabase(session.user.id)
         
-        const username = emailMap[session.user.email || ''] || 'Usuário'
-        set({ user: session.user, username, isAuthenticated: true })
+        if (username) {
+          set({ user: session.user, username, isAuthenticated: true })
+        } else {
+          console.warn('Username não encontrado para o usuário:', session.user.id)
+          set({ user: session.user, username: 'Usuário', isAuthenticated: true })
+        }
       }
     } catch (error) {
       console.error('Erro ao inicializar auth:', error)
@@ -86,21 +110,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }))
 
 // Listener para mudanças de autenticação
-supabase.auth.onAuthStateChange((event, session) => {
-  useAuthStore.setState((state) => {
-    if (event === 'SIGNED_IN' && session?.user) {
-      // Mapear email de volta para username
-      const emailMap: Record<string, string> = {
-        'companyjfb@gmail.com': 'Nadr00J',
-        'user2@dailylevel.local': 'User2',
-        'user3@dailylevel.local': 'User3'
-      }
-      
-      const username = emailMap[session.user.email || ''] || 'Usuário'
-      return { user: session.user, username, isAuthenticated: true }
-    } else if (event === 'SIGNED_OUT') {
-      return { user: null, username: null, isAuthenticated: false }
-    }
-    return state
-  })
+supabase.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_IN' && session?.user) {
+    // Buscar username do banco de dados
+    const username = await getUsernameFromDatabase(session.user.id)
+    
+    useAuthStore.setState({
+      user: session.user,
+      username: username || 'Usuário',
+      isAuthenticated: true
+    })
+  } else if (event === 'SIGNED_OUT') {
+    useAuthStore.setState({
+      user: null,
+      username: null,
+      isAuthenticated: false
+    })
+  }
 })

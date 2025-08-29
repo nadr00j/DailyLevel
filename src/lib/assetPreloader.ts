@@ -3,45 +3,49 @@ export class AssetPreloader {
   private static loadedAssets = new Set<string>();
   private static loadingPromises = new Map<string, Promise<void>>();
 
-  // Lista de todos os sprites disponíveis
-  private static readonly spritePaths = [
-    // Bodies
-    '/Nadr00J/bodies/body_lvl1.png',
-    '/Nadr00J/bodies/body_lvl2.png',
-    '/Nadr00J/bodies/body_lvl3.png',
+  // Função para obter sprites baseado no usuário
+  private static getSpritePaths(username: string | null = null): string[] {
+    const userPath = username ? `/${username}` : '/Nadr00J';
     
-    // Heads
-    '/Nadr00J/heads/head_neutral.png',
-    '/Nadr00J/heads/head_happy.png',
-    '/Nadr00J/heads/head_tired.png',
-    '/Nadr00J/heads/head_sad.png',
-    '/Nadr00J/heads/head_confident.png',
-    '/Nadr00J/heads/head_evolved.png',
-    
-    // Clothes
-    '/Nadr00J/clothes/clothes_tshirt.png',
-    '/Nadr00J/clothes/clothes_hoodie.png',
-    '/Nadr00J/clothes/clothes_jacket.png',
-    '/Nadr00J/clothes/clothes_regata.png',
-    '/Nadr00J/clothes/clothes_suit.png',
-    
-    // Hats
-    '/Nadr00J/hats/hat_cap.png',
-    '/Nadr00J/hats/hat_beanie.png',
-    '/Nadr00J/hats/hat_cowboy.png',
-    '/Nadr00J/hats/hat_top_hat.png',
-    
-    // Accessories
-    '/Nadr00J/acessories/accessory_glasses.png',
-    '/Nadr00J/acessories/accessory_mask.png',
-    
-    // Effects
-    '/Nadr00J/effects/effect_confetti.png',
-    '/Nadr00J/effects/effect_aura_green.png',
-    '/Nadr00J/effects/effect_aura_blue.png',
-    '/Nadr00J/effects/effect_aura_red.png',
-    '/Nadr00J/effects/effect_frozen.png'
-  ];
+    return [
+      // Bodies
+      `${userPath}/bodies/body_lvl1.png`,
+      `${userPath}/bodies/body_lvl2.png`,
+      `${userPath}/bodies/body_lvl3.png`,
+      
+      // Heads
+      `${userPath}/heads/head_neutral.png`,
+      `${userPath}/heads/head_happy.png`,
+      `${userPath}/heads/head_tired.png`,
+      `${userPath}/heads/head_sad.png`,
+      `${userPath}/heads/head_confident.png`,
+      `${userPath}/heads/head_evolved.png`,
+      
+      // Clothes
+      `${userPath}/clothes/clothes_tshirt.png`,
+      `${userPath}/clothes/clothes_hoodie.png`,
+      `${userPath}/clothes/clothes_jacket.png`,
+      `${userPath}/clothes/clothes_regata.png`,
+      `${userPath}/clothes/clothes_suit.png`,
+      
+      // Hats
+      `${userPath}/hats/hat_cap.png`,
+      `${userPath}/hats/hat_beanie.png`,
+      `${userPath}/hats/hat_cowboy.png`,
+      `${userPath}/hats/hat_top_hat.png`,
+      
+      // Accessories
+      `${userPath}/acessories/accessory_glasses.png`,
+      `${userPath}/acessories/accessory_mask.png`,
+      
+      // Effects
+      `${userPath}/effects/effect_confetti.png`,
+      `${userPath}/effects/effect_aura_green.png`,
+      `${userPath}/effects/effect_aura_blue.png`,
+      `${userPath}/effects/effect_aura_red.png`,
+      `${userPath}/effects/effect_frozen.png`
+    ];
+  }
 
   // Pré-carregar um sprite específico
   static async preloadSprite(path: string): Promise<void> {
@@ -76,11 +80,12 @@ export class AssetPreloader {
     return loadPromise;
   }
 
-  // Pré-carregar todos os sprites
-  static async preloadAllSprites(): Promise<void> {
+  // Pré-carregar todos os sprites para um usuário específico
+  static async preloadAllSprites(username: string | null = null): Promise<void> {
     console.log('[AssetPreloader] Starting preload of all sprites...');
     
-    const promises = this.spritePaths.map(path => this.preloadSprite(path));
+    const spritePaths = this.getSpritePaths(username);
+    const promises = spritePaths.map(path => this.preloadSprite(path));
     
     try {
       await Promise.allSettled(promises);
@@ -90,17 +95,18 @@ export class AssetPreloader {
     }
   }
 
-  // Pré-carregar sprites essenciais (bodies e heads)
-  static async preloadEssentialSprites(): Promise<void> {
+  // Pré-carregar sprites essenciais (bodies e heads) para um usuário específico
+  static async preloadEssentialSprites(username: string | null = null): Promise<void> {
+    const userPath = username ? `/${username}` : '/Nadr00J';
     const essentialPaths = [
-      '/Nadr00J/bodies/body_lvl1.png',
-      '/Nadr00J/bodies/body_lvl2.png',
-      '/Nadr00J/bodies/body_lvl3.png',
-      '/Nadr00J/heads/head_neutral.png',
-      '/Nadr00J/heads/head_happy.png',
-      '/Nadr00J/heads/head_tired.png',
-      '/Nadr00J/heads/head_sad.png',
-      '/Nadr00J/heads/head_confident.png'
+      `${userPath}/bodies/body_lvl1.png`,
+      `${userPath}/bodies/body_lvl2.png`,
+      `${userPath}/bodies/body_lvl3.png`,
+      `${userPath}/heads/head_neutral.png`,
+      `${userPath}/heads/head_happy.png`,
+      `${userPath}/heads/head_tired.png`,
+      `${userPath}/heads/head_sad.png`,
+      `${userPath}/heads/head_confident.png`
     ];
 
     console.log('[AssetPreloader] Starting preload of essential sprites...');
@@ -120,10 +126,11 @@ export class AssetPreloader {
     return this.loadedAssets.has(path);
   }
 
-  // Obter progresso do carregamento
-  static getLoadingProgress(): number {
-    const total = this.spritePaths.length;
-    const loaded = this.loadedAssets.size;
+  // Obter progresso do carregamento para um usuário específico
+  static getLoadingProgress(username: string | null = null): number {
+    const spritePaths = this.getSpritePaths(username);
+    const total = spritePaths.length;
+    const loaded = spritePaths.filter(path => this.loadedAssets.has(path)).length;
     return total > 0 ? (loaded / total) * 100 : 0;
   }
 
