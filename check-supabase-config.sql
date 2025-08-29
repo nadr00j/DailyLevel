@@ -42,8 +42,7 @@ AND tablename IN ('user_gamification', 'user_settings');
 SELECT 
     schemaname, 
     tablename, 
-    rowsecurity,
-    forcerowsecurity
+    rowsecurity
 FROM pg_tables 
 WHERE schemaname = 'public' 
 AND tablename IN ('user_gamification', 'user_settings');
