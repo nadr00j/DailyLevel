@@ -16,16 +16,16 @@ export async function migrateLocalDataToSupabase(userId: string): Promise<Migrat
   try {
     console.log('Iniciando migração dos dados locais para Supabase...')
     
-    // Verificar se o usuário já tem dados no Supabase
-    const existingTasks = await db.getTasks(userId)
-    const existingHabits = await db.getHabits(userId)
-    const existingGoals = await db.getGoals(userId)
+    // Verificar se o usuário existe na tabela profiles
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single()
     
-    if (existingTasks.length > 0 || existingHabits.length > 0 || existingGoals.length > 0) {
-      return {
-        success: false,
-        message: 'Usuário já possui dados no Supabase. Migração não necessária.'
-      }
+    if (profileError || !profile) {
+      console.error('Usuário não encontrado na tabela profiles:', userId)
+      throw new Error('Usuário não encontrado na tabela profiles')
     }
 
     // Migrar tarefas
@@ -82,18 +82,6 @@ export async function migrateLocalDataToSupabase(userId: string): Promise<Migrat
       } catch (error) {
         console.error('Erro ao migrar meta:', goal.id, error)
       }
-    }
-
-    // Verificar se o usuário existe na tabela profiles
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', userId)
-      .single()
-    
-    if (profileError || !profile) {
-      console.error('Usuário não encontrado na tabela profiles:', userId)
-      throw new Error('Usuário não encontrado na tabela profiles')
     }
 
     // Criar dados de gamificação padrão se não existirem

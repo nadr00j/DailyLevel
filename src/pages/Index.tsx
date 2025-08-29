@@ -50,7 +50,7 @@ export default function Index() {
     setIsMigrating(true);
     
     try {
-      // Verificar se há dados locais para migrar
+      // Verificar se há dados locais para migrar (apenas uma vez)
       const localTasks = await storage.getTasks();
       const localHabits = await storage.getHabits();
       const localGoals = await storage.getGoals();
@@ -58,6 +58,7 @@ export default function Index() {
       const hasLocalData = localTasks.length > 0 || localHabits.length > 0 || localGoals.length > 0;
       
       if (hasLocalData) {
+        console.log('Dados locais encontrados, executando migração...');
         const result = await migrateLocalDataToSupabase(user.id);
         
         if (result.success) {
@@ -65,6 +66,10 @@ export default function Index() {
             title: 'Migração concluída!',
             description: `Migrados: ${result.migratedData?.tasks || 0} tarefas, ${result.migratedData?.habits || 0} hábitos, ${result.migratedData?.goals || 0} metas`,
           });
+          
+          // Limpar dados locais após migração bem-sucedida
+          await storage.clearAll();
+          console.log('Dados locais limpos após migração');
         } else {
           toast({
             title: 'Migração não necessária',
@@ -72,21 +77,23 @@ export default function Index() {
             variant: 'default',
           });
         }
+      } else {
+        console.log('Nenhum dado local encontrado, pulando migração');
       }
       
-      // SEMPRE inicializar dados padrão (mesmo se já existirem dados)
+      // SEMPRE inicializar dados padrão no Supabase
       await initializeUserData(user.id);
       
       toast({
-        title: 'Dados inicializados!',
-        description: 'Todos os dados foram atualizados com sucesso.',
+        title: 'App inicializado!',
+        description: 'Dados carregados do Supabase com sucesso.',
       });
       
     } catch (error) {
       console.error('Erro na migração:', error);
       toast({
-        title: 'Erro na migração',
-        description: 'Não foi possível migrar os dados locais.',
+        title: 'Erro na inicialização',
+        description: 'Não foi possível carregar os dados.',
         variant: 'destructive',
       });
     } finally {
