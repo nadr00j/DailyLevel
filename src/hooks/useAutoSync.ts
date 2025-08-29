@@ -144,10 +144,10 @@ export function useAutoSync() {
       }
 
       // 6. Sincronizar itens da loja
-      const shopState = useShopStore.getState();
-      console.log('🔍 [DEBUG] Sincronizando itens da loja:', shopState.items.length);
+      const shopItemsState = useShopStore.getState();
+      console.log('🔍 [DEBUG] Sincronizando itens da loja:', shopItemsState.items.length);
       
-      for (const item of shopState.items) {
+      for (const item of shopItemsState.items) {
         try {
           await db.saveShopItem(item);
           console.log('✅ [DEBUG] Item da loja salvo:', item.name);
