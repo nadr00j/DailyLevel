@@ -165,7 +165,6 @@ export class DatabaseService {
         user_id: userId,
         title: habit.title,
         description: habit.description,
-        color: habit.color,
         frequency: habit.frequency,
         target_days: habit.targetDays,
         streak: habit.streak,
@@ -182,7 +181,7 @@ export class DatabaseService {
       id: data.id,
       title: data.title,
       description: data.description,
-      color: data.color,
+      color: data.color || '#3B82F6', // Default color if column doesn't exist
       frequency: data.frequency,
       targetDays: data.target_days,
       streak: data.streak,

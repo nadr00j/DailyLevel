@@ -162,26 +162,25 @@ export function useSupabaseSync() {
         await db.saveHabit(userId, habit);
       }
 
-      // Sincronizar hábitos do store Zustand também
-      const habitStoreState = useHabitStore.getState();
-      const zustandHabits = Object.values(habitStoreState.habits);
-      for (const habit of zustandHabits) {
-        // Converter do formato Zustand para o formato do banco
-        const dbHabit = {
-          id: habit.id,
-          title: habit.name,
-          description: habit.description || '',
-          color: habit.color,
-          frequency: habit.targetInterval,
-          targetDays: habit.activeDays || [0,1,2,3,4,5,6],
-          streak: 0,
-          longestStreak: 0,
-          isActive: true,
-          createdAt: habit.createdAt,
-          updatedAt: new Date().toISOString()
-        };
-        await db.saveHabit(userId, dbHabit as any);
-      }
+             // Sincronizar hábitos do store Zustand também
+       const habitStoreState = useHabitStore.getState();
+       const zustandHabits = Object.values(habitStoreState.habits);
+       for (const habit of zustandHabits) {
+         // Converter do formato Zustand para o formato do banco
+         const dbHabit = {
+           id: habit.id,
+           title: habit.name,
+           description: habit.description || '',
+           frequency: habit.targetInterval,
+           targetDays: habit.activeDays || [0,1,2,3,4,5,6],
+           streak: 0,
+           longestStreak: 0,
+           isActive: true,
+           createdAt: habit.createdAt,
+           updatedAt: new Date().toISOString()
+         };
+         await db.saveHabit(userId, dbHabit as any);
+       }
 
       // 5. Sincronizar metas
       const goals = await storage.getGoals();
