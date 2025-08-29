@@ -76,9 +76,29 @@ export async function loadDataFromSupabase(userId: string): Promise<void> {
     // 6. Carregar itens da loja
     const shopItems = await db.getShopItems(userId);
     if (shopItems && shopItems.length > 0) {
-      console.log('Itens da loja carregados:', shopItems.length);
+      console.log('Itens da loja carregados do Supabase:', shopItems.length);
+      
+      // Mesclar itens do Supabase com itens padrão
+      const currentItems = useShopStore.getState().items;
+      const mergedItems = [...currentItems]; // Começar com itens padrão
+      
+      // Atualizar itens existentes com dados do Supabase
+      shopItems.forEach(supabaseItem => {
+        const existingIndex = mergedItems.findIndex(item => item.id === supabaseItem.id);
+        if (existingIndex >= 0) {
+          // Atualizar item existente com dados do Supabase (principalmente purchased)
+          mergedItems[existingIndex] = {
+            ...mergedItems[existingIndex],
+            purchased: supabaseItem.purchased
+          };
+        } else {
+          // Adicionar novo item do Supabase
+          mergedItems.push(supabaseItem);
+        }
+      });
+      
       useShopStore.setState({
-        items: shopItems
+        items: mergedItems
       });
     }
 

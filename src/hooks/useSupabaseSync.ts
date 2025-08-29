@@ -103,13 +103,34 @@ export function useSupabaseSync() {
       console.log(`🔍 [DEBUG] Itens da loja do Supabase:`, shopItems);
       
       if (shopItems && shopItems.length > 0) {
-        console.log(`✅ ${shopItems.length} itens da loja carregados`);
+        console.log(`✅ ${shopItems.length} itens da loja carregados do Supabase`);
+        
+        // Mesclar itens do Supabase com itens padrão
+        const currentItems = useShopStore.getState().items;
+        const mergedItems = [...currentItems]; // Começar com itens padrão
+        
+        // Atualizar itens existentes com dados do Supabase
+        shopItems.forEach(supabaseItem => {
+          const existingIndex = mergedItems.findIndex(item => item.id === supabaseItem.id);
+          if (existingIndex >= 0) {
+            // Atualizar item existente com dados do Supabase (principalmente purchased)
+            mergedItems[existingIndex] = {
+              ...mergedItems[existingIndex],
+              purchased: supabaseItem.purchased
+            };
+            console.log(`🔄 [DEBUG] Item atualizado: ${supabaseItem.name} (purchased: ${supabaseItem.purchased})`);
+          } else {
+            // Adicionar novo item do Supabase
+            mergedItems.push(supabaseItem);
+            console.log(`➕ [DEBUG] Novo item adicionado: ${supabaseItem.name}`);
+          }
+        });
+        
         useShopStore.setState({
-          items: shopItems // Substituir completamente os itens
+          items: mergedItems
         });
       } else {
-        console.log('⚠️ Nenhum item da loja encontrado no Supabase');
-        // Se não há itens no Supabase, manter os itens padrão
+        console.log('⚠️ Nenhum item da loja encontrado no Supabase, mantendo itens padrão');
       }
 
       console.log('🎉 Todos os dados carregados do Supabase!');
