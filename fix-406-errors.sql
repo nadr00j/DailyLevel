@@ -65,32 +65,16 @@ SELECT 'USER_GAMIFICATION' as tabela, COUNT(*) as total_registros FROM user_gami
 SELECT 'USER_SETTINGS' as tabela, COUNT(*) as total_registros FROM user_settings;
 
 -- 5. TESTAR INSERÇÃO SIMPLES PARA VERIFICAR SE FUNCIONA
+-- Primeiro, verificar se já existe um registro para este usuário
+DELETE FROM user_gamification WHERE user_id = '7ceee0d2-d938-4106-880e-dbb7e976bb47';
+DELETE FROM user_settings WHERE user_id = '7ceee0d2-d938-4106-880e-dbb7e976bb47';
+
+-- Inserir dados limpos
 INSERT INTO user_gamification (user_id, xp, coins, xp30d, vitality, mood, xp_multiplier, xp_multiplier_expiry, str, int, cre, soc, aspect, rank_idx, rank_tier, rank_div)
-VALUES ('7ceee0d2-d938-4106-880e-dbb7e976bb47', 0, 0, 0, 100, 'neutral', 1.0, 0, 0, 0, 0, 0, 'int', 0, 'Bronze', 1)
-ON CONFLICT (user_id) DO UPDATE SET
-  xp = EXCLUDED.xp,
-  coins = EXCLUDED.coins,
-  xp30d = EXCLUDED.xp30d,
-  vitality = EXCLUDED.vitality,
-  mood = EXCLUDED.mood,
-  xp_multiplier = EXCLUDED.xp_multiplier,
-  xp_multiplier_expiry = EXCLUDED.xp_multiplier_expiry,
-  str = EXCLUDED.str,
-  int = EXCLUDED.int,
-  cre = EXCLUDED.cre,
-  soc = EXCLUDED.soc,
-  aspect = EXCLUDED.aspect,
-  rank_idx = EXCLUDED.rank_idx,
-  rank_tier = EXCLUDED.rank_tier,
-  rank_div = EXCLUDED.rank_div,
-  updated_at = NOW();
+VALUES ('7ceee0d2-d938-4106-880e-dbb7e976bb47', 0, 0, 0, 100, 'neutral', 1.0, 0, 0, 0, 0, 0, 'int', 0, 'Bronze', 1);
 
 INSERT INTO user_settings (user_id, confetti_enabled, gamification_config)
-VALUES ('7ceee0d2-d938-4106-880e-dbb7e976bb47', false, '{}')
-ON CONFLICT (user_id) DO UPDATE SET
-  confetti_enabled = EXCLUDED.confetti_enabled,
-  gamification_config = EXCLUDED.gamification_config,
-  updated_at = NOW();
+VALUES ('7ceee0d2-d938-4106-880e-dbb7e976bb47', false, '{}');
 
 -- 6. VERIFICAR SE OS DADOS FORAM INSERIDOS
 SELECT 'USER_GAMIFICATION' as tabela, COUNT(*) as total_registros FROM user_gamification;
