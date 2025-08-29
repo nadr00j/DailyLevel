@@ -105,7 +105,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         console.log('Usuário encontrado na sessão:', session.user.id)
         // O onAuthStateChange já vai lidar com a configuração do usuário
         // Aqui só precisamos definir isLoading como false
+        console.log('Definindo isLoading como false...')
         set({ isLoading: false })
+        console.log('isLoading definido como false com sucesso')
       } else {
         console.log('Nenhuma sessão ativa')
         set({ isLoading: false })
@@ -122,16 +124,20 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   console.log('Auth state change:', event, session?.user?.id)
   
   if (event === 'SIGNED_IN' && session?.user) {
+    console.log('Processando SIGNED_IN...')
     // Buscar username do banco de dados
     try {
       const username = await getUsernameFromDatabase(session.user.id)
+      console.log('Username obtido:', username)
       
+      console.log('Atualizando estado do store...')
       useAuthStore.setState({
         user: session.user,
         username: username || 'Nadr00J',
         isAuthenticated: true,
         isLoading: false
       })
+      console.log('Estado do store atualizado com sucesso')
     } catch (error) {
       console.error('Erro no onAuthStateChange:', error)
       useAuthStore.setState({
@@ -142,6 +148,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       })
     }
   } else if (event === 'SIGNED_OUT') {
+    console.log('Processando SIGNED_OUT...')
     useAuthStore.setState({
       user: null,
       username: null,
