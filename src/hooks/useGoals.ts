@@ -141,8 +141,7 @@ export const useGoals = () => {
   }, []);
 
   const getNextMilestone = useCallback((goal: Goal): Milestone | null => {
-    const incompleteMilestones = goal.milestones
-      .filter(m => !m.completed)
+    const incompleteMilestones = (goal.milestones || []).filter(m => !m.completed)
       .sort((a, b) => a.value - b.value);
     
     return incompleteMilestones[0] || null;
