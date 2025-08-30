@@ -70,7 +70,8 @@ export async function migrateLocalDataToSupabase(userId: string): Promise<Migrat
         const savedGoal = await db.saveGoal(userId, goal)
         
         // Migrar marcos
-        for (const milestone of goal.milestones) {
+        const milestones = Array.isArray(goal.milestones) ? goal.milestones : [];
+        for (const milestone of milestones) {
           try {
             await db.saveMilestone(savedGoal.id, milestone)
           } catch (error) {

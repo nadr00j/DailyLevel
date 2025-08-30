@@ -12,7 +12,12 @@ export const useGoals = () => {
     try {
       setLoading(true);
       const storedGoals = await storage.getGoals();
-      setGoals(storedGoals);
+      // Garantir campo milestones como array
+      const sanitizedGoals = (storedGoals || []).map(goal => ({
+        ...goal,
+        milestones: Array.isArray(goal.milestones) ? goal.milestones : []
+      }));
+      setGoals(sanitizedGoals);
     } catch (error) {
       console.error('Failed to load goals:', error);
     } finally {
