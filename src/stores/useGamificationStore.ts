@@ -20,6 +20,8 @@ import { toast } from '@/components/ui/use-toast';
 import { useVictoryDialog } from '@/stores/useVictoryDialog';
 import { usePixelBuddyStore } from '@/stores/usePixelBuddyStore';
 import { useHabitStore } from './useHabitStore';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { dataSyncService } from '@/lib/DataSyncService';
 
 // util: classifica categoria a partir das tags
 function resolveCategory(tags: string[] | undefined, cfg: GamificationConfig): string | undefined {
@@ -31,7 +33,7 @@ function resolveCategory(tags: string[] | undefined, cfg: GamificationConfig): s
     }
   }
   
-  return undefined;
+  return tags[0];
 }
 
 function rollingSum(history: { ts: number; xp: number }[], days = 30) {
@@ -171,7 +173,7 @@ export const useGamificationStore = create<GamificationState>()(
         xp: 0,
         coins: 0,
         xp30d: 0,
-        vitality: 0,
+        vitality: 10,
         mood: 'neutral',
         xpMultiplier: 1,
         xpMultiplierExpiry: 0,
@@ -189,6 +191,8 @@ export const useGamificationStore = create<GamificationState>()(
           console.log('[AddXP Debug] Função addXp chamada com:', { type, tags });
           
           const state = get();
+          // Capturar rank anterior
+          const prevRankIdx = state.rankIdx;
           // Usar a configuração atualizada em vez da persistida
           const cfg = defaultConfig;
           
@@ -220,16 +224,10 @@ export const useGamificationStore = create<GamificationState>()(
             newCoins
           });
           
-          // Calcular novo rank
-          let newRankIdx = 0;
-          let newRank = { tier: 'Bronze', div: 1 };
-          try {
-            newRankIdx = Math.floor(newXp / 200);
-            newRank = calcRank(newRankIdx);
-            console.log('[AddXP Debug] Rank calculado:', { newRankIdx, newRank });
-          } catch (error) {
-            console.error('[AddXP Debug] Erro ao calcular rank:', error);
-          }
+          // Calcular novo rank baseado no XP total
+          const { idx: newRankIdx, tier: newRankTier, div: newRankDiv } = calcRank(newXp);
+          const newRank = { tier: newRankTier, div: newRankDiv };
+          console.log('[AddXP Debug] Rank calculado:', { newRankIdx, newRank });
           
           // Garantir que tags seja um array
           const safeTags = tags || [];
@@ -294,8 +292,8 @@ export const useGamificationStore = create<GamificationState>()(
               soc: newSoc,
               aspect: newAspect,
               rankIdx: newRankIdx,
-              rankTier: newRank.tier,
-              rankDiv: newRank.div,
+              rankTier: newRankTier,
+              rankDiv: newRankDiv,
               history: [...state.history, {
                 ts: now,
                 type,
@@ -316,6 +314,13 @@ export const useGamificationStore = create<GamificationState>()(
               }]
             });
             console.log('[AddXP Debug] Estado atualizado com sucesso');
+            // Disparar diálogo de vitória se subiu de rank
+            if (newRankIdx > prevRankIdx) {
+              const roman = ['I','II','III'];
+              const divLabel = newRank.div === 0 ? '' : roman[newRank.div - 1];
+              const iconPath = `/ranks/${newRank.tier.toUpperCase()} ${divLabel}.png`;
+              useVictoryDialog.getState().show('Promoção de Rank!', 0, iconPath);
+            }
           } catch (error) {
             console.error('[AddXP Debug] Erro ao atualizar estado:', error);
           }

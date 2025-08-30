@@ -4,6 +4,8 @@ import { db } from './database';
 import { useGamificationStore } from '@/stores/useGamificationStore';
 import { useShopStore } from '@/stores/useShopStore';
 import localforage from 'localforage';
+import { useHabitStore } from '@/stores/useHabitStore';
+import { useGoalStore } from '@/stores/useGoalStore';
 
 export async function loadDataFromSupabase(userId: string): Promise<void> {
   try {
@@ -13,23 +15,8 @@ export async function loadDataFromSupabase(userId: string): Promise<void> {
     const gamificationData = await db.getGamificationData(userId);
     if (gamificationData) {
       console.log('Dados de gamificação carregados:', gamificationData);
-      useGamificationStore.setState({
-        xp: gamificationData.xp,
-        coins: gamificationData.coins,
-        xp30d: gamificationData.xp30d,
-        vitality: gamificationData.vitality,
-        mood: gamificationData.mood,
-        xpMultiplier: gamificationData.xpMultiplier,
-        xpMultiplierExpiry: gamificationData.xpMultiplierExpiry,
-        str: gamificationData.str,
-        int: gamificationData.int,
-        cre: gamificationData.cre,
-        soc: gamificationData.soc,
-        aspect: gamificationData.aspect,
-        rankIdx: gamificationData.rankIdx,
-        rankTier: gamificationData.rankTier,
-        rankDiv: gamificationData.rankDiv
-      });
+      useGamificationStore.setState(gamificationData);
+      useGamificationStore.getState().init();
     }
 
     // 2. Carregar configurações do usuário
@@ -53,15 +40,22 @@ export async function loadDataFromSupabase(userId: string): Promise<void> {
     if (habits && habits.length > 0) {
       console.log('Hábitos carregados:', habits.length);
       await storage.saveHabits(habits);
-      
-      // Converter para o formato do store de hábitos
+      // Atualizar Zustand store de hábitos com logs de completions
       const habitsObject = habits.reduce((acc: any, habit: any) => {
         acc[habit.id] = habit;
         return acc;
       }, {});
-      
+      const logs: Record<string, Record<string, number>> = {};
+      habits.forEach((habit: any) => {
+        const dates: string[] = habit.completedDates || [];
+        logs[habit.id] = dates.reduce((acc: Record<string, number>, date: string) => {
+          acc[date] = (acc[date] || 0) + 1;
+          return acc;
+        }, {});
+      });
+      useHabitStore.setState({ habits: habitsObject, logs, habitCategoryOrder: [] });
       await localforage.setItem('dl.habits.v1', {
-        state: { habits: habitsObject, logs: {}, habitCategoryOrder: [] },
+        state: { habits: habitsObject, logs, habitCategoryOrder: [] },
         version: 0
       });
     }
@@ -71,6 +65,7 @@ export async function loadDataFromSupabase(userId: string): Promise<void> {
     if (goals && goals.length > 0) {
       console.log('Metas carregadas:', goals.length);
       await storage.saveGoals(goals);
+      useGoalStore.setState({ goals });
     }
 
     // 6. Carregar itens da loja

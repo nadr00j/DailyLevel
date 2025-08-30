@@ -110,7 +110,7 @@ export const HabitsView = () => {
   const groupByCategory = (list: Habit[])=>{
     const map: Record<string, Habit[]> = {};
     list.forEach(h=>{
-      const key = h.categories[0] || 'Sem Categoria';
+      const key = Array.isArray(h.categories) && h.categories.length > 0 ? h.categories[0] : 'Sem Categoria';
       if(!map[key]) map[key]=[];
       map[key].push(h);
     });

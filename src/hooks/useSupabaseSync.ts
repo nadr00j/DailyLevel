@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { db } from '@/lib/database';
 import { storage } from '@/lib/storage';
@@ -34,8 +34,10 @@ export function useSupabaseSync() {
   }, []);
 
   // Carregar dados quando usuário fizer login
+  const loadedRef = useRef(false);
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated && user && !loadedRef.current) {
+      loadedRef.current = true;
       loadFromSupabase(user.id);
     }
   }, [isAuthenticated, user, loadFromSupabase]);

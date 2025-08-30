@@ -6,6 +6,7 @@ import { useHabitStore } from '@/stores/useHabitStore';
 import { db } from '@/lib/database';
 import { storage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
+import { dataSyncService } from '@/lib/DataSyncService';
 
 // Debounce function
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number): T {
@@ -33,165 +34,34 @@ export function useAutoSync() {
   // Função para sincronizar dados para o Supabase
   const syncToSupabase = async (userId: string) => {
     try {
-      console.log('🔍 [DEBUG] syncToSupabase iniciado para userId:', userId);
-      
-      // Verificar conectividade antes de sincronizar
-      const isConnected = await checkSupabaseConnection();
-      if (!isConnected) {
-        console.log('⏳ Auto-sync: Aguardando conexão com Supabase...');
+      const online = await checkSupabaseConnection();
+      if (!online) {
+        console.warn('Auto-sync: Sem conexão com Supabase, pulando sync.');
         return;
       }
-
-      console.log('🔄 Auto-sync: Sincronizando dados para o Supabase...');
-      
-      // 1. Sincronizar dados de gamificação
-      const gamificationState = useGamificationStore.getState();
-      await db.saveGamificationData({
-        userId,
-        xp: gamificationState.xp,
-        coins: gamificationState.coins,
-        xp30d: gamificationState.xp30d,
-        vitality: gamificationState.vitality,
-        mood: gamificationState.mood,
-        xpMultiplier: gamificationState.xpMultiplier,
-        xpMultiplierExpiry: gamificationState.xpMultiplierExpiry,
-        str: gamificationState.str,
-        int: gamificationState.int,
-        cre: gamificationState.cre,
-        soc: gamificationState.soc,
-        aspect: gamificationState.aspect,
-        rankIdx: gamificationState.rankIdx,
-        rankTier: gamificationState.rankTier,
-        rankDiv: gamificationState.rankDiv
-      });
-
-      // 2. Sincronizar configurações do usuário
-      const shopState = useShopStore.getState();
-      await db.saveUserSettings({
-        userId,
-        confettiEnabled: shopState.confettiEnabled,
-        gamificationConfig: {}
-      });
-
-      // 3. Sincronizar tarefas
-      const tasks = await storage.getTasks();
-      for (const task of tasks) {
-        await db.saveTask(userId, task);
-      }
-
-      // 4. Sincronizar hábitos do store Zustand
-      const habitStoreState = useHabitStore.getState();
-      const zustandHabits = Object.values(habitStoreState.habits);
-      console.log('🔍 [DEBUG] Hábitos no Zustand store:', zustandHabits.length, zustandHabits);
-      
-      for (const habit of zustandHabits) {
-        console.log('🔍 [DEBUG] Sincronizando hábito:', habit.id, habit.name, {
-          color: habit.color,
-          iconType: habit.iconType,
-          iconValue: habit.iconValue,
-          categories: habit.categories,
-          targetCount: habit.targetCount,
-          targetInterval: habit.targetInterval,
-          activeDays: habit.activeDays,
-          order: habit.order,
-          description: habit.description
-        });
-        
-        console.log('🔍 [DEBUG] Valores específicos do ícone:', {
-          iconType: habit.iconType,
-          iconValue: habit.iconValue,
-          iconTypeType: typeof habit.iconType,
-          iconValueType: typeof habit.iconValue,
-          iconValueLength: habit.iconValue?.length
-        });
-        
-        console.log('🔍 [DEBUG] Todos os campos do hábito no Zustand:', Object.keys(habit));
-        
-        // Converter do formato Zustand para o formato do banco
-        const dbHabit = {
-          id: habit.id,
-          title: habit.name,
-          description: habit.description || '',
-          color: habit.color || '#3B82F6',
-          icon_type: habit.iconType || 'emoji',
-          icon_value: habit.iconValue || '✨', // Usar emoji mais neutro como fallback
-          categories: habit.categories || [],
-          frequency: habit.targetInterval === 'daily' ? 'daily' : 'weekly',
-          target_days: habit.activeDays || [0,1,2,3,4,5,6],
-          target_count: habit.targetCount || 1,
-          order_index: habit.order || 0,
-          streak: 0,
-          longest_streak: 0,
-          is_active: true,
-          created_at: habit.createdAt,
-          updated_at: new Date().toISOString()
-        };
-        
-        console.log('🔍 [DEBUG] Dados do hábito para o banco:', dbHabit);
-        
-        try {
-          const result = await db.saveHabit(userId, dbHabit as any);
-          console.log('✅ [DEBUG] Hábito salvo com sucesso:', result);
-        } catch (error) {
-          console.error('❌ [DEBUG] Erro ao salvar hábito:', error);
-        }
-      }
-
-      // 5. Sincronizar metas
-      const goals = await storage.getGoals();
-      for (const goal of goals) {
-        await db.saveGoal(userId, goal);
-      }
-
-      // 6. Sincronizar apenas itens da loja que foram modificados (comprados/vendidos)
-      const shopItemsState = useShopStore.getState();
-      console.log('🔍 [DEBUG] Verificando itens da loja para sincronização:', shopItemsState.items.length);
-      
-      // Sincronizar apenas itens que foram comprados ou vendidos (não os itens padrão)
-      const modifiedItems = shopItemsState.items.filter(item => 
-        item.purchased === true || // Itens comprados
-        (item.id.startsWith('user_') || item.id.includes('custom')) // Itens customizados
-      );
-      
-      console.log('🔍 [DEBUG] Itens modificados para sincronizar:', modifiedItems.length);
-      
-      for (const item of modifiedItems) {
-        try {
-          const dbItem = { ...item, userId } as any;
-          await db.saveShopItem(dbItem);
-          console.log('✅ [DEBUG] Item da loja salvo:', item.name);
-        } catch (error) {
-          console.error('❌ [DEBUG] Erro ao salvar item da loja:', error);
-        }
-      }
-
+      console.log('🔄 Auto-sync: Sincronizando todos os dados via DataSyncService...');
+      await dataSyncService.syncAll(userId);
       console.log('✅ Auto-sync: Dados sincronizados com sucesso!');
-      
     } catch (error) {
-      console.error('❌ Auto-sync: Erro ao sincronizar:', error);
+      console.error('❌ Auto-sync: Erro ao sincronizar dados via DataSyncService:', error);
     }
   };
 
   // Função debounced para sincronização
   const debouncedSync = debounce(syncToSupabase, 2000); // 2 segundos de delay
 
-  // Monitorar mudanças no store de gamificação
+  // Assina mudanças no store de gamificação para auto-sync
   useEffect(() => {
     if (!isAuthenticated || !user) return;
-
-    // Aguardar um pouco para garantir que a conexão com Supabase esteja estabelecida
-    const initialDelay = setTimeout(() => {
-      const unsubscribe = useGamificationStore.subscribe(
-        (state) => {
-          // Sincronizar quando houver mudanças
-          debouncedSync(user.id);
-        }
-      );
-
-      return unsubscribe;
-    }, 3000); // 3 segundos de delay inicial
-
-    return () => clearTimeout(initialDelay);
+    const store = useGamificationStore;
+    let prev = { xp: store.getState().xp, coins: store.getState().coins };
+    const unsubscribe = store.subscribe((state) => {
+      if (state.xp !== prev.xp || state.coins !== prev.coins) {
+        prev = { xp: state.xp, coins: state.coins };
+        debouncedSync(user.id);
+      }
+    });
+    return unsubscribe;
   }, [isAuthenticated, user, debouncedSync]);
 
   // Monitorar mudanças no store da loja
@@ -213,24 +83,28 @@ export function useAutoSync() {
     return () => clearTimeout(initialDelay);
   }, [isAuthenticated, user, debouncedSync]);
 
-  // Monitorar mudanças no store de hábitos
+  // Assina mudanças no store de hábitos para auto-sync
   useEffect(() => {
     if (!isAuthenticated || !user) return;
+    const store = useHabitStore;
+    let prevLogs = store.getState().logs;
+    const unsubscribe = store.subscribe((state) => {
+      if (JSON.stringify(state.logs) !== JSON.stringify(prevLogs)) {
+        prevLogs = state.logs;
+        debouncedSync(user.id);
+      }
+    });
+    return unsubscribe;
+  }, [isAuthenticated, user, debouncedSync]);
 
-    // Aguardar um pouco para garantir que a conexão com Supabase esteja estabelecida
-    const initialDelay = setTimeout(() => {
-      const unsubscribe = useHabitStore.subscribe(
-        (state) => {
-          console.log('🔍 [DEBUG] useHabitStore mudou, disparando sync:', state.habits);
-          // Sincronizar quando houver mudanças
-          debouncedSync(user.id);
-        }
-      );
-
-      return unsubscribe;
-    }, 3000); // 3 segundos de delay inicial
-
-    return () => clearTimeout(initialDelay);
+  // Monitorar mudanças nos logs de hábitos para sincronizar incrementos parciais
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    // Sincronizar sempre que houver mudança no store de hábitos (logs ou outros)
+    const unsubscribe = useHabitStore.subscribe((state) => {
+      debouncedSync(user.id);
+    });
+    return unsubscribe;
   }, [isAuthenticated, user, debouncedSync]);
 
   // Sincronizar antes de sair da página
@@ -245,6 +119,16 @@ export function useAutoSync() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isAuthenticated, user]);
+
+  // Polling para sincronizar tarefas e metas (captura operações em storage)
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    const interval = setInterval(() => {
+      console.log('⏱️ Polling Auto-sync para garantir sincronização de tasks/goals...');
+      debouncedSync(user.id);
+    }, 10000); // a cada 10 segundos
+    return () => clearInterval(interval);
+  }, [isAuthenticated, user, debouncedSync]);
 
   return {
     syncToSupabase: (userId: string) => debouncedSync(userId)

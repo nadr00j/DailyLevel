@@ -45,73 +45,10 @@ export default function Index() {
     }
   }, [isAuthenticated]);
 
-  // Migrar dados locais quando usuário fizer login
-  useEffect(() => {
-    if (isAuthenticated && user && !isMigrating && !migrationCompleted) {
-      handleDataMigration();
-    }
-  }, [isAuthenticated, user]);
+  // Removida migração automática local -> Supabase para evitar requisições repetidas
+  // useSupabaseSync irá carregar dados do Supabase
 
-  const handleDataMigration = async () => {
-    if (!user) return;
-    
-    setIsMigrating(true);
-    
-    try {
-      // Verificar se há dados locais para migrar (apenas uma vez)
-      const localTasks = await storage.getTasks();
-      const localHabits = await storage.getHabits();
-      const localGoals = await storage.getGoals();
-      
-      const hasLocalData = localTasks.length > 0 || localHabits.length > 0 || localGoals.length > 0;
-      
-      if (hasLocalData) {
-        console.log('Dados locais encontrados, executando migração...');
-        const result = await migrateLocalDataToSupabase(user.id);
-        
-        if (result.success) {
-          toast({
-            title: 'Migração concluída!',
-            description: `Migrados: ${result.migratedData?.tasks || 0} tarefas, ${result.migratedData?.habits || 0} hábitos, ${result.migratedData?.goals || 0} metas`,
-          });
-          
-          // Limpar dados locais após migração bem-sucedida
-          await storage.clearAll();
-          console.log('Dados locais limpos após migração');
-        } else {
-          toast({
-            title: 'Migração não necessária',
-            description: result.message,
-            variant: 'default',
-          });
-        }
-      } else {
-        console.log('Nenhum dado local encontrado, pulando migração');
-      }
-      
-      // SEMPRE inicializar dados padrão no Supabase
-      await initializeUserData(user.id);
-      
-      // Carregar dados do Supabase para o localStorage
-      await loadFromSupabase(user.id);
-      
-      toast({
-        title: 'App inicializado!',
-        description: 'Dados carregados do Supabase com sucesso.',
-      });
-      
-    } catch (error) {
-      console.error('Erro na migração:', error);
-      toast({
-        title: 'Erro na inicialização',
-        description: 'Não foi possível carregar os dados.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsMigrating(false);
-      setMigrationCompleted(true);
-    }
-  };
+  // Desabilitado handleDataMigration para usar apenas useSupabaseSync
 
   // Mostrar loading enquanto inicializa
   if (isLoading) {

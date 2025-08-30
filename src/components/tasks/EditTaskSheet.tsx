@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
 import { Task } from "@/types";
-import { AlertCircle, Tag, ChevronDown } from "lucide-react";
+import { AlertCircle, Tag, ChevronDown, Clock, Calendar, ArrowRight } from "lucide-react";
 import { WeekDayPicker } from "@/components/pickers/WeekDayPicker";
 import { cn } from "@/lib/utils";
 import * as LucideIcons from 'lucide-react';
@@ -33,7 +33,7 @@ interface EditTaskSheetProps {
   task: Task | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (id:string, data: Partial<Task>)=>Promise<void>;
+  onSave: (task: Task)=>Promise<void>;
 }
 
 export const EditTaskSheet = ({ task, open, onOpenChange, onSave }: EditTaskSheetProps) => {
@@ -42,6 +42,7 @@ export const EditTaskSheet = ({ task, open, onOpenChange, onSave }: EditTaskShee
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<Task["priority"]>("low");
   const [category, setCategory] = useState<string>("");
+  const [bucket, setBucket] = useState<Task['bucket']>(() => task?.bucket ?? 'today');
   const [weekStart, setWeekStart] = useState<string | undefined>();
   const [weekEnd, setWeekEnd] = useState<string | undefined>();
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -77,20 +78,26 @@ export const EditTaskSheet = ({ task, open, onOpenChange, onSave }: EditTaskShee
       setShowAdvanced(false);
       setShowCustomCat(false);
       setCustomCat('');
+      setBucket(task.bucket);
     }
   }, [task]);
 
   if (!task) return null;
 
   const handleSave = async () => {
-    await onSave(task.id, {
+    // Cria objeto completo de Task para salvar
+    const updatedTask: Task = {
+      ...task!,
       title: title.trim(),
       description: description.trim(),
       priority,
       category: category || undefined,
-      weekStart: task.bucket==='week' ? weekStart : undefined,
-      weekEnd: task.bucket==='week' ? weekEnd : undefined,
-    });
+      bucket,
+      weekStart: bucket==='week' ? weekStart : undefined,
+      weekEnd: bucket==='week' ? weekEnd : undefined,
+      updatedAt: new Date().toISOString(),
+    };
+    await onSave(updatedTask);
     onOpenChange(false);
   };
 
@@ -170,14 +177,40 @@ export const EditTaskSheet = ({ task, open, onOpenChange, onSave }: EditTaskShee
             )}
           </div>
 
-          {/* Se bucket Semana, mostrar seletor logo abaixo da descrição */}
-          {task.bucket==='week' && (
-            <div className="space-y-2">
-              <label className="text-sm mb-1 block">Dias da semana</label>
-              <WeekDayPicker start={weekStart} end={weekEnd} onChange={(s,e)=>{setWeekStart(s); setWeekEnd(e);}} />
-            </div>
-          )}
+          {/* Removido WeekDayPicker daqui para reposicionar */}
 
+          {/* Seção 'Adicionar em' fora das opções avançadas */}
+          <div className="mt-6 mb-4">
+            <label className="text-sm mb-2 block">Adicionar em</label>
+          <ToggleGroup type="single" value={bucket} onValueChange={(v) => setBucket(v as Task['bucket'])} className="w-full">
+            <ToggleGroupItem value="today" className="flex-1 py-8 my-3 rounded-lg border data-[state=on]:ring-2 data-[state=on]:ring-success data-[state=on]:text-success">
+              <div className="flex flex-col items-center gap-1">
+                <Clock size={18} />
+                <span className="text-xs">Hoje</span>
+              </div>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="week" className="flex-1 py-8 my-3 rounded-lg border data-[state=on]:ring-2 data-[state=on]:ring-success data-[state=on]:text-success">
+              <div className="flex flex-col items-center gap-1">
+                <Calendar size={18} />
+                <span className="text-xs">Semana</span>
+              </div>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="later" className="flex-1 py-8 my-3 rounded-lg border data-[state=on]:ring-2 data-[state=on]:ring-success data-[state=on]:text-success">
+              <div className="flex flex-col items-center gap-1">
+                <ArrowRight size={18} />
+                <span className="text-xs">Depois</span>
+              </div>
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+        {/* WeekDayPicker reposicionado abaixo de 'Adicionar em' */}
+        {bucket==='week' && (
+          <div className="space-y-2 mt-4 mb-8">
+            <label className="text-sm mb-1 block">Dias da semana</label>
+            <WeekDayPicker start={weekStart} end={weekEnd} onChange={(s,e)=>{setWeekStart(s); setWeekEnd(e);}} />
+          </div>
+        )}
+        {/* Fecha o container principal */}
         </div>
         <SheetFooter>
           <Button onClick={handleSave} disabled={!title.trim()}>Salvar</Button>

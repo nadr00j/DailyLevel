@@ -1,63 +1,60 @@
 import { supabase } from './supabase'
-import { Task, Habit, Goal, Milestone } from '@/types'
+import { Task, Goal, Milestone } from '@/types';
+import type { Habit as AppHabit } from '@/types/habit';
+import type { HabitDb } from '@/types/HabitDb';
 import type { ShopItem } from '@/types';
-import type { Habit as AppHabit, HabitDb } from '@/types';
 import type { Task as AppTask, TaskDb, Goal as AppGoal, GoalDb } from '@/types';
-import type { 
-  GamificationData as AppGamificationData,
-  GamificationDb,
-  UserSettings as AppUserSettings,
-  UserSettingsDb
-} from '@/types';
+import type { GamificationData as AppGamificationData } from '@/types/GamificationData';
+import type { GamificationDb } from '@/types/GamificationDb';
+import type { UserSettings as AppUserSettings } from '@/types';
+import type { UserSettingsDb } from '@/types/UserSettingsDb';
 
+// Convert HabitDb row to Habit (index.ts) format
 function toHabit(db: HabitDb): AppHabit {
+  const completedDates = (db as any).habit_completions?.map((c: any) => c.completion_date) || [];
   return {
     id: db.id,
-    title: db.title,
-    description: db.description ?? '',
-    color: db.color ?? '#3B82F6',
-    icon_type: db.icon_type,
-    icon_value: db.icon_value,
-    categories: db.categories ?? [],
-    frequency: db.frequency,
-    target_days: db.target_days,
-    target_count: db.target_count,
-    order_index: db.order_index,
-    streak: db.streak,
-    longest_streak: db.longest_streak,
-    is_active: db.is_active,
-    created_at: db.created_at,
-    updated_at: db.updated_at,
-    archived_at: db.archived_at,
-    completedDates: db.habit_completions?.map(c => c.completion_date) ?? []
-  } as unknown as AppHabit;
+    name: db.title,
+    description: db.description || '',
+    color: db.color || '#3B82F6',
+    iconType: (db.icon_type as any) || 'icon',
+    iconValue: (db.icon_value as any) || '',
+    categories: db.categories || [],
+    targetInterval: db.frequency as any,
+    targetCount: db.target_count || 1,
+    createdAt: db.created_at,
+    archivedAt: db.archived_at,
+    activeDays: db.target_days || [],
+    order: db.order_index,
+    completedDates,
+  } as AppHabit;
 }
 
 function toHabitDb(userId: string, habit: AppHabit): HabitDb {
   return {
     id: habit.id,
     user_id: userId,
-    title: habit.title,
+    title: (habit as any).title ?? habit.name,
     description: habit.description,
     color: habit.color,
-    icon_type: (habit as any).icon_type,
-    icon_value: (habit as any).icon_value,
-    categories: (habit as any).categories,
-    frequency: habit.frequency,
-    target_days: (habit as any).target_days,
-    target_count: (habit as any).target_count,
-    order_index: (habit as any).order_index,
-    streak: habit.streak,
-    longest_streak: habit.longestStreak ?? (habit as any).longest_streak,
-    is_active: (habit as any).is_active ?? true,
-    created_at: habit.createdAt ?? (habit as any).created_at,
+    icon_type: habit.iconType,
+    icon_value: habit.iconValue,
+    categories: habit.categories,
+    frequency: habit.targetInterval,
+    target_days: habit.activeDays,
+    target_count: habit.targetCount,
+    order_index: habit.order,
+    streak: (habit as any).streak ?? 0,
+    longest_streak: (habit as any).longestStreak ?? 0,
+    is_active: (habit as any).isActive ?? true,
+    created_at: habit.createdAt,
     updated_at: new Date().toISOString(),
-    archived_at: (habit as any).archived_at
+    archived_at: habit.archivedAt
   } as HabitDb;
 }
 
 function toTaskDb(userId: string, task: AppTask): TaskDb {
-  return {
+  const dbObj: any = {
     id: task.id,
     user_id: userId,
     title: task.title,
@@ -65,7 +62,6 @@ function toTaskDb(userId: string, task: AppTask): TaskDb {
     bucket: task.bucket,
     completed: task.completed,
     priority: task.priority,
-    category: task.category,
     due_date: task.dueDate,
     week_start: task.weekStart,
     week_end: task.weekEnd,
@@ -74,6 +70,11 @@ function toTaskDb(userId: string, task: AppTask): TaskDb {
     created_at: task.createdAt,
     updated_at: new Date().toISOString()
   };
+  // Incluir categoria somente se definimos no supabase
+  if (task.category) {
+    dbObj.category = task.category;
+  }
+  return dbObj as TaskDb;
 }
 
 function toTask(db: TaskDb): AppTask {
@@ -288,19 +289,18 @@ export class DatabaseService {
   }
 
   // ===== HABITS =====
-  async getHabits(userId: string): Promise<Habit[]> {
+  async getHabits(userId: string): Promise<AppHabit[]> {
     const { data: habits, error } = await supabase
       .from('habits')
-      .select(`*, habit_completions(completion_date)`) // relation
+      .select('*, habit_completions(completion_date)')
       .eq('user_id', userId)
-      .order('created_at', { ascending: true })
+      .order('order_index', { ascending: true });
+    if (error) throw error;
 
-    if (error) throw error
-
-    return (habits || []).map(toHabit)
+    return (habits || []).map(toHabit);
   }
 
-  async saveHabit(userId: string, habit: Habit): Promise<Habit> {
+  async saveHabit(userId: string, habit: AppHabit): Promise<AppHabit> {
     console.log('🔍 [DEBUG] saveHabit chamado:', { userId, habit });
 
     const upsertData = toHabitDb(userId, habit as any);
@@ -310,8 +310,8 @@ export class DatabaseService {
     const { data, error } = await supabase
       .from('habits')
       .upsert(upsertData)
-      .select()
-      .single()
+      .select(`*, habit_completions(completion_date)`)
+      .single();
 
     if (error) {
       console.error('❌ [DEBUG] Erro no saveHabit:', error);
@@ -320,20 +320,27 @@ export class DatabaseService {
 
     console.log('✅ [DEBUG] saveHabit sucesso:', data);
 
+    // map HabitDb to AppHabit
     return {
       id: data.id,
-      title: data.title,
-      description: data.description,
-      color: data.color || '#3B82F6', // Default color if column doesn't exist
-      frequency: data.frequency,
-      targetDays: data.target_days,
-      streak: data.streak,
-      longestStreak: data.longest_streak,
-      completedDates: [], // Will be loaded separately
+      name: data.title,
+      description: data.description ?? '',
+      color: data.color || '#3B82F6',
+      iconType: data.icon_type as 'icon' | 'emoji',
+      iconValue: data.icon_value || '',
+      categories: data.categories ?? [],
+      targetInterval: data.frequency,
+      targetCount: data.target_count ?? 1,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
+      archivedAt: data.archived_at,
+      activeDays: data.target_days,
+      order: data.order_index,
+      streak: data.streak,
+      longestStreak: data.longest_streak,
+      completedDates: (data.habit_completions || []).map((c: any) => c.completion_date),
       isActive: data.is_active
-    }
+    } as AppHabit;
   }
 
   async completeHabit(habitId: string, date: string): Promise<void> {
@@ -483,12 +490,12 @@ export class DatabaseService {
     }))
   }
 
-  async saveShopItem(item: ShopItem): Promise<ShopItem> {
+  async saveShopItem(userId: string, item: ShopItem): Promise<ShopItem> {
     const { data, error } = await supabase
       .from('shop_items')
       .upsert({
         id: item.id,
-        user_id: item.userId,
+        user_id: userId,
         name: item.name,
         description: item.description,
         price: item.price,

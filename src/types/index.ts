@@ -20,17 +20,21 @@ export interface Task {
 
 export interface Habit {
   id: string;
-  title: string;
+  name: string;        // nome do hábito
   description?: string;
-  color: string;
-  frequency: 'daily' | 'weekly';
-  targetDays?: number[]; // 0-6 for days of week
+  color: string;       // cor do hábito
+  iconType: 'icon' | 'emoji';
+  iconValue: string;   // nome do ícone ou emoji
+  categories: string[];
+  targetInterval: 'daily' | 'weekly' | 'monthly';
+  targetCount: number;
+  createdAt: string;
+  archivedAt?: string;
+  activeDays?: number[];
+  order?: number;
+  completedDates: string[];
   streak: number;
   longestStreak: number;
-  completedDates: string[]; // ISO dates in local timezone
-  createdAt: string;
-  updatedAt: string;
-  isActive: boolean;
 }
 
 export interface Goal {

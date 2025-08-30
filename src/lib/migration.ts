@@ -48,7 +48,8 @@ export async function migrateLocalDataToSupabase(userId: string): Promise<Migrat
         const savedHabit = await db.saveHabit(userId, habit)
         
         // Migrar datas de conclusão
-        for (const date of habit.completedDates) {
+        const dates = Array.isArray((habit as any).completedDates) ? (habit as any).completedDates : [];
+        for (const date of dates) {
           try {
             await db.completeHabit(savedHabit.id, date)
           } catch (error) {

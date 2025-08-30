@@ -76,7 +76,7 @@ export const HabitCreateModal: React.FC<Props> = ({ open, onOpenChange, habit })
   useEffect(()=>{
     if(open){
       if(habit){
-        setName(habit.name);
+        setName(habit.name ?? '');
         setDescription(habit.description||'');
         setColor(habit.color);
         setIconType(habit.iconType);
@@ -95,7 +95,7 @@ export const HabitCreateModal: React.FC<Props> = ({ open, onOpenChange, habit })
     }
   },[open,habit]);
 
-  const canSave = !!name.trim() && !!color && !!iconValue;
+  const canSave = !!name?.trim() && !!color && !!iconValue;
 
   const handleSave = () => {
     if(!canSave) return;

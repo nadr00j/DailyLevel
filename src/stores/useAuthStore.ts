@@ -39,7 +39,6 @@ async function getUsernameFromDatabase(userId: string): Promise<string | null> {
         .select('username')
         .eq('id', userId)
         .maybeSingle()
-        .abortSignal(AbortSignal.timeout(1000)) // 1 segundo apenas
       
       if (!error && data?.username) {
         console.log('Username encontrado via consulta direta:', data.username)

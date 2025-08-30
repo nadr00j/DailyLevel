@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import localforage from 'localforage';
 import { formatISO } from 'date-fns';
-import type { Habit, HabitLog, TargetInterval } from '@/types/habit';
+import type { Habit, HabitLog } from '@/types/habit';
 import { generateId } from '@/lib/uuid';
 import { useGamificationStore } from '@/stores/useGamificationStore';
 

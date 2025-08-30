@@ -1,100 +1,54 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTaskStore } from '@/stores/useTaskStore';
 import { useGamificationStore } from '@/stores/useGamificationStore';
 import { generateId } from '@/lib/uuid';
-import { Task } from '@/types';
-import { storage } from '@/lib/storage';
+import type { Task } from '@/types';
 import { parseISO } from 'date-fns';
 
 export const useTasks = () => {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
+  const tasks = useTaskStore(state => state.tasks);
+  const addTask = useTaskStore(state => state.addTask);
+  const updateTask = useTaskStore(state => state.updateTask);
+  const deleteTask = useTaskStore(state => state.removeTask);
+  const setTasks = useTaskStore(state => state.setTasks);
+  const loading = false;
 
-  const loadTasks = useCallback(async () => {
-    try {
-      setLoading(true);
-      const storedTasks = await storage.getTasks();
-      setTasks(storedTasks);
-    } catch (error) {
-      console.error('Failed to load tasks:', error);
-    } finally {
-      setLoading(false);
-    }
+  const loadTasks = useCallback(() => {
+    // no-op; tasks are loaded via DataSyncService
   }, []);
 
   const saveTasks = useCallback(async (newTasks: Task[]) => {
     try {
-      await storage.saveTasks(newTasks);
+      await useTaskStore.getState().setTasks(newTasks);
       setTasks(newTasks);
     } catch (error) {
       console.error('Failed to save tasks:', error);
     }
   }, []);
 
-  const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'order'>) => {
+  const createTask = useCallback((taskData: Omit<Task,'id'|'createdAt'|'updatedAt'|'order'>) => {
     const now = new Date().toISOString();
-    const newTask: Task = {
-      ...taskData,
-      id: generateId(),
-      createdAt: now,
-      updatedAt: now,
-      order: tasks.length
-    };
-    
-    const updatedTasks = [...tasks, newTask];
-    await saveTasks(updatedTasks);
+    const newTask: Task = { ...taskData, id: generateId(), createdAt: now, updatedAt: now, order: tasks.length };
+    addTask(newTask);
     return newTask;
-  }, [tasks, saveTasks]);
+  }, [addTask, tasks.length]);
 
-  const updateTask = useCallback(async (id: string, updates: Partial<Task>) => {
-    const updatedTasks = tasks.map(task =>
-      task.id === id
-        ? { ...task, ...updates, updatedAt: new Date().toISOString() }
-        : task
-    );
-    await saveTasks(updatedTasks);
-  }, [tasks, saveTasks]);
+  const editTask = useCallback((task: Task) => updateTask(task), [updateTask]);
 
-  const deleteTask = useCallback(async (id: string) => {
-    const updatedTasks = tasks.filter(task => task.id !== id);
-    await saveTasks(updatedTasks);
-  }, [tasks, saveTasks]);
+  const removeTask = deleteTask;
 
-  const toggleTask = useCallback(async (id: string) => {
-    const addXp = useGamificationStore.getState().addXp;
-    const updatedTasks = tasks.map(task =>
-      task.id === id
-        ? { 
-            ...task, 
-            completed: !task.completed,
-            updatedAt: new Date().toISOString()
-          }
-        : task
-    );
-    await saveTasks(updatedTasks);
+  const toggleTaskStatus = useCallback((id: string) => {
+    const task = tasks.find(t=>t.id===id);
+    if (task) updateTask({ ...task, completed: !task.completed, updatedAt: new Date().toISOString() });
+    if (task && !task.completed) useGamificationStore.getState().addXp('task', task.category?[task.category.toLowerCase()]:[]);
+  }, [tasks, updateTask]);
 
-    const toggled = updatedTasks.find(t=>t.id===id);
-    if (toggled && toggled.completed) {
-      // Criar tags baseadas na categoria da tarefa
-      const tags = toggled.category ? [toggled.category.toLowerCase()] : [];
-      addXp('task', tags);
-    }
-  }, [tasks, saveTasks]);
+  const moveTask = useCallback((id: string, newBucket: Task['bucket']) => {
+    const task = tasks.find(t=>t.id===id);
+    if(task) updateTask({ ...task, bucket: newBucket, updatedAt: new Date().toISOString() });
+  }, [tasks, updateTask]);
 
-  const moveTask = useCallback(async (id: string, newBucket: Task['bucket']) => {
-    const current = tasks.find(t=>t.id===id);
-    if(!current) return;
-
-    let updates: Partial<Task> = { bucket: newBucket };
-    if (newBucket === 'week' && !current.weekStart) {
-      const monday = parseISO(current.weekEnd!);
-      const friday = parseISO(current.weekStart!);
-      updates.weekStart = friday.toISOString().split('T')[0];
-      updates.weekEnd = monday.toISOString().split('T')[0];
-    }
-    await updateTask(id, updates);
-  }, [updateTask, tasks]);
-
-  const reorderTasks = useCallback(async (reorderedTasks: Task[]) => {
+  const reorderTasksStore = useCallback(async (reorderedTasks: Task[]) => {
     const tasksWithNewOrder = reorderedTasks.map((task, index) => ({
       ...task,
       order: index,
@@ -104,8 +58,8 @@ export const useTasks = () => {
   }, [saveTasks]);
 
   useEffect(() => {
-    loadTasks();
-  }, [loadTasks]);
+    // No-op; tasks are hydrated by DataSyncService
+  }, []);
 
   // Computed values
   const todayDate = new Date();
@@ -139,19 +93,31 @@ export const useTasks = () => {
   const laterTasks = tasks.filter(task => task.bucket === 'later').sort((a, b) => a.order - b.order);
   const completedTasks = tasks.filter(task => task.completed);
 
+  // Auto-mover tasks entre buckets com base em datas limite
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    tasks.forEach(t => {
+      if (t.completed) return;
+      // De today para week se passou dueDate
+      if (t.bucket === 'today' && t.dueDate) {
+        const due = t.dueDate.split('T')[0];
+        if (due < today) moveTask(t.id, 'week');
+      }
+      // Não mover semanalmente para 'later'; tarefas semanais permanecem na aba com badge de atraso
+    });
+  }, [tasks, moveTask]);
+
   return {
     tasks,
     todayTasks,
     weekTasks,
     laterTasks,
     completedTasks,
-    loading,
-    addTask,
-    updateTask,
-    deleteTask,
-    toggleTask,
+    addTask: createTask,
+    updateTask: editTask,
+    deleteTask: removeTask,
+    toggleTask: toggleTaskStatus,
     moveTask,
-    reorderTasks,
-    refresh: loadTasks
+    reorderTasks: reorderTasksStore
   };
 };

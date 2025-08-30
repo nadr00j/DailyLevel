@@ -94,7 +94,7 @@ export const TaskCard = ({ task, onToggle, onMove, onDelete, onEdit, onView, dra
               {/* Intervalo semana */}
               {task.weekStart && (
                 <span className={cn(
-                  "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium",
+                  "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium mt-1 ml-2",
                   weeklyOverdue ? 'bg-red-500/60 text-white' : 'bg-green-500/60 text-white'
                 )}>
                   <Calendar size={10} className="text-white" />
@@ -103,7 +103,7 @@ export const TaskCard = ({ task, onToggle, onMove, onDelete, onEdit, onView, dra
               )}
               {/* Badge overdue para outras tarefas (não semanais) */}
               {!task.weekStart && isOverdue && (
-                <span className="text-[10px] px-2 py-0.5 bg-warning text-warning-foreground rounded-full">Atrasada</span>
+                <span className="text-[10px] px-2 py-0.5 bg-warning text-warning-foreground rounded-full mt-1 ml-2">Atrasada</span>
               )}
             </div>
             {task.description && (
@@ -113,7 +113,7 @@ export const TaskCard = ({ task, onToggle, onMove, onDelete, onEdit, onView, dra
             {weeklyOverdue && (
               <div className="flex items-center gap-1 mt-1">
                 <AlertCircle size={12} className="text-red-500" />
-                <span className="text-[10px] text-red-500">Tarefa atrasada</span>
+                <span className="text-[10px] text-red-500 mt-0.5">Tarefa atrasada</span>
               </div>
             )}
             <div className="flex items-center gap-3 mt-1">

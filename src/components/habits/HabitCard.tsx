@@ -83,14 +83,14 @@ export const HabitCard: React.FC<Props> = ({ habit, onEdit, onView, dragHandlePr
   };
 
   return (
-    <div className="p-4 rounded-xl space-y-3" style={{backgroundColor:'#131315'}}>
+    <div className={clsx('p-4 rounded-xl', hasDescription ? 'space-y-3' : 'space-y-1')} style={{backgroundColor:'#131315'}}>
       {/* Header */}
-      <div className={clsx('flex gap-2 items-start')}>
+      <div className={clsx('flex gap-2', hasDescription ? 'items-start' : 'items-center')}>
         {/* Drag handle */}
         {dragHandleProps && (
           <button
             {...dragHandleProps}
-            className="mt-2 cursor-grab text-muted-foreground hover:text-foreground flex-shrink-0"
+            className="mt-2 mb-1 cursor-grab text-muted-foreground hover:text-foreground flex-shrink-0"
             onClick={(e)=>e.stopPropagation()}
           >
             <LucideIcons.GripVertical size={16} />
@@ -110,7 +110,11 @@ export const HabitCard: React.FC<Props> = ({ habit, onEdit, onView, dragHandlePr
         </DropdownMenu>
         {/* Icon */}
         <div className="w-10 h-10 flex items-center justify-center rounded-lg text-xl flex-shrink-0" style={{backgroundColor:blendWithDark(habit.color,0.4)}}>
-          {habit.iconType==='emoji' ? habit.iconValue : React.createElement((LucideIcons as any)[habit.iconValue] || (LucideIcons as any).Heart, { size:20 })}
+          {habit.iconValue && (
+            habit.iconType === 'emoji'
+              ? habit.iconValue
+              : React.createElement((LucideIcons as any)[habit.iconValue] || (LucideIcons as any).Heart, { size: 20 })
+          )}
         </div>
 
         {/* Title & description */}
@@ -154,7 +158,7 @@ export const HabitCard: React.FC<Props> = ({ habit, onEdit, onView, dragHandlePr
       </div>
 
       {/* Divider colorido */}
-      <div className="h-[3px] w-full rounded-full" style={{backgroundColor: habit.color, opacity:0.7}} />
+      <div className="mt-2 mb-2 h-[3px] w-full rounded-full" style={{backgroundColor: habit.color, opacity:0.7}} />
 
       {/* heatmap 7×12 alinhado a calendário */}
       <div className="flex justify-center w-full overflow-x-auto">

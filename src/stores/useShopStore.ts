@@ -4,21 +4,9 @@ import localforage from 'localforage';
 import { useGamificationStore } from '@/stores/useGamificationStore';
 import { usePixelBuddyStore } from '@/stores/usePixelBuddyStore';
 import { fireGoldenConfetti } from '@/lib/confetti';
-
-export interface ShopItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  category: 'cosmetic' | 'vantagens' | 'special';
-  icon: string;
-  purchased: boolean;
-  pixelBuddyData?: {
-    type: 'clothes' | 'accessory' | 'hat' | 'effect';
-    spritePath: string;
-    rarity?: 'common' | 'rare' | 'epic' | 'legendary';
-  };
-}
+import { useAuthStore } from '@/stores/useAuthStore';
+import { dataSyncService } from '@/lib/DataSyncService';
+import type { ShopItem } from '@/types';
 
 interface ShopState {
   open: boolean;
@@ -41,7 +29,7 @@ interface ShopState {
   clearShopCache: () => Promise<void>;
 }
 
-const defaultItems: ShopItem[] = [
+export const defaultItems: ShopItem[] = [
   // === VANTAGENS ===
   {
     id: 'xp_boost_1',
@@ -322,6 +310,11 @@ export const useShopStore = create<ShopState>()(
             i.id === itemId ? { ...i, purchased: true } : i
           )
         });
+        // Persistir no Supabase
+        const auth = useAuthStore.getState();
+        if (auth.user) {
+          dataSyncService.syncAll(auth.user.id).catch(console.error);
+        }
         
         return true;
       },
@@ -357,6 +350,11 @@ export const useShopStore = create<ShopState>()(
           ),
           sellConfirmation: { open: false, item: null, sellPrice: 0 }
         });
+        // Persistir no Supabase
+        const auth2 = useAuthStore.getState();
+        if (auth2.user) {
+          dataSyncService.syncAll(auth2.user.id).catch(console.error);
+        }
         
         return true;
       },
