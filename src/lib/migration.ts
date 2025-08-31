@@ -202,6 +202,7 @@ export async function initializeUserData(userId: string) {
     // SEMPRE criar itens da loja padrão
     const defaultShopItems = [
       {
+        id: 'xp_boost_1',
         userId,
         name: 'Boost de XP',
         description: 'Ganha 50% mais XP por 1 hora',
@@ -211,6 +212,7 @@ export async function initializeUserData(userId: string) {
         purchased: false
       },
       {
+        id: 'confetti_effect',
         userId,
         name: 'Efeito Confete',
         description: 'Confete dourado ao completar tarefas',
@@ -222,7 +224,7 @@ export async function initializeUserData(userId: string) {
     ]
 
     for (const item of defaultShopItems) {
-      await db.saveShopItem(item)
+      await db.saveShopItem(userId, item)
     }
 
     console.log('Dados do usuário inicializados/atualizados com sucesso')
