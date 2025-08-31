@@ -48,7 +48,7 @@ export interface Goal {
   targetValue: number;
   currentValue: number;
   unit: string; // e.g., 'kg', 'hours', 'books'
-  category: 'health' | 'career' | 'finance' | 'learning' | 'personal';
+  category: string;
   deadline?: string; // ISO date
   milestones: Milestone[];
   order?: number;

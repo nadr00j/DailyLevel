@@ -7,6 +7,8 @@ import { db } from '@/lib/database';
 import { storage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { dataSyncService } from '@/lib/DataSyncService';
+import { useTaskStore } from '@/stores/useTaskStore';
+import { useGoalStore } from '@/stores/useGoalStore';
 
 // Debounce function
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number): T {
@@ -64,23 +66,27 @@ export function useAutoSync() {
     return unsubscribe;
   }, [isAuthenticated, user, debouncedSync]);
 
-  // Monitorar mudanças no store da loja
+  // Monitorar mudanças no store da loja (apenas quando items são comprados/vendidos)
   useEffect(() => {
     if (!isAuthenticated || !user) return;
 
-    // Aguardar um pouco para garantir que a conexão com Supabase esteja estabelecida
-    const initialDelay = setTimeout(() => {
-      const unsubscribe = useShopStore.subscribe(
-        (state) => {
-          // Sincronizar quando houver mudanças
-          debouncedSync(user.id);
-        }
-      );
+    const store = useShopStore;
+    let prevItems = store.getState().items;
+    
+    const unsubscribe = store.subscribe((state) => {
+      // Verificar se algum item mudou de purchased
+      const hasChanges = state.items.some((item, index) => {
+        const prevItem = prevItems[index];
+        return prevItem && prevItem.purchased !== item.purchased;
+      });
+      
+      if (hasChanges) {
+        prevItems = state.items;
+        debouncedSync(user.id);
+      }
+    });
 
-      return unsubscribe;
-    }, 3000); // 3 segundos de delay inicial
-
-    return () => clearTimeout(initialDelay);
+    return unsubscribe;
   }, [isAuthenticated, user, debouncedSync]);
 
   // Assina mudanças no store de hábitos para auto-sync
@@ -100,9 +106,15 @@ export function useAutoSync() {
   // Monitorar mudanças nos logs de hábitos para sincronizar incrementos parciais
   useEffect(() => {
     if (!isAuthenticated || !user) return;
-    // Sincronizar sempre que houver mudança no store de hábitos (logs ou outros)
-    const unsubscribe = useHabitStore.subscribe((state) => {
-      debouncedSync(user.id);
+    const store = useHabitStore;
+    let prevLogs = store.getState().logs;
+    
+    const unsubscribe = store.subscribe((state) => {
+      // Sincronizar apenas quando logs mudarem (conclusões de hábitos)
+      if (JSON.stringify(state.logs) !== JSON.stringify(prevLogs)) {
+        prevLogs = state.logs;
+        debouncedSync(user.id);
+      }
     });
     return unsubscribe;
   }, [isAuthenticated, user, debouncedSync]);
@@ -120,14 +132,39 @@ export function useAutoSync() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isAuthenticated, user]);
 
-  // Polling para sincronizar tarefas e metas (captura operações em storage)
+  // Polling removido - agora sincronizamos apenas quando há mudanças reais
+
+  // Monitorar mudanças no store de tarefas para auto-sync
   useEffect(() => {
     if (!isAuthenticated || !user) return;
-    const interval = setInterval(() => {
-      console.log('⏱️ Polling Auto-sync para garantir sincronização de tasks/goals...');
-      debouncedSync(user.id);
-    }, 10000); // a cada 10 segundos
-    return () => clearInterval(interval);
+    const store = useTaskStore;
+    let prevTasks = store.getState().tasks;
+    
+    const unsubscribe = store.subscribe((state) => {
+      // Sincronizar apenas quando tarefas mudarem
+      if (JSON.stringify(state.tasks) !== JSON.stringify(prevTasks)) {
+        prevTasks = state.tasks;
+        debouncedSync(user.id);
+      }
+    });
+    return unsubscribe;
+  }, [isAuthenticated, user, debouncedSync]);
+
+  // Monitorar mudanças no store de metas para auto-sync
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    const store = useGoalStore;
+    let prevGoals = store.getState().goals;
+    
+    const unsubscribe = store.subscribe((state) => {
+      // Sincronizar apenas quando metas mudarem
+      if (JSON.stringify(state.goals) !== JSON.stringify(prevGoals)) {
+        console.log('🔍 [DEBUG] useAutoSync - Metas mudaram, sincronizando...', state.goals.length);
+        prevGoals = state.goals;
+        debouncedSync(user.id);
+      }
+    });
+    return unsubscribe;
   }, [isAuthenticated, user, debouncedSync]);
 
   return {

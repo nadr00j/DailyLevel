@@ -71,7 +71,8 @@ export const CreateGoalSheet = ({ open, onOpenChange, addGoal, defaultBucket }: 
 
   const handleSave = async () => {
     if (!title.trim()) return;
-    const newGoal = await addGoal({
+    
+    const goalData = {
       title: title.trim(),
       description: description.trim() || undefined,
       color,
@@ -81,7 +82,17 @@ export const CreateGoalSheet = ({ open, onOpenChange, addGoal, defaultBucket }: 
       targetValue: 1,
       unit: "",
       isFuture: bucket==='future'
-    });
+    };
+    
+    console.log('🔍 [DEBUG] CreateGoalSheet.handleSave - Criando meta com dados:', goalData);
+    
+    try {
+      addGoal(goalData);
+      console.log('✅ [DEBUG] CreateGoalSheet.handleSave - Meta criada com sucesso');
+    } catch (error) {
+      console.error('❌ [DEBUG] CreateGoalSheet.handleSave - Erro ao criar meta:', error);
+    }
+    
     // se bucket future já está tratado acima; não há opção completed
     setTitle("");
     setDescription("");

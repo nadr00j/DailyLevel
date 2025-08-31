@@ -54,27 +54,37 @@ export const usePixelBuddyStore = create<PixelBuddyState>()(
         const item = inventory[itemId];
         if (!item || !item.unlocked) return;
 
-        // desequipar anterior do mesmo tipo
-        set((state) => {
-          const updates: Partial<PixelBuddyState> = {};
-          if (item.type === 'clothes') updates.clothes = item.spritePath;
-          if (item.type === 'accessory') updates.accessory = item.spritePath;
-          if (item.type === 'hat') updates.hat = item.spritePath;
-          if (item.type === 'effect') updates.effect = item.spritePath;
-          return updates;
-        });
-
-        // marcar como equipado
-        set((state) => ({
-          inventory: {
-            ...state.inventory,
-            [itemId]: { ...item, equipped: true }
+        // Desequipar quaisquer outros itens do mesmo tipo
+        const updatedInventory: Record<string, PixelBuddyItem> = {};
+        for (const [id, invItem] of Object.entries(inventory)) {
+          if (invItem.type === item.type && invItem.equipped) {
+            updatedInventory[id] = { ...invItem, equipped: false };
+          } else {
+            updatedInventory[id] = invItem;
           }
-        }));
+        }
+
+        // Equipar o item selecionado
+        updatedInventory[itemId] = { ...item, equipped: true };
+
+        // Atualizar layer correspondente e inventário
+        set({
+          [item.type]: item.spritePath,
+          inventory: updatedInventory
+        });
       },
 
       unequipItem: (layer) => {
-        set({ [layer]: null });
+        set((state) => {
+          // remover do layer e atualizar inventário
+          const inventory = { ...state.inventory };
+          // encontrar item equipado deste layer
+          const idToUnequip = Object.entries(inventory).find(([, item]) => item.type === layer && item.equipped)?.[0];
+          if (idToUnequip) {
+            inventory[idToUnequip] = { ...inventory[idToUnequip], equipped: false };
+          }
+          return { [layer]: null, inventory };
+        });
       },
 
       unlockItem: (item) => {

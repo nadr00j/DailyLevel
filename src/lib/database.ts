@@ -8,6 +8,7 @@ import type { GamificationData as AppGamificationData } from '@/types/Gamificati
 import type { GamificationDb } from '@/types/GamificationDb';
 import type { UserSettings as AppUserSettings } from '@/types';
 import type { UserSettingsDb } from '@/types/UserSettingsDb';
+import type { HistoryItem, ActionType } from '@/types/gamification';
 
 // Convert HabitDb row to Habit (index.ts) format
 function toHabit(db: HabitDb): AppHabit {
@@ -143,7 +144,7 @@ function toGoal(db: GoalDb): AppGoal {
       value: m.value,
       completed: m.completed,
       completedAt: m.completed_at
-    })),
+    })) || [],
   };
 }
 
@@ -266,16 +267,20 @@ export class DatabaseService {
   }
 
   async saveTask(userId: string, task: AppTask): Promise<AppTask> {
-    const upsertData = toTaskDb(userId, task)
+    console.log('🔍 [DEBUG] saveTask chamado:', { userId, task });
+    const upsertData = toTaskDb(userId, task);
+    console.log('🔍 [DEBUG] Dados para upsertTask:', upsertData);
     const { data, error } = await supabase
       .from('tasks')
       .upsert(upsertData)
       .select()
-      .single()
-
-    if (error) throw error
-
-    return toTask(data)
+      .single();
+    if (error) {
+      console.error('❌ [DEBUG] Erro em saveTask:', error);
+      throw error;
+    }
+    console.log('✅ [DEBUG] saveTask sucesso:', data);
+    return toTask(data);
   }
 
   async deleteTask(userId: string, taskId: string): Promise<void> {
@@ -283,6 +288,28 @@ export class DatabaseService {
       .from('tasks')
       .delete()
       .eq('id', taskId)
+      .eq('user_id', userId)
+
+    if (error) throw error
+  }
+
+  // Deletar hábito
+  async deleteHabit(userId: string, habitId: string): Promise<void> {
+    const { error } = await supabase
+      .from('habits')
+      .delete()
+      .eq('id', habitId)
+      .eq('user_id', userId)
+
+    if (error) throw error
+  }
+
+  // Deletar meta
+  async deleteGoal(userId: string, goalId: string): Promise<void> {
+    const { error } = await supabase
+      .from('goals')
+      .delete()
+      .eq('id', goalId)
       .eq('user_id', userId)
 
     if (error) throw error
@@ -304,7 +331,7 @@ export class DatabaseService {
     console.log('🔍 [DEBUG] saveHabit chamado:', { userId, habit });
 
     const upsertData = toHabitDb(userId, habit as any);
-
+    console.log('🔍 [DEBUG] upsertData completo:', upsertData);
     console.log('🔍 [DEBUG] Dados para upsert:', upsertData);
 
     const { data, error } = await supabase
@@ -378,15 +405,20 @@ export class DatabaseService {
   }
 
   async saveGoal(userId: string, goal: AppGoal): Promise<AppGoal> {
-    const upsertData = toGoalDb(userId, goal)
+    console.log('🔍 [DEBUG] saveGoal chamado:', { userId, goal });
+    const upsertData = toGoalDb(userId, goal);
+    console.log('🔍 [DEBUG] Dados para upsertGoal:', upsertData);
     const { data, error } = await supabase
       .from('goals')
       .upsert(upsertData)
       .select()
       .single()
 
-    if (error) throw error
-
+    if (error) {
+      console.error('❌ [DEBUG] Erro em saveGoal:', error);
+      throw error;
+    }
+    console.log('✅ [DEBUG] saveGoal sucesso:', data);
     return toGoal(data)
   }
 
@@ -466,6 +498,26 @@ export class DatabaseService {
       })
 
     if (error) throw error
+  }
+
+  // Obter histórico de gamificação (XP, coins, tags, category) do usuário
+  async getGamificationHistory(userId: string): Promise<HistoryItem[]> {
+    const { data, error } = await supabase
+      .from('gamification_history')
+      .select('type, xp, coins, tags, category, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true })
+
+    if (error) throw error
+
+    return (data || []).map(item => ({
+      ts: new Date(item.created_at).getTime(),
+      type: item.type as ActionType,
+      xp: item.xp,
+      coins: item.coins,
+      tags: item.tags || [],
+      category: item.category || undefined
+    }))
   }
 
   // ===== SHOP =====

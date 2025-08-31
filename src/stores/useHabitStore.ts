@@ -1,10 +1,9 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import localforage from 'localforage';
-import { formatISO } from 'date-fns';
 import type { Habit, HabitLog } from '@/types/habit';
 import { generateId } from '@/lib/uuid';
 import { useGamificationStore } from '@/stores/useGamificationStore';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { dataSyncService } from '@/lib/DataSyncService';
 
 interface HabitState {
   habits: Record<string, Habit>;
@@ -24,34 +23,22 @@ interface HabitState {
   reorderHabits: (ordered: Habit[]) => void;
 }
 
-const storage = createJSONStorage(() => ({
-  getItem: async (name: string) => {
-    const value = await localforage.getItem<string>(name);
-    return value ?? null;
-  },
-  setItem: async (name: string, value: string) => {
-    await localforage.setItem(name, value);
-  },
-  removeItem: async (name: string) => {
-    await localforage.removeItem(name);
-  },
-}));
-
-export const useHabitStore = create<HabitState>()(
-  persist(
-    (set, get) => ({
+export const useHabitStore = create<HabitState>((set, get) => ({
       habits: {},
       logs: {},
       habitCategoryOrder: [],
 
       createHabit: (input) => {
         const id = generateId();
-        const createdAt = formatISO(new Date());
+        const createdAt = new Date().toISOString().slice(0,10); // Assuming date-fns is removed, use current date
         const currentHabits = get().habits;
         const order = Object.keys(currentHabits).length;
         const habit: Habit = { id, createdAt, targetInterval: 'daily', targetCount: 1, categories: [], order, ...input } as Habit;
         console.log('🔍 [DEBUG] createHabit chamado:', { input, habit });
         set(state => ({ habits: { ...state.habits, [id]: habit } }));
+        // sync após criação
+        const userId = useAuthStore.getState().user!.id;
+        dataSyncService.syncAll(userId);
         return id;
       },
 
@@ -62,7 +49,11 @@ export const useHabitStore = create<HabitState>()(
             console.log('❌ [DEBUG] Hábito não encontrado:', id);
             return state;
           }
-          const updatedHabit = { ...state.habits[id], ...patch };
+          // remover propriedades undefined para não sobrescrever valores existentes
+          const cleanedPatch = Object.fromEntries(
+            Object.entries(patch).filter(([_, v]) => v !== undefined)
+          ) as Partial<Habit>;
+          const updatedHabit = { ...state.habits[id], ...cleanedPatch };
           console.log('🔍 [DEBUG] Hábito atualizado:', { 
             id, 
             before: state.habits[id], 
@@ -70,6 +61,9 @@ export const useHabitStore = create<HabitState>()(
           });
           return { habits: { ...state.habits, [id]: updatedHabit } };
         });
+        // sync após atualização
+        const userId = useAuthStore.getState().user!.id;
+        dataSyncService.syncAll(userId);
       },
 
       deleteHabit: (id) => {
@@ -78,6 +72,9 @@ export const useHabitStore = create<HabitState>()(
           const { [id]: __, ...logRest } = state.logs;
           return { habits: rest, logs: logRest };
         });
+        // sync após exclusão
+        const userId = useAuthStore.getState().user!.id;
+        dataSyncService.syncAll(userId);
       },
 
       listHabits: () => {
@@ -180,11 +177,4 @@ export const useHabitStore = create<HabitState>()(
           return { habits: newHabits };
         });
       },
-    }),
-    {
-      name: 'dl.habits.v1',
-      storage,
-      partialize: (state) => ({ habits: state.habits, logs: state.logs, habitCategoryOrder: state.habitCategoryOrder }),
-    }
-  )
-);
+    }));

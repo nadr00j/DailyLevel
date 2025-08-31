@@ -205,7 +205,7 @@ export const GoalCard = ({ goal, onOptions, onToggle, onDelete, onMove, onEdit, 
       </div>
 
       {/* Milestones preview */}
-      {goal.milestones.length > 0 && (
+      {goal.milestones && goal.milestones.length > 0 && (
         <div className="mt-3 pt-3 border-t border-border">
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Marcos:</span>

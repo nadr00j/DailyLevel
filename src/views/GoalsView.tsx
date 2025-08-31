@@ -148,7 +148,13 @@ export const GoalsView = () => {
       </button>
       <AnimatePresence initial={false}>
         {!collapsed[cat] && (
-          <motion.div key="content" initial={{height:0,opacity:0}} animate={{height:'auto',opacity:1}} exit={{height:0,opacity:0}} transition={{duration:0.25}}>
+          <motion.div 
+            key={`content-${cat}-${list.length}`} 
+            initial={{height:0,opacity:0}} 
+            animate={{height:'auto',opacity:1}} 
+            exit={{height:0,opacity:0}} 
+            transition={{duration:0.25}}
+          >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndFactory(list)}>
               <SortableContext items={list.map(g=>g.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-3 pt-2">
@@ -233,7 +239,7 @@ export const GoalsView = () => {
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd(orderedCats(groupedActive))} onDragStart={(e)=>setActiveCat(e.active.id as string)}>
                 <SortableContext items={orderedCats(groupedActive)} strategy={verticalListSortingStrategy}>
               {orderedCats(groupedActive).map(cat=>{ const list=groupedActive[cat]; if(!list) return null; return (
-                <SortableCategory key={cat} id={cat}>
+                <SortableCategory key={`active-${cat}`} id={cat}>
                   {renderCategory(cat,list)}
                 </SortableCategory>
               );})}
@@ -265,7 +271,7 @@ export const GoalsView = () => {
                 <SortableContext items={orderedCats(groupedFuture)} strategy={verticalListSortingStrategy}>
                   <div className="space-y-4">
                     {orderedCats(groupedFuture).map(cat=>{const list=groupedFuture[cat]; if(!list) return null; return (
-                      <SortableCategory key={cat} id={cat}>{renderCategory(cat,list)}</SortableCategory>
+                      <SortableCategory key={`future-${cat}`} id={cat}>{renderCategory(cat,list)}</SortableCategory>
                     );})}
                   </div>
                 </SortableContext>
@@ -298,7 +304,7 @@ export const GoalsView = () => {
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd(orderedCats(groupedCompleted))} onDragStart={(e)=>setActiveCat(e.active.id as string)}>
                 <SortableContext items={orderedCats(groupedCompleted)} strategy={verticalListSortingStrategy}>
                   {orderedCats(groupedCompleted).map(cat=>{ const list=groupedCompleted[cat]; if(!list) return null; return (
-                    <SortableCategory key={cat} id={cat}>
+                    <SortableCategory key={`completed-${cat}`} id={cat}>
                       {renderCategory(cat,list)}
                     </SortableCategory>
                   );})}
@@ -328,7 +334,12 @@ export const GoalsView = () => {
       </motion.div>
     </div>
     <CreateGoalSheet open={openCreate} onOpenChange={setOpenCreate} addGoal={addGoal} defaultBucket={createBucket} />
-    <EditGoalSheet goal={editingGoal} open={!!editingGoal} onOpenChange={(open)=>{ if(!open) setEditingGoal(null);}} onSave={updateGoal} />
+    <EditGoalSheet goal={editingGoal} open={!!editingGoal} onOpenChange={(open)=>{ if(!open) setEditingGoal(null);}} onSave={(goalId, updates) => {
+      if (editingGoal) {
+        const updatedGoal = { ...editingGoal, ...updates };
+        updateGoal(updatedGoal);
+      }
+    }} />
     <GoalDetailSheet goal={viewGoal} open={!!viewGoal} onOpenChange={(open)=>{ if(!open) setViewGoal(null);}} onEdit={(g)=>{ setViewGoal(null); setEditingGoal(g); }} />
     </>
   );
