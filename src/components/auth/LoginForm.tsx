@@ -138,6 +138,7 @@ export const LoginForm = () => {
                   checked={rememberCredentials}
                   onCheckedChange={(checked) => setRememberCredentials(checked as boolean)}
                   disabled={isLoading}
+                  className="rounded-md"
                 />
                 <Label 
                   htmlFor="remember" 
