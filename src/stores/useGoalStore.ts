@@ -1,72 +1,135 @@
 import { create } from 'zustand';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { dataSyncService } from '@/lib/DataSyncService';
+import { db } from '@/lib/database';
 import { generateId } from '@/lib/uuid';
 import type { Goal } from '@/types';
+import { useGamificationStore } from '@/stores/useGamificationStore';
 
 interface GoalState {
   goals: Goal[];
+  goalCategoryOrder: string[];
   setGoals: (goals: Goal[]) => void;
   addGoal: (goal: Goal) => void;
   updateGoal: (goal: Goal) => void;
   removeGoal: (goalId: string) => void;
   clearGoals: () => void;
+  setGoalCategoryOrder: (order: string[]) => void;
+  reorderGoals: (ordered: Goal[]) => void;
+  updateGoalProgress: (id: string, newValue: number) => void;
 }
 
-export const useGoalStore = create<GoalState>((set, get) => ({
-  goals: [],
-  setGoals: (goals) => { set({ goals }); },
-  addGoal: (goal) => {
-    console.log('🔍 [DEBUG] useGoalStore.addGoal - Função chamada com:', goal);
-    if (!goal || !goal.title) {
-      console.error('❌ [DEBUG] useGoalStore.addGoal - Meta inválida:', goal);
-      return;
+export const useGoalStore = create<GoalState>((set, get) => {
+  // Initialize category order from localStorage
+  const initialCatOrder = typeof window !== 'undefined'
+    ? JSON.parse(localStorage.getItem('dl.goalCategoryOrder') || '[]')
+    : [];
+  return {
+    goals: [],
+    goalCategoryOrder: initialCatOrder,
+    setGoals: (goals) => { set({ goals }); },
+    addGoal: (goal) => {
+      console.log('🔍 [DEBUG] useGoalStore.addGoal - Função chamada com:', goal);
+      if (!goal || !goal.title) {
+        console.error('❌ [DEBUG] useGoalStore.addGoal - Meta inválida:', goal);
+        return;
+      }
+      
+      // Gerar ID se não existir
+      const goalWithId = {
+        ...goal,
+        id: goal.id || generateId(),
+        createdAt: goal.createdAt || new Date().toISOString(),
+        updatedAt: goal.updatedAt || new Date().toISOString(),
+        currentValue: goal.currentValue || 0,
+        isCompleted: goal.isCompleted || false,
+        milestones: goal.milestones || []
+      };
+      
+      const goalsArr = [...get().goals, goalWithId]; 
+      set({ goals: goalsArr });
+      console.log('✅ [DEBUG] useGoalStore.addGoal - Meta adicionada ao store:', goalWithId.title, goalWithId.id);
+      
+      // useAutoSync irá detectar a mudança e sincronizar automaticamente
+      console.log('🔍 [DEBUG] useGoalStore.addGoal - Meta adicionada, useAutoSync irá sincronizar automaticamente');
+    },
+    updateGoal: (goal) => {
+      if (!goal || !goal.id) {
+        console.error('❌ [DEBUG] useGoalStore.updateGoal - Meta inválida:', goal);
+        return;
+      }
+      
+      const goalWithTimestamp = {
+        ...goal,
+        updatedAt: new Date().toISOString()
+      };
+      
+      const goalsArr = get().goals.map(g => g.id === goal.id ? goalWithTimestamp : g); 
+      set({ goals: goalsArr });
+      console.log('✅ [DEBUG] useGoalStore.updateGoal - Meta atualizada no store:', goal.title, goal.id);
+      console.log('🔍 [DEBUG] useGoalStore.updateGoal - Meta atualizada, useAutoSync irá sincronizar automaticamente');
+    },
+    removeGoal: (goalId) => {
+      // Keep other goals intact; actual deletion handled server-side
+      set(state => ({ goals: state.goals.filter(g => g.id !== goalId) }));
+      console.log('✅ [DEBUG] useGoalStore.removeGoal - Meta removida do store:', goalId);
+      console.log('🔍 [DEBUG] useGoalStore.removeGoal - Meta removida, useAutoSync irá sincronizar automaticamente');
+    },
+    clearGoals: () => {
+      set({ goals: [] });
+      // useAutoSync irá detectar a mudança e sincronizar automaticamente
+    },
+    setGoalCategoryOrder: (order) => {
+      set({ goalCategoryOrder: order });
+      try { localStorage.setItem('dl.goalCategoryOrder', JSON.stringify(order)); } catch {};
+    },
+    reorderGoals: (ordered: Goal[]) => {
+      // Only update order field on matched goals
+      set(state => ({
+        goals: state.goals.map(g => {
+          const idx = ordered.findIndex(o => o.id === g.id);
+          return idx > -1 ? { ...g, order: idx } : g;
+        }),
+      }));
+      console.log('🔍 [DEBUG] useGoalStore.reorderGoals - Ordem atualizada, sincronizando...');
+    },
+    updateGoalProgress: (id: string, newValue: number) => {
+      const goal = get().goals.find(g => g.id === id);
+      if (!goal) return;
+      const isCompleted = newValue >= goal.targetValue;
+      set(state => ({
+        goals: state.goals.map(g =>
+          g.id === id ? { ...g, currentValue: newValue, isCompleted, updatedAt: new Date().toISOString() } : g
+        )
+      }));
+      if (!goal.isCompleted && isCompleted) {
+        const us = useGamificationStore.getState();
+        const goalXp = us.config.points.goal;
+        const goalCoins = Math.floor(goalXp * us.config.points.coinsPerXp);
+        
+        console.log('[GoalStore] Meta completada! Registrando histórico com:', { 
+          xp: goalXp, 
+          coins: goalCoins, 
+          title: goal.title, 
+          category: goal.category 
+        });
+        
+        // Dispara gamificação com tags corretas
+        us.addXp('goal', [goal.title, ...(goal.category ? [goal.category] : [])]);
+        
+        // Registra no histórico
+        const userId = useAuthStore.getState().user!.id;
+        db.addHistoryItem(userId, {
+          ts: Date.now(),
+          type: 'goal',
+          xp: goalXp,
+          coins: goalCoins,
+          category: goal.category,
+          tags: [goal.title],
+        }).catch(err => console.error('[GoalStore] Erro ao registrar histórico de meta:', err));
+      }
     }
-    
-    // Gerar ID se não existir
-    const goalWithId = {
-      ...goal,
-      id: goal.id || generateId(),
-      createdAt: goal.createdAt || new Date().toISOString(),
-      updatedAt: goal.updatedAt || new Date().toISOString(),
-      currentValue: goal.currentValue || 0,
-      isCompleted: goal.isCompleted || false,
-      milestones: goal.milestones || []
-    };
-    
-    const goalsArr = [...get().goals, goalWithId]; 
-    set({ goals: goalsArr });
-    console.log('✅ [DEBUG] useGoalStore.addGoal - Meta adicionada ao store:', goalWithId.title, goalWithId.id);
-    
-    // useAutoSync irá detectar a mudança e sincronizar automaticamente
-    console.log('🔍 [DEBUG] useGoalStore.addGoal - Meta adicionada, useAutoSync irá sincronizar automaticamente');
-  },
-  updateGoal: (goal) => {
-    if (!goal || !goal.id) {
-      console.error('❌ [DEBUG] useGoalStore.updateGoal - Meta inválida:', goal);
-      return;
-    }
-    
-    const goalWithTimestamp = {
-      ...goal,
-      updatedAt: new Date().toISOString()
-    };
-    
-    const goalsArr = get().goals.map(g => g.id === goal.id ? goalWithTimestamp : g); 
-    set({ goals: goalsArr });
-    console.log('✅ [DEBUG] useGoalStore.updateGoal - Meta atualizada no store:', goal.title, goal.id);
-    console.log('🔍 [DEBUG] useGoalStore.updateGoal - Meta atualizada, useAutoSync irá sincronizar automaticamente');
-  },
-  removeGoal: (goalId) => {
-    const goalsArr = get().goals.filter(g => g.id !== goalId); 
-    set({ goals: goalsArr });
-    console.log('✅ [DEBUG] useGoalStore.removeGoal - Meta removida do store:', goalId);
-    console.log('🔍 [DEBUG] useGoalStore.removeGoal - Meta removida, useAutoSync irá sincronizar automaticamente');
-  },
-  clearGoals: () => {
-    set({ goals: [] });
-    // useAutoSync irá detectar a mudança e sincronizar automaticamente
-  }
-}));
+  };
+});
 
 

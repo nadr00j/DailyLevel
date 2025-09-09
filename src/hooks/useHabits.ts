@@ -4,6 +4,8 @@ import { Habit, formatLocalDate, isToday } from '@/types';
 import { storage } from '@/lib/storage';
 import { isToday as isDateToday, parseISO, startOfDay, differenceInDays } from 'date-fns';
 import { generateId } from '@/lib/uuid';
+import { db } from '@/lib/database';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 export const useHabits = () => {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -12,8 +14,23 @@ export const useHabits = () => {
   const loadHabits = useCallback(async () => {
     try {
       setLoading(true);
+      // Load from local storage
       const storedHabits = await storage.getHabits();
-      setHabits(storedHabits);
+      let mergedHabits = storedHabits;
+      // Fetch remote habits and merge
+      const userId = useAuthStore.getState().user!.id;
+      try {
+        const remote = await db.getHabits(userId);
+        // Merge by ID: remote overrides local
+        const map = new Map<string, typeof remote[0]>(storedHabits.map(h => [h.id, h]));
+        remote.forEach(h => map.set(h.id, h));
+        mergedHabits = Array.from(map.values());
+        // Persist merged
+        await storage.saveHabits(mergedHabits);
+      } catch (err) {
+        console.warn('[useHabits] Não foi possível carregar hábitos remotos:', err);
+      }
+      setHabits(mergedHabits);
     } catch (error) {
       console.error('Failed to load habits:', error);
     } finally {
@@ -44,6 +61,13 @@ export const useHabits = () => {
     
     const updatedHabits = [...habits, newHabit];
     await saveHabits(updatedHabits);
+    // Persist new habit to Supabase
+    try {
+      const userId = useAuthStore.getState().user!.id;
+      await db.saveHabit(userId, newHabit);
+    } catch (err) {
+      console.error('[useHabits] Erro ao salvar novo hábito no Supabase:', err);
+    }
     return newHabit;
   }, [habits, saveHabits]);
 
@@ -118,6 +142,40 @@ export const useHabits = () => {
     });
 
     await saveHabits(updatedHabits);
+    // Ensure habit record exists in Supabase
+    try {
+      const userId = useAuthStore.getState().user!.id;
+      // Find the updated habit
+      const habitToPersist = updatedHabits.find(h => h.id === id);
+      if (habitToPersist) {
+        await db.saveHabit(userId, habitToPersist);
+      }
+    } catch (err) {
+      console.error('[useHabits] Erro ao salvar hábito no Supabase antes do log:', err);
+    }
+    // Persist habit completion/uncompletion to Supabase
+    try {
+      const userId = useAuthStore.getState().user!.id;
+      if (!isCompleted) {
+        // Mark completion
+        await db.completeHabit(id, targetDate);
+      } else {
+        // Remove completion
+        await db.uncompleteHabit(id, targetDate);
+      }
+    } catch (err) {
+      console.error('[useHabits] Erro ao persistir conclusão de hábito no Supabase:', err);
+    }
+    // Persist history item to Supabase
+    const userId = useAuthStore.getState().user!.id;
+    setTimeout(() => {
+      const history = useGamificationStore.getState().history;
+      const last = history[history.length - 1];
+      if (last && last.type === 'habit') {
+        db.addHistoryItem(userId, last)
+          .catch(err => console.error('[useHabits] Erro ao gravar history_item de hábito:', err));
+      }
+    }, 0);
   }, [habits, saveHabits, calculateStreak]);
 
   const isHabitCompletedToday = useCallback((habit: Habit): boolean => {

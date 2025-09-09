@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Calendar, CheckSquare, Target, Home } from 'lucide-react';
+import { Calendar, CheckSquare, Target, Home, CalendarCheck } from 'lucide-react';
 import { TabView } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -11,7 +11,7 @@ interface TabBarProps {
 const tabs = [
   { id: 'today' as TabView, label: 'Hoje', icon: Home },
   { id: 'tasks' as TabView, label: 'Tarefas', icon: CheckSquare },
-  { id: 'habits' as TabView, label: 'Hábitos', icon: Calendar },
+  { id: 'habits' as TabView, label: 'Hábitos', icon: CalendarCheck },
   { id: 'goals' as TabView, label: 'Metas', icon: Target },
 ];
 

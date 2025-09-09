@@ -18,15 +18,15 @@ export const useGoals = () => {
 
   // Update goal progress and grant XP on completion
   const updateGoalProgress = (id: string, newValue: number) => {
-    const goal = goals.find(g => g.id === id);
-    if (!goal) return;
-    const isCompleted = newValue >= goal.targetValue;
-    updateGoal({ ...goal, currentValue: newValue, isCompleted, updatedAt: new Date().toISOString() });
-    if (!goal.isCompleted && isCompleted) addXp('goal');
+    // Usar a função do store que tem a lógica completa de gamificação
+    useGoalStore.getState().updateGoalProgress(id, newValue);
   };
 
-  // Reorder goals
-  const reorderGoals = (newOrder: Goal[]) => setGoals(newOrder);
+  // Reorder goals and persist via store action
+  const reorderGoals = (newOrder: Goal[]) => {
+    const storeReorder = useGoalStore.getState().reorderGoals;
+    storeReorder(newOrder);
+  };
 
   // Helper to compute progress percentage
   const getGoalProgress = (goal: Goal): number => {

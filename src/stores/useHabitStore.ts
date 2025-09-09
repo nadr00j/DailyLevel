@@ -3,6 +3,7 @@ import type { Habit, HabitLog } from '@/types/habit';
 import { generateId } from '@/lib/uuid';
 import { useGamificationStore } from '@/stores/useGamificationStore';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { db } from '@/lib/database';
 import { dataSyncService } from '@/lib/DataSyncService';
 
 interface HabitState {
@@ -26,7 +27,9 @@ interface HabitState {
 export const useHabitStore = create<HabitState>((set, get) => ({
       habits: {},
       logs: {},
-      habitCategoryOrder: [],
+      habitCategoryOrder: typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('dl.habitCategoryOrder') || '[]')
+        : [],
 
       createHabit: (input) => {
         const id = generateId();
@@ -83,42 +86,55 @@ export const useHabitStore = create<HabitState>((set, get) => ({
 
       logCompletion: (habitId, date) => {
         console.log('[HabitStore Debug] logCompletion chamado:', { habitId, date });
-        
         const addXp = useGamificationStore.getState().addXp;
+        const userId = useAuthStore.getState().user!.id;
+        
+        // Incrementa localmente
         set(state => {
           const habitLogs = state.logs[habitId] ?? {};
           const current = habitLogs[date] ?? 0;
-
-          // depois do incremento
           const newCount = current + 1;
           console.log('[HabitStore Debug] Incrementando contador:', { current, newCount });
-
-          // conceder XP apenas quando atinge targetCount completo
+          
+          // Verifica se completou o hábito hoje
           const habit = state.habits[habitId];
           const today = new Date().toISOString().slice(0,10);
+          const isCompleted = habit && newCount === habit.targetCount && date === today;
           
-          console.log('[HabitStore Debug] Verificando condições:', { 
+          console.log('[HabitStore Debug] Verificando conclusão:', { 
             hasHabit: !!habit, 
-            newCount,
-            targetCount: habit?.targetCount,
-            date, 
-            today,
-            isToday: date === today,
-            isComplete: newCount === habit?.targetCount
+            newCount, 
+            targetCount: habit?.targetCount, 
+            isCompleted 
           });
           
-          if (habit && newCount === habit.targetCount && date === today) {
-            console.log('[Habit Debug] Hábito completado! Concedendo XP:', habit.name, 'categorias:', habit.categories);
+          // Se completou o hábito, registra XP e coins
+          if (isCompleted) {
+            const us = useGamificationStore.getState();
+            const habitXp = us.config.points.habit;
+            const habitCoins = Math.floor(habitXp * us.config.points.coinsPerXp);
+            console.log('[HabitStore] Hábito completado! Registrando histórico com:', { xp: habitXp, coins: habitCoins });
+            
+            // Registra no histórico
+            db.addHistoryItem(userId, {
+              ts: Date.now(),
+              type: 'habit',
+              xp: habitXp,
+              coins: habitCoins,
+              category: habit.categories?.[0],
+              tags: [habit.name]
+            }).catch(err => console.error('[HabitStore] Erro ao registrar histórico de hábito:', err));
+            
+            // Dispara gamificação
             addXp('habit', habit.categories || []);
           }
-
-          return {
-            logs: {
-              ...state.logs,
-              [habitId]: { ...habitLogs, [date]: newCount },
-            },
-          };
+          
+          // Atualiza logs
+          return { logs: { ...state.logs, [habitId]: { ...habitLogs, [date]: newCount } } };
         });
+        
+        // Salva conclusão no Supabase
+        db.completeHabit(habitId, date).catch(error => console.error('[HabitStore Debug] Erro ao salvar conclusão de hábito:', error));
       },
 
       decrementCompletion: (habitId, date) => {
@@ -131,6 +147,10 @@ export const useHabitStore = create<HabitState>((set, get) => ({
               [habitId]: { ...habitLogs, [date]: Math.max(0, current - 1) },
             },
           };
+        });
+        // Sync this un-completion to Supabase
+        db.uncompleteHabit(habitId, date).catch(error => {
+          console.error('[HabitStore Debug] Erro ao remover conclusão de hábito:', error);
         });
       },
 
@@ -158,23 +178,29 @@ export const useHabitStore = create<HabitState>((set, get) => ({
 
       setCategoryOrder: (order)=>{
         set({ habitCategoryOrder: order });
+        // Persist category order to Supabase via full sync
+        const user = useAuthStore.getState().user;
+        if (user) {
+          dataSyncService.syncAll(user.id).catch(err => console.error('[HabitStore Debug] Erro ao sincronizar setCategoryOrder:', err));
+        }
       },
 
       reorderHabits: (ordered) => {
         set(state => {
-          const map = new Map<string, Habit>();
-          ordered.forEach((h, idx) => map.set(h.id, { ...h, order: idx }));
-
-          const newHabits: Record<string, Habit> = {};
-          // maintain new insertion order according to ordered list then others
-          ordered.forEach(h => {
-            newHabits[h.id] = map.get(h.id)!;
+          // Only update order_index of provided habits, keep others intact
+          const updatedHabits = { ...state.habits };
+          ordered.forEach((h, idx) => {
+            const existing = updatedHabits[h.id];
+            if (existing) {
+              updatedHabits[h.id] = { ...existing, order: idx };
+            }
           });
-          // include any other habits not in list (archived) without changing
-          Object.values(state.habits).forEach(h=>{
-            if(!newHabits[h.id]) newHabits[h.id]=h;
-          });
-          return { habits: newHabits };
+          return { habits: updatedHabits };
         });
+        // Persist reorder to Supabase
+        const user = useAuthStore.getState().user;
+        if (user) {
+          dataSyncService.syncAll(user.id).catch(err => console.error('[HabitStore Debug] Erro ao sincronizar reorderHabits:', err));
+        }
       },
     }));

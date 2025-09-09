@@ -32,44 +32,50 @@ export const GamificationListener = () => {
   const xp = useGamificationStore(s=>s.xp)
   const coins = useGamificationStore(s=>s.coins)
   const rankIdx = useGamificationStore(s=>s.rankIdx)
-  const prevXp = useRef(xp)
-  const prevCoins = useRef(coins)
-  const ready = useRef(false)
-  const initialized = useRef(false)
-
-  useEffect(()=>{
-    const t = setTimeout(()=>{ ready.current = true }, 1000)
-    return ()=>clearTimeout(t)
-  },[])
-
-  // Initialize rank on first load
-  useEffect(()=>{
-    if(!initialized.current && xp > 0 && rankIdx === 0){
-      const { idx, tier, div } = calcRank(xp)
-      useGamificationStore.setState({ // Use setState to update
-        rankIdx: idx,
-        rankTier: tier,
-        rankDiv: div
-      });
-      initialized.current = true
-    }
-  },[xp, rankIdx])
-
   const history = useGamificationStore(s=>s.history)
-  const prevLen = useRef(history.length)
+  // Ready flag to skip initial history loads
+  const ready = useRef<boolean>(false)
+  const prevLen = useRef<number>(0)
+  const initTime = useRef<number>(Date.now())
+
+  // Enable listener after initial load
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      ready.current = true;
+      prevLen.current = history.length;
+      console.log('[GamificationListener Debug] Listener ativado, histórico inicial:', history.length);
+    }, 2000); // Aumentei para 2 segundos para garantir que o carregamento inicial termine
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(()=>{
-    console.log('[GamificationListener Debug] useEffect executado:', { ready: ready.current, historyLength: history.length, prevLength: prevLen.current });
-    
-    if(!ready.current){ 
-      console.log('[GamificationListener Debug] Ainda não está pronto, atualizando prevLen');
-      prevLen.current = history.length; 
-      return 
+    if(!ready.current) {
+      console.log('[GamificationListener Debug] Listener não pronto, ignorando mudanças iniciais');
+      return;
     }
+    
+    // Ignora itens muito antigos (carregados do banco)
+    const now = Date.now();
+    const timeSinceInit = now - initTime.current;
+    
+    console.log('[GamificationListener Debug] useEffect executado:', { 
+      historyLength: history.length, 
+      prevLength: prevLen.current,
+      timeSinceInit 
+    });
 
     if(history.length > prevLen.current){
+      const last = history[history.length-1];
+      
+      // Só mostra toast para itens criados após a inicialização
+      if(last.ts && (now - last.ts) > timeSinceInit) {
+        console.log('[GamificationListener Debug] Item muito antigo, ignorando toast');
+        prevLen.current = history.length;
+        return;
+      }
+      
       console.log('[GamificationListener Debug] Novo item no histórico detectado!');
-      const last = history[history.length-1]
+
       const dXp = last.xp
       const dCoins = last.coins
 

@@ -7,7 +7,7 @@ import { useGoals } from '@/hooks/useGoals';
 import { Button } from '@/components/ui/button';
 import { GoalCard } from '@/components/goals/GoalCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -52,7 +52,10 @@ export const GoalsView = () => {
     updateGoalProgress,
   } = useGoals();
 
-  const [goalCategoryOrder,setGoalCategoryOrder] = useState<string[]>([]);
+  const [goalCategoryOrder, setGoalCategoryOrder] = useState<string[]>(() => {
+    const stored = localStorage.getItem('dl.goalCategoryOrder');
+    return stored ? JSON.parse(stored) : [];
+  });
 
   const [openCreate, setOpenCreate] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
@@ -119,6 +122,7 @@ export const GoalsView = () => {
     if(!over||active.id===over.id) return;
     const newOrder=arrayMove(cats,cats.indexOf(active.id),cats.indexOf(over.id));
     setGoalCategoryOrder(newOrder);
+    localStorage.setItem('dl.goalCategoryOrder', JSON.stringify(newOrder));
     setActiveCat(null);
   };
 

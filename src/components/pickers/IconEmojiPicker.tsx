@@ -72,7 +72,7 @@ export const IconEmojiPicker: React.FC<Props> = ({ open, onClose, onSelectIcon, 
   },[iconSearch, allIcons]);
 
   return (
-    <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }} modal={false}>
+    <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }} modal={true}>
       <SheetContent
         side="bottom"
         className="h-[60%] p-0 flex flex-col overflow-y-auto"

@@ -55,7 +55,7 @@ export default defineConfig(({ mode }) => ({
         ]
       },
       manifest: {
-        name: 'DailyLevel - Track Habits, Tasks & Goals',
+        name: 'DailyLevel - Tarefas, Hábitos  e Metas',
         short_name: 'DailyLevel',
         description: 'Build consistent habits, manage tasks efficiently, and achieve your goals',
         theme_color: '#0a0a14',

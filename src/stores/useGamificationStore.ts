@@ -334,7 +334,7 @@ export const useGamificationStore = create<GamificationState>()(
           }
           
           // Toast será exibido automaticamente pelo GamificationListener
-          console.log('[AddXP Debug] XP adicionado, GamificationListener irá exibir o toast');
+          console.log('[AddXP Debug] XP adicionado, toast será exibido pelo GamificationListener');
         },
 
         setConfig: (partial) => {

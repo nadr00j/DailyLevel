@@ -4,6 +4,9 @@ import { useGamificationStore } from '@/stores/useGamificationStore';
 import { generateId } from '@/lib/uuid';
 import type { Task } from '@/types';
 import { parseISO } from 'date-fns';
+import { db } from '@/lib/database';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { toast } from '@/components/ui/use-toast';
 
 export const useTasks = () => {
   const tasks = useTaskStore(state => state.tasks);
@@ -39,8 +42,29 @@ export const useTasks = () => {
 
   const toggleTaskStatus = useCallback((id: string) => {
     const task = tasks.find(t=>t.id===id);
-    if (task) updateTask({ ...task, completed: !task.completed, updatedAt: new Date().toISOString() });
-    if (task && !task.completed) useGamificationStore.getState().addXp('task', task.category?[task.category.toLowerCase()]:[]);
+    if (task) {
+      const updatedTask = { ...task, completed: !task.completed, updatedAt: new Date().toISOString() };
+      updateTask(updatedTask);
+      // Persist task completion immediately
+      const userId = useAuthStore.getState().user!.id;
+      db.saveTask(userId, updatedTask)
+        .catch(err => console.error('[useTasks] Erro ao salvar tarefa concluída:', err));
+    }
+    if (task && !task.completed) {
+      const us = useGamificationStore.getState();
+      // Add XP
+      us.addXp('task', [task.title, ...(task.category ? [task.category] : [])]);
+      // Show toast notification
+      toast({ title: `+${us.config.points.task} XP`, description: `Tarefa concluída: ${task.title}` });
+      const userIdHistory = useAuthStore.getState().user!.id;
+      // Delay to allow history store update before reading
+      setTimeout(() => {
+        const history = useGamificationStore.getState().history;
+        const last = history[history.length - 1];
+        db.addHistoryItem(userIdHistory, last)
+          .catch(err => console.error('[useTasks] Erro ao gravar history_item:', err));
+      }, 0);
+    }
   }, [tasks, updateTask]);
 
   const moveTask = useCallback((id: string, newBucket: Task['bucket']) => {

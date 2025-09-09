@@ -371,14 +371,13 @@ export class DatabaseService {
   }
 
   async completeHabit(habitId: string, date: string): Promise<void> {
+    // Insert completion; ignore duplicates to avoid conflict errors
     const { error } = await supabase
       .from('habit_completions')
-      .upsert({
-        habit_id: habitId,
-        completion_date: date
-      })
-
-    if (error) throw error
+      .insert([
+        { habit_id: habitId, completion_date: date }
+      ]);
+    if (error) throw error;
   }
 
   async uncompleteHabit(habitId: string, date: string): Promise<void> {
@@ -608,6 +607,46 @@ export class DatabaseService {
       result = data as UserSettingsDb;
     }
     return toUserSettings(result);
+  }
+
+  // ===== HISTORY ITEMS =====
+  // Adiciona um item de histórico de gamificação
+  async addHistoryItem(userId: string, item: import('@/types/gamification').HistoryItem): Promise<void> {
+    const { ts, type, xp, coins, category, tags } = item;
+    const { error } = await supabase
+      .from('history_items')
+      .insert([{ user_id: userId, ts: new Date(ts), type, xp, coins, category, tags }]);
+    if (error) throw error;
+  }
+
+  // Recupera itens de histórico de gamificação
+  async getHistoryItems(
+    userId: string,
+    since?: string | Date,
+    until?: string | Date
+  ): Promise<import('@/types/gamification').HistoryItem[]> {
+    let query = supabase
+      .from('history_items')
+      .select('*')
+      .eq('user_id', userId)
+      .order('ts', { ascending: false });
+    if (since) {
+      query = query.gte('ts', since);
+    }
+    if (until) {
+      query = query.lte('ts', until);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    // Map database rows to HistoryItem
+    return (data || []).map(d => ({
+      ts: new Date(d.ts).getTime(),
+      type: d.type,
+      xp: d.xp,
+      coins: d.coins,
+      category: d.category || undefined,
+      tags: d.tags || undefined,
+    }));
   }
 }
 

@@ -19,7 +19,7 @@ export interface ActiveCategory {
 }
 
 // Mapeamento de categorias para ícones e cores
-const CATEGORY_META: Record<string, { icon: string; color: string; displayName: string }> = {
+export const CATEGORY_META: Record<string, { icon: string; color: string; displayName: string }> = {
   'Arte': { icon: '🎨', color: 'text-pink-400', displayName: 'Arte' },
   'Estudo': { icon: '📚', color: 'text-indigo-400', displayName: 'Estudo' },
   'Leitura': { icon: '📖', color: 'text-indigo-400', displayName: 'Leitura' },
@@ -48,7 +48,8 @@ function calculatePotentialXP(
   tasks: any[],
   goals: any[],
   category: string,
-  period: 'day' | 'week' | 'month' = 'month'
+  period: 'day' | 'week' | 'month' = 'month',
+  selectedDaysCount: number = 1
 ): number {
   const config = gamificationConfig;
   
@@ -68,36 +69,39 @@ function calculatePotentialXP(
     (!g.category && category === 'Sem Categoria')
   ).length;
 
-  // Calcular XP potencial baseado no período
+  // Calcular XP potencial baseado no período e quantidade de dias selecionados
   let habitXP, taskXP, goalXP;
   
   switch (period) {
     case 'day':
-      habitXP = habitCount * config.points.habit * 1; // 1 dia
-      taskXP = taskCount * config.points.task * 0.3; // 0.3x por dia em média
-      goalXP = goalCount * config.points.goal * 0.02; // 0.02x por dia em média
+      habitXP = habitCount * config.points.habit * selectedDaysCount; // XP por dia * dias selecionados
+      taskXP = taskCount * config.points.task * (selectedDaysCount * 0.3); // 0.3x por dia em média
+      goalXP = goalCount * config.points.goal * (selectedDaysCount * 0.02); // 0.02x por dia em média
       break;
     case 'week':
-      habitXP = habitCount * config.points.habit * 7; // 7 dias
-      taskXP = taskCount * config.points.task * 2; // 2x por semana
-      goalXP = goalCount * config.points.goal * 0.1; // 0.1x por semana em média
+      habitXP = habitCount * config.points.habit * selectedDaysCount; // XP por dia * dias selecionados
+      taskXP = taskCount * config.points.task * (selectedDaysCount * 0.3); // 0.3x por dia em média
+      goalXP = goalCount * config.points.goal * (selectedDaysCount * 0.02); // 0.02x por dia em média
       break;
     case 'month':
     default:
-      habitXP = habitCount * config.points.habit * 30; // 30 dias
-      taskXP = taskCount * config.points.task * 8; // 8x por mês em média
-      goalXP = goalCount * config.points.goal * 0.5; // 0.5x por mês em média
+      habitXP = habitCount * config.points.habit * selectedDaysCount; // XP por dia * dias selecionados
+      taskXP = taskCount * config.points.task * (selectedDaysCount * 0.3); // 0.3x por dia em média
+      goalXP = goalCount * config.points.goal * (selectedDaysCount * 0.02); // 0.02x por dia em média
       break;
   }
   
   return habitXP + taskXP + goalXP;
 }
 
-export const useActiveCategories = (period: 'day' | 'week' | 'month' = 'month') => {
+export const useActiveCategories = (period: 'day' | 'week' | 'month' = 'month', filteredHistory?: any[], selectedDaysCount: number = 1) => {
   const habits = useHabitStore(state => state.habits);
   const { todayTasks, weekTasks, laterTasks } = useTasks();
   const { activeGoals } = useGoals();
   const { history } = useGamificationStore();
+  
+  // Use filteredHistory if provided, otherwise use full history
+  const historyToUse = filteredHistory || history;
 
   const activeCategories = useMemo(() => {
     const categoryData: Record<string, {
@@ -126,84 +130,51 @@ export const useActiveCategories = (period: 'day' | 'week' | 'month' = 'month') 
     //   console.log(`  - ${habit.name}: categorias =`, habit.categories);
     // });
 
+    // Helper to normalize category names
+    const normalize = (raw?: string) => {
+      const cat = raw?.trim();
+      if (!cat) return 'Sem Categoria';
+      // Find canonical key in CATEGORY_META case-insensitive
+      const key = Object.keys(CATEGORY_META).find(k => k.toLowerCase() === cat.toLowerCase());
+      return key || cat;
+    };
     // Processar hábitos
     allHabits.forEach(habit => {
-      // console.log(`[ActiveCategories Debug] Processando hábito: ${habit.name}`, { categories: habit.categories });
-      if (habit.categories && habit.categories.length > 0) {
-        habit.categories.forEach(cat => {
-          if (cat && cat.trim()) {
-            // console.log(`[ActiveCategories Debug] Adicionando hábito à categoria: ${cat}`);
-            if (!categoryData[cat]) {
-              categoryData[cat] = { count: 0, xp30d: 0, habitCount: 0, taskCount: 0, goalCount: 0 };
-            }
-            categoryData[cat].count += 1;
-            categoryData[cat].habitCount += 1;
-          }
-        });
-      } else {
-        // Hábitos sem categoria - só criar se houver hábitos sem categoria
-        // console.log(`[ActiveCategories Debug] Hábito sem categoria: ${habit.name}`);
-        if (!categoryData['Sem Categoria']) {
-          categoryData['Sem Categoria'] = { count: 0, xp30d: 0, habitCount: 0, taskCount: 0, goalCount: 0 };
-        }
-        categoryData['Sem Categoria'].count += 1;
-        categoryData['Sem Categoria'].habitCount += 1;
-      }
+      const cats = Array.isArray(habit.categories) && habit.categories.length > 0
+        ? habit.categories.map(normalize)
+        : ['Sem Categoria'];
+      cats.forEach(cat => {
+        if (!categoryData[cat]) categoryData[cat] = { count: 0, xp30d: 0, habitCount: 0, taskCount: 0, goalCount: 0 };
+        categoryData[cat].count += 1;
+        categoryData[cat].habitCount += 1;
+      });
     });
 
     // console.log('[ActiveCategories Debug] Após processar hábitos:', categoryData);
 
     // Processar tarefas
     allTasks.forEach(task => {
-      // console.log(`[ActiveCategories Debug] Processando tarefa: ${task.title}`, { category: task.category });
-      if (task.category && task.category.trim()) {
-        // console.log(`[ActiveCategories Debug] Adicionando tarefa à categoria: ${task.category}`);
-        if (!categoryData[task.category]) {
-          categoryData[task.category] = { count: 0, xp30d: 0, habitCount: 0, taskCount: 0, goalCount: 0 };
-        }
-        categoryData[task.category].count += 1;
-        categoryData[task.category].taskCount += 1;
-      } else {
-        // Tarefas sem categoria - só criar se houver tarefas sem categoria
-        // console.log(`[ActiveCategories Debug] Tarefa sem categoria: ${task.title}`);
-        if (!categoryData['Sem Categoria']) {
-          categoryData['Sem Categoria'] = { count: 0, xp30d: 0, habitCount: 0, taskCount: 0, goalCount: 0 };
-        }
-        categoryData['Sem Categoria'].count += 1;
-        categoryData['Sem Categoria'].taskCount += 1;
-      }
+      const cat = normalize(task.category);
+      if (!categoryData[cat]) categoryData[cat] = { count: 0, xp30d: 0, habitCount: 0, taskCount: 0, goalCount: 0 };
+      categoryData[cat].count += 1;
+      categoryData[cat].taskCount += 1;
     });
 
     // console.log('[ActiveCategories Debug] Após processar tarefas:', categoryData);
 
     // Processar metas
     activeGoals.forEach(goal => {
-      // console.log(`[ActiveCategories Debug] Processando meta: ${goal.title}`, { category: goal.category });
-      if (goal.category && goal.category.trim()) {
-        // console.log(`[ActiveCategories Debug] Adicionando meta à categoria: ${goal.category}`);
-        if (!categoryData[goal.category]) {
-          categoryData[goal.category] = { count: 0, xp30d: 0, habitCount: 0, taskCount: 0, goalCount: 0 };
-        }
-        categoryData[goal.category].count += 1;
-        categoryData[goal.category].goalCount += 1;
-      } else {
-        // Metas sem categoria - só criar se houver metas sem categoria
-        // console.log(`[ActiveCategories Debug] Meta sem categoria: ${goal.title}`);
-        if (!categoryData['Sem Categoria']) {
-          categoryData['Sem Categoria'] = { count: 0, xp30d: 0, habitCount: 0, taskCount: 0, goalCount: 0 };
-        }
-        categoryData['Sem Categoria'].count += 1;
-        categoryData['Sem Categoria'].goalCount += 1;
-      }
+      const cat = normalize(goal.category);
+      if (!categoryData[cat]) categoryData[cat] = { count: 0, xp30d: 0, habitCount: 0, taskCount: 0, goalCount: 0 };
+      categoryData[cat].count += 1;
+      categoryData[cat].goalCount += 1;
     });
 
     // console.log('[ActiveCategories Debug] Após processar metas:', categoryData);
 
-    // Calcular XP dos últimos 30 dias por categoria
-    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-    
-    history.forEach(item => {
-      if (item.ts >= thirtyDaysAgo && item.category) {
+    // Calcular XP do período filtrado por categoria
+    historyToUse.forEach(item => {
+      if (item.category) {
         if (!categoryData[item.category]) {
           categoryData[item.category] = { count: 0, xp30d: 0, habitCount: 0, taskCount: 0, goalCount: 0 };
         }
@@ -217,12 +188,14 @@ export const useActiveCategories = (period: 'day' | 'week' | 'month' = 'month') 
     const activeCats: ActiveCategory[] = Object.keys(categoryData)
       .filter(cat => categoryData[cat].count > 0)
       .map(cat => {
-        const meta = CATEGORY_META[cat] || CATEGORY_META['Sem Categoria'];
+        // Use static meta if exists, otherwise dynamic meta for custom category
+        const formattedName = cat.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const meta = CATEGORY_META[cat] || { icon: '🏷️', color: 'text-gray-400', displayName: formattedName };
         const config = gamificationConfig.categories[meta.displayName] || gamificationConfig.categories['Pessoal'];
         const data = categoryData[cat];
         
         // Calcular target dinâmico baseado na quantidade de itens e período
-        const potentialXP = calculatePotentialXP(allHabits, allTasks, activeGoals, cat, period);
+        const potentialXP = calculatePotentialXP(allHabits, allTasks, activeGoals, cat, period, selectedDaysCount);
         const targetMultiplier = period === 'day' ? 0.1 : period === 'week' ? 0.2 : 0.3;
         const target30d = Math.max(100, potentialXP * targetMultiplier);
         
@@ -256,7 +229,7 @@ export const useActiveCategories = (period: 'day' | 'week' | 'month' = 'month') 
 
     // console.log('[ActiveCategories Debug] Categorias finais:', activeCats);
     return activeCats;
-  }, [habits, todayTasks, weekTasks, laterTasks, activeGoals, history, period]);
+  }, [habits, todayTasks, weekTasks, laterTasks, activeGoals, historyToUse, period]);
 
   return activeCategories;
 };

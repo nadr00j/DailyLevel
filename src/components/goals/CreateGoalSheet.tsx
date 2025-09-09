@@ -53,11 +53,11 @@ export const CreateGoalSheet = ({ open, onOpenChange, addGoal, defaultBucket }: 
     { name: 'imagem-pessoal', label: 'Imagem Pessoal', icon: LucideIcons.Camera },
     { name: 'hobbies', label: 'Hobbies', icon: LucideIcons.Gamepad2 },
     { name: 'produtividade', label: 'Produtividade', icon: LucideIcons.Clock },
-    { name: 'personal', label: 'Pessoal', icon: LucideIcons.Users },
+    { name: 'Pessoal', label: 'Pessoal', icon: LucideIcons.Users },
     { name: 'Outro', label: 'Outro', icon: LucideIcons.Tag },
   ];
 
-  const [category, setCategory] = useState<string>('personal');
+  const [category, setCategory] = useState<string>('Pessoal');
   const [showCustomCat,setShowCustomCat]=useState(false);
   const [customCat,setCustomCat]=useState('');
   const [showAdvanced,setShowAdvanced]=useState(false);
@@ -100,7 +100,7 @@ export const CreateGoalSheet = ({ open, onOpenChange, addGoal, defaultBucket }: 
     setIconType(null);
     setIconValue('');
     setBucket(defaultBucket ?? 'active');
-    setCategory('personal');
+    setCategory('Pessoal');
     onOpenChange(false);
   };
 
@@ -208,9 +208,9 @@ export const CreateGoalSheet = ({ open, onOpenChange, addGoal, defaultBucket }: 
       {/* Picker modal */}
       <IconEmojiPicker
         open={pickerOpen}
-        onClose={()=>setPickerOpen(false)}
-        onSelectIcon={(name)=>{ setIconType('icon'); setIconValue(name); setPickerOpen(false); }}
-        onSelectEmoji={(char)=>{ setIconType('emoji'); setIconValue(char); setPickerOpen(false); }}
+        onClose={()=>setTimeout(() => setPickerOpen(false), 0)}
+        onSelectIcon={(name)=>{ setIconType('icon'); setIconValue(name); setTimeout(() => setPickerOpen(false), 0); }}
+        onSelectEmoji={(char)=>{ setIconType('emoji'); setIconValue(char); setTimeout(() => setPickerOpen(false), 0); }}
         initialTab="icon"
       />
     </Sheet>

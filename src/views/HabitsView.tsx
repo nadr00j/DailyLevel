@@ -3,7 +3,7 @@ import { Plus, Calendar, CalendarCheck, CalendarX, ChevronDown, Briefcase, Heart
 import { DndContext, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { useHabitStore } from '@/stores/useHabitStore';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { HabitCard } from '@/components/habits/HabitCard';
 import { HeatmapView } from '@/components/habits/HeatmapView';
@@ -94,6 +94,11 @@ export const HabitsView = () => {
   const reorderHabits = useHabitStore(s=>s.reorderHabits);
   const habitCategoryOrder = useHabitStore(s=>s.habitCategoryOrder);
   const setCategoryOrder = useHabitStore(s=>s.setCategoryOrder);
+  // Load habitCategoryOrder from localStorage once
+  useEffect(() => {
+    const stored = localStorage.getItem('dl.habitCategoryOrder');
+    if (stored) setCategoryOrder(JSON.parse(stored));
+  }, [setCategoryOrder]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -136,6 +141,7 @@ export const HabitsView = () => {
     const newIdx = grpCats.findIndex(c=>c===over.id);
     const newOrder=arrayMove(grpCats,oldIdx,newIdx);
     setCategoryOrder(newOrder);
+    localStorage.setItem('dl.habitCategoryOrder', JSON.stringify(newOrder));
   };
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});

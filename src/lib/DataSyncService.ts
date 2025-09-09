@@ -8,6 +8,7 @@ import { useTaskStore } from '@/stores/useTaskStore';
 
 class DataSyncService {
   private isSyncing = false;
+  private hasSyncedHistoryOnce = false;
   
   // Load data from Supabase into stores and localStorage
   async loadAll(userId: string): Promise<void> {
@@ -25,6 +26,14 @@ class DataSyncService {
       useGamificationStore.setState({ history });
       // Recalcular atributos baseado no histórico carregado
       useGamificationStore.getState().init();
+      // 1.b. Carregar histórico de ações (history_items)
+      try {
+        const historyItems = await db.getHistoryItems(userId);
+        useGamificationStore.setState({ history: historyItems });
+        console.log('✅ [DEBUG] DataSyncService.loadAll - history_items carregados:', historyItems.length);
+      } catch (err) {
+        console.error('❌ [DEBUG] DataSyncService.loadAll - erro ao carregar history_items:', err);
+      }
     }
     // 2. User settings
     const settings = await db.getUserSettings(userId);
@@ -89,37 +98,7 @@ class DataSyncService {
       const gm = useGamificationStore.getState();
       await db.saveGamificationData({ userId, ...gm });
       console.log('✅ [DEBUG] DataSyncService.syncAll - Gamificação salva');
-    // 1.a. Sincronizar histórico de gamificação (apenas os últimos 10 itens para evitar loops)
-    console.log('🔍 [DEBUG] DataSyncService.syncAll - Iniciando histórico de gamificação...');
-    const historyItems = useGamificationStore.getState().history;
-    console.log('🔍 [DEBUG] DataSyncService.syncAll - Histórico items:', historyItems.length);
-    
-    // Pegar apenas os últimos 10 itens para evitar loops infinitos
-    const recentHistoryItems = historyItems.slice(-10);
-    console.log('🔍 [DEBUG] DataSyncService.syncAll - Sincronizando apenas os últimos 10 itens');
-    
-    // Limitar a 5 itens por vez para evitar loops
-    const itemsToSync = recentHistoryItems.slice(0, 5);
-    for (const hi of itemsToSync) {
-      try {
-        console.log('🔍 [DEBUG] DataSyncService.syncAll - Salvando item do histórico:', hi.type, hi.xp, hi.coins);
-        await db.addGamificationHistory({
-          userId,
-          type: hi.type,
-          xp: hi.xp,
-          coins: hi.coins,
-          tags: hi.tags,
-          category: hi.category,
-          createdAt: new Date(hi.ts).toISOString()
-        });
-      } catch (error) {
-        console.error('❌ [DEBUG] DataSyncService.syncAll - Erro ao salvar item do histórico:', error);
-        // Não fazer throw aqui para não interromper o sync
-        console.warn('⚠️ [DEBUG] DataSyncService.syncAll - Pulando item do histórico com erro');
-        break; // Parar o loop se houver erro
-      }
-    }
-    console.log('✅ [DEBUG] DataSyncService.syncAll - Histórico de gamificação salvo');
+    // 1.a. Histórico de gamificação gerenciado diretamente em addHistoryItem; removido do syncAll para evitar duplicações
     
     // 2. Tasks: sincronizar a partir do store
     console.log('🔍 [DEBUG] DataSyncService.syncAll - Iniciando tarefas...');
@@ -149,47 +128,11 @@ class DataSyncService {
           await db.saveHabit(userId, habit);
           console.log('✅ [DEBUG] DataSyncService.syncAll - Hábito salvo:', habit.name);
           
-          // sincroniza logs de conclusões (com limite para evitar travamento)
-          const habitLogs = state.logs[habit.id] || {};
-          const logDates = Object.keys(habitLogs);
-          console.log('🔍 [DEBUG] DataSyncService.syncAll - Logs para sincronizar:', logDates.length, 'para hábito:', habit.name);
-          
-          // Limitar a 10 logs por hábito para evitar travamento
-          let logCount = 0;
-          for (const date of logDates) {
-            if (logCount >= 10) {
-              console.log('⚠️ [DEBUG] DataSyncService.syncAll - Limite de 10 logs atingido para hábito:', habit.name);
-              break;
-            }
-            
-            const count = Math.min(habitLogs[date], 5); // Máximo 5 logs por data
-            console.log('🔍 [DEBUG] DataSyncService.syncAll - Sincronizando', count, 'logs para data:', date);
-            
-            for (let i = 0; i < count; i++) {
-              await db.completeHabit(habit.id, date);
-              logCount++;
-            }
-          }
-          console.log('✅ [DEBUG] DataSyncService.syncAll - Logs sincronizados para hábito:', habit.name);
         } catch (habitError) {
           console.error('❌ [DEBUG] DataSyncService.syncAll - Erro ao sincronizar hábito:', habit.name, habitError);
           // Continuar com o próximo hábito
         }
       }
-      
-      // Deletar hábitos removidos localmente (com try/catch)
-      try {
-        const serverHabits = await db.getHabits(userId);
-        const localHabitIds = habitsToSync.map(h => h.id);
-        for (const sh of serverHabits) {
-          if (!localHabitIds.includes(sh.id)) {
-            await db.deleteHabit(userId, sh.id);
-          }
-        }
-      } catch (deleteError) {
-        console.error('❌ [DEBUG] DataSyncService.syncAll - Erro ao deletar hábitos:', deleteError);
-      }
-      
       console.log('✅ [DEBUG] DataSyncService.syncAll - Hábitos sincronizados');
     } catch (error) {
       console.error('❌ [DEBUG] DataSyncService.syncAll - Erro na seção de hábitos:', error);
@@ -229,7 +172,7 @@ class DataSyncService {
     console.log('✅ [DEBUG] DataSyncService.syncAll concluído com sucesso');
     } catch (error) {
       console.error('❌ [DEBUG] DataSyncService.syncAll erro:', error);
-      throw error;
+      // Não rethrow para não interromper outras seções de sincronização
     } finally {
       this.isSyncing = false;
       console.log('🔍 [DEBUG] DataSyncService.syncAll - Flag isSyncing resetada');

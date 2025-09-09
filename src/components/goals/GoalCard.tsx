@@ -121,8 +121,10 @@ export const GoalCard = ({ goal, onOptions, onToggle, onDelete, onMove, onEdit, 
                 {goal.title}
               </h3>
               {goal.description && (
-                <p className="text-xs text-muted-foreground mt-0.5 max-w-xs truncate">
-                  {goal.description}
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {goal.description.length > 30
+                    ? `${goal.description.slice(0, 30)}...`
+                    : goal.description}
                 </p>
               )}
             </div>
