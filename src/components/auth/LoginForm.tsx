@@ -82,7 +82,7 @@ export const LoginForm = () => {
         className="w-full max-w-md"
       >
         <Card>
-          <CardHeader className="text-center">
+          <CardHeader className="text-center" style={{ marginBottom: '-15px' }}>
             <motion.div 
               className="flex justify-center mb-4"
               initial={{ opacity: 0, scale: 0.8 }}
@@ -132,7 +132,7 @@ export const LoginForm = () => {
                 />
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2" style={{ margin: '15px 0px 20px 5px' }}>
                 <Checkbox
                   id="remember"
                   checked={rememberCredentials}
