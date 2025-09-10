@@ -275,11 +275,13 @@ export const PerformanceReports = () => {
     return totalItems;
   };
 
-  // Compute categories from filteredHistory
+  // Compute categories from filteredHistory + all items (including non-completed)
   const historyCategories = useMemo(() => {
     
     // Mapping category to xp and count - normalize categories to avoid duplicates
     const map: Record<string, { xp: number; count: number; originalName: string }> = {};
+    
+    // First, add categories from completed items (filteredHistory)
     filteredHistory.forEach(item => {
       const originalCat = item.category || 'Sem Categoria';
       const normalizedCat = originalCat.toLowerCase();
@@ -291,16 +293,41 @@ export const PerformanceReports = () => {
       map[normalizedCat].count += 1;
     });
     
-    // Debug para investigar XP duplicado
-    console.log('[XP Duplication Debug]', {
+    // Then, add categories from all items (habits, tasks, goals) even if not completed
+    const allItems = [
+      ...Object.values(habits).map(h => ({ category: (h.categories && h.categories.length > 0) ? h.categories[0] : 'Sem Categoria', type: 'habit' })),
+      ...todayTasks.map(t => ({ category: t.category || 'Sem Categoria', type: 'task' })),
+      ...weekTasks.map(t => ({ category: t.category || 'Sem Categoria', type: 'task' })),
+      ...laterTasks.map(t => ({ category: t.category || 'Sem Categoria', type: 'task' })),
+      ...activeGoals.map(g => ({ category: g.category || 'Sem Categoria', type: 'goal' }))
+    ];
+    
+    allItems.forEach(item => {
+      const originalCat = item.category;
+      const normalizedCat = originalCat.toLowerCase();
+      
+      if (!map[normalizedCat]) {
+        map[normalizedCat] = { xp: 0, count: 0, originalName: originalCat };
+      }
+      // Don't increment count here as it's already counted in filteredHistory
+      // This ensures we have the category even with 0 XP
+    });
+    
+    // Debug para investigar categorias incluídas
+    console.log('[Category Debug]', {
       filteredHistoryLength: filteredHistory.length,
-      filteredHistory: filteredHistory.map(item => ({
+      allItemsLength: allItems.length,
+      categoriesFromHistory: filteredHistory.map(item => ({
         type: item.type,
         category: item.category,
         xp: item.xp,
         ts: new Date(item.ts).toISOString().slice(0, 10)
       })),
-      categoryMap: map
+      categoriesFromItems: allItems.map(item => ({
+        type: item.type,
+        category: item.category
+      })),
+      finalCategoryMap: map
     });
     
     const categories = Object.entries(map).map(([normalizedCat, data]) => {

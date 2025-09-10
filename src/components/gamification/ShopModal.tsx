@@ -1,6 +1,8 @@
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Package, Zap, ShoppingBag } from 'lucide-react';
-import { useShopStore, type ShopItem } from '@/stores/useShopStore';
+import { useShopStore } from '@/stores/useShopStore';
+import type { ShopItem } from '@/types';
 import { useGamificationStore } from '@/stores/useGamificationStore';
 import { usePixelBuddyStore } from '@/stores/usePixelBuddyStore';
 import { toast } from '@/components/ui/use-toast';
@@ -8,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Check } from 'lucide-react';
-import { useState } from 'react';
 
 type TabType = 'items' | 'vantagens' | 'inventory';
 
@@ -121,13 +122,32 @@ const ShopItemCard = ({ item }: { item: ShopItem }) => {
 };
 
 const InventoryTab = () => {
-  const { inventory, equipItem, unequipItem } = usePixelBuddyStore();
+  const { inventory, equipItem, unequipItem, unlockItem } = usePixelBuddyStore();
   const { items } = useShopStore();
 
   // Filtrar itens comprados que são do tipo PixelBuddy
   const purchasedItems = items.filter(item => 
     item.purchased && item.category === 'cosmetic'
   );
+
+  // Garantir que todos os itens comprados estejam no inventário do PixelBuddy
+  useEffect(() => {
+    purchasedItems.forEach(item => {
+      if (item.pixelBuddyData && !inventory[item.id]) {
+        unlockItem({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          type: item.pixelBuddyData.type,
+          rarity: item.pixelBuddyData.rarity || 'common',
+          price: item.price,
+          unlocked: true,
+          equipped: false,
+          spritePath: item.pixelBuddyData.spritePath
+        });
+      }
+    });
+  }, [purchasedItems, inventory, unlockItem]);
 
   // Agrupar itens por tipo
   const itemsByType = purchasedItems.reduce((acc, item) => {

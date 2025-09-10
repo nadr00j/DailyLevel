@@ -4,6 +4,8 @@ import { useHabitStore } from '@/stores/useHabitStore';
 import { useGoalStore } from '@/stores/useGoalStore';
 import { useGamificationStore } from '@/stores/useGamificationStore';
 import { useTaskStore } from '@/stores/useTaskStore';
+import { usePixelBuddyStore } from '@/stores/usePixelBuddyStore';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 class DataSyncService {
   private isSyncing = false;
@@ -26,35 +28,30 @@ class DataSyncService {
     return `${year}-${month}-${day}`;
   }
 
-  // Function to clean completed tasks after 23:59-00:00 in Brazil timezone
+  // Function to clean completed tasks after midnight in Brazil timezone
   private async cleanupCompletedTasks(userId: string): Promise<void> {
-    const now = new Date();
-    // Convert to Brazil timezone (UTC-3)
-    const brazilOffset = -3 * 60; // -3 hours in minutes
-    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-    const brazilTime = new Date(utc + (brazilOffset * 60000));
-    
     const brazilToday = this.getBrazilToday();
-    const brazilHour = brazilTime.getHours();
-    const brazilMinute = brazilTime.getMinutes();
     
-    // Only run cleanup after 23:59 (11:59 PM) in Brazil timezone
-    if (brazilHour < 23 || (brazilHour === 23 && brazilMinute < 59)) {
-      console.log('🕐 [DEBUG] DataSyncService.cleanupCompletedTasks - Ainda não é 23:59 no fuso de Brasília, pulando limpeza');
-      return;
-    }
+    console.log('🕐 [DEBUG] DataSyncService.cleanupCompletedTasks - Verificando limpeza:', {
+      brazilToday,
+      lastCleanupDate: this.lastCleanupDate,
+      shouldRun: this.lastCleanupDate !== brazilToday
+    });
     
     // Only run cleanup once per day
     if (this.lastCleanupDate === brazilToday) {
       console.log('🕐 [DEBUG] DataSyncService.cleanupCompletedTasks - Limpeza já executada hoje, pulando');
       return;
     }
+    
+    console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Executando limpeza de tarefas concluídas...');
 
     try {
-      console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Iniciando limpeza de tarefas concluídas após 23:59...');
-      
       const tasks = useTaskStore.getState().tasks;
+      console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Total de tarefas:', tasks.length);
+      
       const completedTasks = tasks.filter(task => task.completed);
+      console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Tarefas concluídas encontradas:', completedTasks.length);
       
       if (completedTasks.length === 0) {
         console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Nenhuma tarefa concluída para remover');
@@ -62,13 +59,20 @@ class DataSyncService {
         return;
       }
       
+      // Log das tarefas que serão removidas
+      completedTasks.forEach(task => {
+        console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Removendo tarefa:', task.id, task.title);
+      });
+      
       // Remove completed tasks from local store
       const activeTasks = tasks.filter(task => !task.completed);
       useTaskStore.setState({ tasks: activeTasks });
+      console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Tarefas ativas restantes:', activeTasks.length);
       
       // Remove completed tasks from Supabase
       for (const task of completedTasks) {
         await db.deleteTask(userId, task.id);
+        console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Tarefa removida do Supabase:', task.id);
       }
       
       this.lastCleanupDate = brazilToday;
@@ -76,6 +80,13 @@ class DataSyncService {
     } catch (error) {
       console.error('❌ [DEBUG] DataSyncService.cleanupCompletedTasks - Erro na limpeza:', error);
     }
+  }
+
+  // Public function to force cleanup of completed tasks (for testing)
+  async forceCleanupCompletedTasks(userId: string): Promise<void> {
+    console.log('🧹 [DEBUG] DataSyncService.forceCleanupCompletedTasks - Forçando limpeza de tarefas concluídas...');
+    this.lastCleanupDate = ''; // Reset to force cleanup
+    await this.cleanupCompletedTasks(userId);
   }
   
   // Load data from Supabase into stores and localStorage
@@ -107,7 +118,31 @@ class DataSyncService {
     const settings = await db.getUserSettings(userId);
     if (settings) useShopStore.setState({ confettiEnabled: settings.confettiEnabled });
 
-    // 3. Tasks
+    // 3. PixelBuddy: carregar estado do PixelBuddy
+    try {
+      const pixelBuddyState = await db.getPixelBuddyState(userId);
+      if (pixelBuddyState) {
+        usePixelBuddyStore.setState({
+          body: pixelBuddyState.body,
+          head: pixelBuddyState.head,
+          clothes: pixelBuddyState.clothes,
+          accessory: pixelBuddyState.accessory,
+          hat: pixelBuddyState.hat,
+          effect: pixelBuddyState.effect,
+          inventory: pixelBuddyState.inventory
+        });
+        console.log('✅ [DEBUG] DataSyncService.loadAll - PixelBuddy carregado');
+      }
+    } catch (error: any) {
+      if (error?.code === 'PGRST205' || error?.message?.includes('Could not find the table')) {
+        console.warn('⚠️ [DEBUG] DataSyncService.loadAll - Tabela pixelbuddy_state não existe. Execute o SQL de criação da tabela.');
+        console.warn('📋 [DEBUG] DataSyncService.loadAll - Consulte o arquivo: create-pixelbuddy-state-table.sql');
+      } else {
+        console.error('❌ [DEBUG] DataSyncService.loadAll - Erro ao carregar PixelBuddy:', error);
+      }
+    }
+
+    // 4. Tasks
     const tasks = await db.getTasks(userId);
     if (tasks.length) {
       useTaskStore.setState({ tasks });
@@ -221,7 +256,30 @@ class DataSyncService {
     console.log('🔍 [DEBUG] DataSyncService.syncAll - Metas sincronizadas (sem limpeza automática)');
     console.log('✅ [DEBUG] DataSyncService.syncAll - Metas sincronizadas');
 
-    // 5. Shop Items: sincronizar estado atual (comprado ou não) para Supabase
+    // 5. PixelBuddy: sincronizar estado atual (equipamentos e inventário)
+    console.log('🔍 [DEBUG] DataSyncService.syncAll - Iniciando sincronização do PixelBuddy...');
+    try {
+      const pixelBuddyState = usePixelBuddyStore.getState();
+      await db.savePixelBuddyState(userId, {
+        body: pixelBuddyState.body,
+        head: pixelBuddyState.head,
+        clothes: pixelBuddyState.clothes,
+        accessory: pixelBuddyState.accessory,
+        hat: pixelBuddyState.hat,
+        effect: pixelBuddyState.effect,
+        inventory: pixelBuddyState.inventory
+      });
+      console.log('✅ [DEBUG] DataSyncService.syncAll - PixelBuddy sincronizado');
+    } catch (error: any) {
+      if (error?.code === 'PGRST205' || error?.message?.includes('Could not find the table')) {
+        console.warn('⚠️ [DEBUG] DataSyncService.syncAll - Tabela pixelbuddy_state não existe. Execute o SQL de criação da tabela.');
+        console.warn('📋 [DEBUG] DataSyncService.syncAll - Consulte o arquivo: create-pixelbuddy-state-table.sql');
+      } else {
+        console.error('❌ [DEBUG] DataSyncService.syncAll - Erro na sincronização do PixelBuddy:', error);
+      }
+    }
+
+    // 6. Shop Items: sincronizar estado atual (comprado ou não) para Supabase
     const items = useShopStore.getState().items;
     for (const item of items) {
       await db.saveShopItem(userId, item as any);
@@ -239,3 +297,16 @@ class DataSyncService {
 }
 
 export const dataSyncService = new DataSyncService();
+
+// Função global para testar limpeza manual (disponível no console do navegador)
+if (typeof window !== 'undefined') {
+  (window as any).testCleanupTasks = async () => {
+    const userId = useAuthStore.getState().user?.id;
+    if (!userId) {
+      console.error('❌ Usuário não logado');
+      return;
+    }
+    console.log('🧪 Testando limpeza manual de tarefas...');
+    await dataSyncService.forceCleanupCompletedTasks(userId);
+  };
+}

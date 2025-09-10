@@ -36,7 +36,6 @@ export const GamificationListener = () => {
   // Ready flag to skip initial history loads
   const ready = useRef<boolean>(false)
   const prevLen = useRef<number>(0)
-  const initTime = useRef<number>(Date.now())
 
   // Enable listener after initial load
   useEffect(() => {
@@ -44,7 +43,7 @@ export const GamificationListener = () => {
       ready.current = true;
       prevLen.current = history.length;
       console.log('[GamificationListener Debug] Listener ativado, histórico inicial:', history.length);
-    }, 2000); // Aumentei para 2 segundos para garantir que o carregamento inicial termine
+    }, 1000); // Reduzido para 1 segundo
     return () => clearTimeout(timer);
   }, []);
 
@@ -54,22 +53,20 @@ export const GamificationListener = () => {
       return;
     }
     
-    // Ignora itens muito antigos (carregados do banco)
-    const now = Date.now();
-    const timeSinceInit = now - initTime.current;
-    
     console.log('[GamificationListener Debug] useEffect executado:', { 
       historyLength: history.length, 
-      prevLength: prevLen.current,
-      timeSinceInit 
+      prevLength: prevLen.current
     });
 
     if(history.length > prevLen.current){
       const last = history[history.length-1];
       
-      // Só mostra toast para itens criados após a inicialização
-      if(last.ts && (now - last.ts) > timeSinceInit) {
-        console.log('[GamificationListener Debug] Item muito antigo, ignorando toast');
+      // Verificar se o item é recente (criado nos últimos 5 segundos)
+      const now = Date.now();
+      const isRecent = last.ts && (now - last.ts) < 5000;
+      
+      if (!isRecent) {
+        console.log('[GamificationListener Debug] Item não é recente, ignorando toast');
         prevLen.current = history.length;
         return;
       }

@@ -3,7 +3,7 @@ import type { Goal } from '@/types';
 import { CreateGoalSheet } from '@/components/goals/CreateGoalSheet';
 import { EditGoalSheet } from '@/components/goals/EditGoalSheet';
 import { GoalDetailSheet } from '@/components/goals/GoalDetailSheet';
-import { useGoals } from '@/hooks/useGoals';
+import { useGoalStore } from '@/stores/useGoalStore';
 import { Button } from '@/components/ui/button';
 import { GoalCard } from '@/components/goals/GoalCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,6 +13,7 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-ki
 import { AnimatePresence, motion } from 'framer-motion';
 import { HeartPulse, Briefcase, DollarSign, BookOpen, Users, ChevronDown, Tag, Paintbrush, Dumbbell, Apple, Monitor, Brain, Camera, Clock, Book } from 'lucide-react';
 import { SortableCategory } from '@/components/habits/SortableCategory';
+import { useCategorySettings } from '@/hooks/useCategorySettings';
 
 // Icon map for goal categories
 const GOAL_CAT_META: Record<string,{icon:any}> = {
@@ -41,21 +42,38 @@ import { SortableGoalCard } from '@/components/goals/SortableGoalCard';
 import { useCallback } from 'react';
 
 export const GoalsView = () => {
-  const { 
-    activeGoals, 
-    completedGoals, 
-    futureGoals,
-    updateGoal,
-    deleteGoal,
-    addGoal,
-    reorderGoals,
-    updateGoalProgress,
-  } = useGoals();
+  // Use Zustand store instead of old hook
+  const goals = useGoalStore(state => state.goals);
+  const updateGoalStore = useGoalStore(state => state.updateGoal);
+  const deleteGoalStore = useGoalStore(state => state.removeGoal);
+  const addGoalStore = useGoalStore(state => state.addGoal);
+  const reorderGoals = useGoalStore(state => state.reorderGoals);
+  const updateGoalProgress = useGoalStore(state => state.updateGoalProgress);
+  
+  // Create async wrappers for compatibility with components
+  const updateGoal = useCallback(async (goal: Goal) => {
+    updateGoalStore(goal);
+  }, [updateGoalStore]);
+  
+  const deleteGoal = useCallback(async (goalId: string) => {
+    await deleteGoalStore(goalId);
+  }, [deleteGoalStore]);
+  
+  const addGoal = useCallback(async (goalData: any) => {
+    addGoalStore(goalData);
+    return goalData;
+  }, [addGoalStore]);
+  
+  // Filter goals by status
+  const byOrder = (a: Goal, b: Goal) => (a.order ?? 0) - (b.order ?? 0);
+  const futureGoals = goals.filter(g => !g.isCompleted && g.isFuture).sort(byOrder);
+  const activeGoals = goals.filter(g => !g.isCompleted && !g.isFuture).sort(byOrder);
+  const completedGoals = goals.filter(g => g.isCompleted).sort(byOrder);
 
-  const [goalCategoryOrder, setGoalCategoryOrder] = useState<string[]>(() => {
-    const stored = localStorage.getItem('dl.goalCategoryOrder');
-    return stored ? JSON.parse(stored) : [];
-  });
+  // Use new category settings hook
+  const { settings, saveGoalCategoryOrder, toggleGoalCategory } = useCategorySettings();
+  const goalCategoryOrder = settings.goalCategoryOrder;
+  const collapsed = settings.goalCategoryCollapsed;
 
   const [openCreate, setOpenCreate] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
@@ -91,8 +109,9 @@ export const GoalsView = () => {
   const groupedFuture = groupByCategory(futureGoals);
   const groupedCompleted = groupByCategory(completedGoals);
 
-  const [collapsed,setCollapsed] = useState<Record<string,boolean>>({});
-  const toggleGroup = (cat:string)=>setCollapsed(prev=>({...prev,[cat]:!prev[cat]}));
+  const toggleGroup = (cat:string) => {
+    toggleGoalCategory(cat);
+  };
 
   const [activeCat,setActiveCat] = useState<string|null>(null);
 
@@ -101,7 +120,8 @@ export const GoalsView = () => {
     console.log('[Goals Debug] Completing goal:', goal.title, 'isCompleted:', goal.isCompleted);
     if (goal.isCompleted) {
       // If already completed, just toggle back
-      updateGoal(goal.id, { isCompleted: false });
+      const updatedGoal = { ...goal, isCompleted: false };
+      updateGoal(updatedGoal);
     } else {
       // If completing, use updateGoalProgress to trigger XP
       console.log('[Goals Debug] Calling updateGoalProgress with targetValue:', goal.targetValue);
@@ -121,8 +141,7 @@ export const GoalsView = () => {
     const {active,over}=event;
     if(!over||active.id===over.id) return;
     const newOrder=arrayMove(cats,cats.indexOf(active.id),cats.indexOf(over.id));
-    setGoalCategoryOrder(newOrder);
-    localStorage.setItem('dl.goalCategoryOrder', JSON.stringify(newOrder));
+    saveGoalCategoryOrder(newOrder);
     setActiveCat(null);
   };
 
@@ -163,7 +182,7 @@ export const GoalsView = () => {
               <SortableContext items={list.map(g=>g.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-3 pt-2">
                   {list.map(goal=> (
-                    <SortableGoalCard key={goal.id} goal={goal} onToggle={()=>completeGoal(goal)} onDelete={()=>deleteGoal(goal.id)} onMove={(to)=>{ if(to==='future') updateGoal(goal.id,{isFuture:true}); else updateGoal(goal.id,{isFuture:false}); }} onEdit={()=>setEditingGoal(goal)} onView={()=>setViewGoal(goal)} />
+                    <SortableGoalCard key={goal.id} goal={goal} onToggle={()=>completeGoal(goal)} onDelete={()=>deleteGoal(goal.id)} onMove={(to)=>{ if(to==='future') updateGoal({...goal, isFuture:true}); else updateGoal({...goal, isFuture:false}); }} onEdit={()=>setEditingGoal(goal)} onView={()=>setViewGoal(goal)} />
                   ))}
                 </div>
               </SortableContext>
@@ -338,10 +357,10 @@ export const GoalsView = () => {
       </motion.div>
     </div>
     <CreateGoalSheet open={openCreate} onOpenChange={setOpenCreate} addGoal={addGoal} defaultBucket={createBucket} />
-    <EditGoalSheet goal={editingGoal} open={!!editingGoal} onOpenChange={(open)=>{ if(!open) setEditingGoal(null);}} onSave={(goalId, updates) => {
+    <EditGoalSheet goal={editingGoal} open={!!editingGoal} onOpenChange={(open)=>{ if(!open) setEditingGoal(null);}} onSave={async (goalId, updates) => {
       if (editingGoal) {
         const updatedGoal = { ...editingGoal, ...updates };
-        updateGoal(updatedGoal);
+        await updateGoal(updatedGoal);
       }
     }} />
     <GoalDetailSheet goal={viewGoal} open={!!viewGoal} onOpenChange={(open)=>{ if(!open) setViewGoal(null);}} onEdit={(g)=>{ setViewGoal(null); setEditingGoal(g); }} />

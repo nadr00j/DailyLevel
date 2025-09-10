@@ -14,6 +14,7 @@ import { Habit } from '@/types/habit';
 import { SortableHabitCard } from '@/components/habits/SortableHabitCard';
 import { SortableCategory } from '@/components/habits/SortableCategory';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useCategorySettings } from '@/hooks/useCategorySettings';
 
 // Function to get current date in Brazil timezone (UTC-3)
 const getBrazilToday = () => {
@@ -108,13 +109,11 @@ export const HabitsView = () => {
   },[activeHabits, logsMap]);
 
   const reorderHabits = useHabitStore(s=>s.reorderHabits);
-  const habitCategoryOrder = useHabitStore(s=>s.habitCategoryOrder);
-  const setCategoryOrder = useHabitStore(s=>s.setCategoryOrder);
-  // Load habitCategoryOrder from localStorage once
-  useEffect(() => {
-    const stored = localStorage.getItem('dl.habitCategoryOrder');
-    if (stored) setCategoryOrder(JSON.parse(stored));
-  }, [setCategoryOrder]);
+  
+  // Use new category settings hook
+  const { settings, saveHabitCategoryOrder, toggleHabitCategory } = useCategorySettings();
+  const habitCategoryOrder = settings.habitCategoryOrder;
+  const collapsed = settings.habitCategoryCollapsed;
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -156,12 +155,12 @@ export const HabitsView = () => {
     const oldIdx = grpCats.findIndex(c=>c===active.id);
     const newIdx = grpCats.findIndex(c=>c===over.id);
     const newOrder=arrayMove(grpCats,oldIdx,newIdx);
-    setCategoryOrder(newOrder);
-    localStorage.setItem('dl.habitCategoryOrder', JSON.stringify(newOrder));
+    saveHabitCategoryOrder(newOrder);
   };
 
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const toggleGroup = (cat:string)=>setCollapsed(prev=>({...prev,[cat]:!prev[cat]}));
+  const toggleGroup = (cat:string) => {
+    toggleHabitCategory(cat);
+  };
 
   const [selectedHabit, setSelectedHabit] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState<'today'|'inactive'>('today');

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useAuthStore } from './useAuthStore';
+import { dataSyncService } from '@/lib/DataSyncService';
 
 export interface PixelBuddyItem {
   id: string;
@@ -27,6 +29,7 @@ interface PixelBuddyState {
   equipItem: (itemId: string) => void;
   unequipItem: (layer: 'clothes' | 'accessory' | 'hat' | 'effect') => void;
   unlockItem: (item: PixelBuddyItem) => void;
+  syncToSupabase: () => Promise<void>;
 }
 
 // Função para obter o caminho base do usuário
@@ -47,6 +50,8 @@ export const usePixelBuddyStore = create<PixelBuddyState>()(
 
       setBase: (layer, spritePath) => {
         set({ [layer]: spritePath });
+        // Sincronizar automaticamente
+        get().syncToSupabase();
       },
 
       equipItem: (itemId) => {
@@ -72,6 +77,9 @@ export const usePixelBuddyStore = create<PixelBuddyState>()(
           [item.type]: item.spritePath,
           inventory: updatedInventory
         });
+        
+        // Sincronizar automaticamente
+        get().syncToSupabase();
       },
 
       unequipItem: (layer) => {
@@ -85,6 +93,9 @@ export const usePixelBuddyStore = create<PixelBuddyState>()(
           }
           return { [layer]: null, inventory };
         });
+        
+        // Sincronizar automaticamente
+        get().syncToSupabase();
       },
 
       unlockItem: (item) => {
@@ -94,6 +105,21 @@ export const usePixelBuddyStore = create<PixelBuddyState>()(
             [item.id]: { ...item, unlocked: true, equipped: false }
           }
         }));
+        
+        // Sincronizar automaticamente
+        get().syncToSupabase();
+      },
+
+      syncToSupabase: async () => {
+        const userId = useAuthStore.getState().user?.id;
+        if (!userId) return;
+        
+        try {
+          await dataSyncService.syncAll(userId);
+          console.log('✅ [DEBUG] PixelBuddyStore - Estado sincronizado com Supabase');
+        } catch (error) {
+          console.error('❌ [DEBUG] PixelBuddyStore - Erro ao sincronizar com Supabase:', error);
+        }
       }
     }),
     { name: 'dl.pixelbuddy.v1' }

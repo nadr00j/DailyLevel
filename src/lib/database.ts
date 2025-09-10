@@ -9,6 +9,7 @@ import type { GamificationDb } from '@/types/GamificationDb';
 import type { UserSettings as AppUserSettings } from '@/types';
 import type { UserSettingsDb } from '@/types/UserSettingsDb';
 import type { HistoryItem, ActionType } from '@/types/gamification';
+import type { CategorySetting, CategorySettingsDb, CategorySettingsGroup } from '@/types/CategorySettings';
 
 // Convert HabitDb row to Habit (index.ts) format
 function toHabit(db: HabitDb): AppHabit {
@@ -211,6 +212,34 @@ function toUserSettings(data: UserSettingsDb): AppUserSettings {
     userId: data.user_id,
     confettiEnabled: data.confetti_enabled,
     gamificationConfig: data.gamification_config
+  };
+}
+
+// Convert CategorySettingsDb to CategorySetting
+function toCategorySetting(data: CategorySettingsDb): CategorySetting {
+  return {
+    id: data.id,
+    userId: data.user_id,
+    type: data.type,
+    categoryName: data.category_name,
+    categoryOrder: data.category_order,
+    isCollapsed: data.is_collapsed,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at
+  };
+}
+
+// Convert CategorySetting to CategorySettingsDb
+function toCategorySettingDb(setting: CategorySetting): CategorySettingsDb {
+  return {
+    id: setting.id!,
+    user_id: setting.userId,
+    type: setting.type,
+    category_name: setting.categoryName,
+    category_order: setting.categoryOrder,
+    is_collapsed: setting.isCollapsed,
+    created_at: setting.createdAt || new Date().toISOString(),
+    updated_at: setting.updatedAt || new Date().toISOString()
   };
 }
 
@@ -647,6 +676,155 @@ export class DatabaseService {
       category: d.category || undefined,
       tags: d.tags || undefined,
     }));
+  }
+
+  // ===== PIXELBUDDY =====
+  // Salva o estado do PixelBuddy
+  async savePixelBuddyState(userId: string, pixelBuddyData: {
+    body: string | null;
+    head: string | null;
+    clothes: string | null;
+    accessory: string | null;
+    hat: string | null;
+    effect: string | null;
+    inventory: Record<string, any>;
+  }): Promise<void> {
+    const { error } = await supabase
+      .from('pixelbuddy_state')
+      .upsert([{
+        user_id: userId,
+        body: pixelBuddyData.body,
+        head: pixelBuddyData.head,
+        clothes: pixelBuddyData.clothes,
+        accessory: pixelBuddyData.accessory,
+        hat: pixelBuddyData.hat,
+        effect: pixelBuddyData.effect,
+        inventory: pixelBuddyData.inventory,
+        updated_at: new Date().toISOString()
+      }], {
+        onConflict: 'user_id'
+      });
+    if (error) throw error;
+  }
+
+  // Recupera o estado do PixelBuddy
+  async getPixelBuddyState(userId: string): Promise<{
+    body: string | null;
+    head: string | null;
+    clothes: string | null;
+    accessory: string | null;
+    hat: string | null;
+    effect: string | null;
+    inventory: Record<string, any>;
+  } | null> {
+    const { data, error } = await supabase
+      .from('pixelbuddy_state')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+    
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No data found, return null
+        return null;
+      }
+      throw error;
+    }
+    
+    return {
+      body: data.body,
+      head: data.head,
+      clothes: data.clothes,
+      accessory: data.accessory,
+      hat: data.hat,
+      effect: data.effect,
+      inventory: data.inventory || {}
+    };
+  }
+
+  // ===== CATEGORY SETTINGS =====
+  // Get category settings for a user and type
+  async getCategorySettings(userId: string, type: 'habits' | 'goals'): Promise<CategorySettingsGroup> {
+    const { data, error } = await supabase
+      .from('category_settings')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('type', type)
+      .order('category_order', { ascending: true });
+    
+    if (error) throw error;
+    
+    const settings: CategorySettingsGroup = {};
+    (data || []).forEach(item => {
+      settings[item.category_name] = {
+        order: item.category_order,
+        isCollapsed: item.is_collapsed
+      };
+    });
+    
+    return settings;
+  }
+
+  // Save category settings
+  async saveCategorySettings(userId: string, type: 'habits' | 'goals', settings: CategorySettingsGroup): Promise<void> {
+    console.log('🔄 [DEBUG] Database.saveCategorySettings called:', { userId, type, settings });
+    
+    const settingsArray = Object.entries(settings).map(([categoryName, config], index) => ({
+      user_id: userId,
+      type,
+      category_name: categoryName,
+      category_order: config.order !== undefined ? config.order : index,
+      is_collapsed: config.isCollapsed || false
+    }));
+
+    console.log('🔄 [DEBUG] Settings array prepared:', settingsArray);
+
+    // Delete existing settings for this user and type
+    const { error: deleteError } = await supabase
+      .from('category_settings')
+      .delete()
+      .eq('user_id', userId)
+      .eq('type', type);
+
+    if (deleteError) {
+      console.error('❌ [DEBUG] Error deleting existing settings:', deleteError);
+      throw deleteError;
+    }
+
+    console.log('✅ [DEBUG] Existing settings deleted');
+
+    // Insert new settings
+    if (settingsArray.length > 0) {
+      const { error } = await supabase
+        .from('category_settings')
+        .insert(settingsArray);
+      
+      if (error) {
+        console.error('❌ [DEBUG] Error inserting new settings:', error);
+        throw error;
+      }
+      
+      console.log('✅ [DEBUG] New settings inserted successfully');
+    } else {
+      console.log('⚠️ [DEBUG] No settings to insert');
+    }
+  }
+
+  // Update single category setting
+  async updateCategorySetting(userId: string, type: 'habits' | 'goals', categoryName: string, updates: Partial<{ order: number; isCollapsed: boolean }>): Promise<void> {
+    const { error } = await supabase
+      .from('category_settings')
+      .upsert([{
+        user_id: userId,
+        type,
+        category_name: categoryName,
+        category_order: updates.order ?? 0,
+        is_collapsed: updates.isCollapsed ?? false
+      }], {
+        onConflict: 'user_id,type,category_name'
+      });
+    
+    if (error) throw error;
   }
 }
 

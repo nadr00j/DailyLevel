@@ -6,7 +6,6 @@ import type { Task } from '@/types';
 import { parseISO } from 'date-fns';
 import { db } from '@/lib/database';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { toast } from '@/components/ui/use-toast';
 
 export const useTasks = () => {
   const tasks = useTaskStore(state => state.tasks);
@@ -52,18 +51,9 @@ export const useTasks = () => {
     }
     if (task && !task.completed) {
       const us = useGamificationStore.getState();
-      // Add XP
+      // Add XP - o toast será exibido automaticamente pelo GamificationListener
       us.addXp('task', [task.title, ...(task.category ? [task.category] : [])]);
-      // Show toast notification
-      toast({ title: `+${us.config.points.task} XP`, description: `Tarefa concluída: ${task.title}` });
-      const userIdHistory = useAuthStore.getState().user!.id;
-      // Delay to allow history store update before reading
-      setTimeout(() => {
-        const history = useGamificationStore.getState().history;
-        const last = history[history.length - 1];
-        db.addHistoryItem(userIdHistory, last)
-          .catch(err => console.error('[useTasks] Erro ao gravar history_item:', err));
-      }, 0);
+      console.log('[useTasks] Tarefa concluída, XP adicionado, toast será exibido pelo GamificationListener');
     }
   }, [tasks, updateTask]);
 
