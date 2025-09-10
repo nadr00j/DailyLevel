@@ -16,6 +16,35 @@ interface Props {
   dragHandleProps?: any;
 }
 
+// Function to get current date in Brazil timezone (UTC-3)
+const getBrazilToday = () => {
+  const now = new Date();
+  // Convert to Brazil timezone (UTC-3)
+  const brazilOffset = -3 * 60; // -3 hours in minutes
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const brazilTime = new Date(utc + (brazilOffset * 60000));
+  
+  // Format as YYYY-MM-DD
+  const year = brazilTime.getFullYear();
+  const month = String(brazilTime.getMonth() + 1).padStart(2, '0');
+  const day = String(brazilTime.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+};
+
+// Function to get date string in Brazil timezone
+const formatDateBrazil = (date: Date) => {
+  const brazilOffset = -3 * 60; // -3 hours in minutes
+  const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+  const brazilTime = new Date(utc + (brazilOffset * 60000));
+  
+  const year = brazilTime.getFullYear();
+  const month = String(brazilTime.getMonth() + 1).padStart(2, '0');
+  const day = String(brazilTime.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+};
+
 // util para lighten cor rapidamente (0..1)
 function blendWithDark(hex: string | undefined, factor: number): string {
   // Se hex for undefined ou inválido, usar cor padrão
@@ -42,14 +71,14 @@ export const HabitCard: React.FC<Props> = ({ habit, onEdit, onView, dragHandlePr
   const deleteHabit = useHabitStore(s=>s.deleteHabit);
   const getProgress = useHabitStore(s=>s.getProgressForDate);
 
-  const todayStr = new Date().toISOString().slice(0,10);
+  const todayStr = getBrazilToday(); // Use Brazil timezone
 
   // Últimas 12 semanas alinhadas ao calendário (semana começa na segunda)
   const days: string[] = [];
   const todayDate = new Date();
   const start = startOfWeek(subDays(todayDate, 77), { weekStartsOn: 1 });
   for (let i = 0; i < 84; i++) {
-    days.push(addDays(start, i).toISOString().slice(0,10));
+    days.push(formatDateBrazil(addDays(start, i))); // Use Brazil timezone
   }
 
   // progresso de hoje

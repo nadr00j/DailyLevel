@@ -14,25 +14,18 @@ export const useHabits = () => {
   const loadHabits = useCallback(async () => {
     try {
       setLoading(true);
-      // Load from local storage
-      const storedHabits = await storage.getHabits();
-      let mergedHabits = storedHabits;
-      // Fetch remote habits and merge
-      const userId = useAuthStore.getState().user!.id;
-      try {
-        const remote = await db.getHabits(userId);
-        // Merge by ID: remote overrides local
-        const map = new Map<string, typeof remote[0]>(storedHabits.map(h => [h.id, h]));
-        remote.forEach(h => map.set(h.id, h));
-        mergedHabits = Array.from(map.values());
-        // Persist merged
-        await storage.saveHabits(mergedHabits);
-      } catch (err) {
-        console.warn('[useHabits] Não foi possível carregar hábitos remotos:', err);
+      // Load directly from Supabase (no localStorage)
+      const userId = useAuthStore.getState().user?.id;
+      if (!userId) {
+        console.warn('[useHabits] Usuário não autenticado');
+        return;
       }
-      setHabits(mergedHabits);
+      
+      const habits = await db.getHabits(userId);
+      setHabits(habits);
+      console.log('✅ [useHabits] Hábitos carregados do Supabase:', habits.length);
     } catch (error) {
-      console.error('Failed to load habits:', error);
+      console.error('❌ [useHabits] Erro ao carregar hábitos do Supabase:', error);
     } finally {
       setLoading(false);
     }
@@ -40,10 +33,11 @@ export const useHabits = () => {
 
   const saveHabits = useCallback(async (newHabits: Habit[]) => {
     try {
-      await storage.saveHabits(newHabits);
+      // Hábitos são salvos diretamente no Supabase via useHabitStore
       setHabits(newHabits);
+      console.log('✅ [useHabits] Hábitos atualizados localmente (salvos via Supabase)');
     } catch (error) {
-      console.error('Failed to save habits:', error);
+      console.error('❌ [useHabits] Erro ao atualizar hábitos:', error);
     }
   }, []);
 

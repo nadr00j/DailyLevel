@@ -1,5 +1,4 @@
 import { db } from './database';
-import { storage } from './storage';
 import { useShopStore, defaultItems } from '@/stores/useShopStore';
 import { useHabitStore } from '@/stores/useHabitStore';
 import { useGoalStore } from '@/stores/useGoalStore';
@@ -9,6 +8,75 @@ import { useTaskStore } from '@/stores/useTaskStore';
 class DataSyncService {
   private isSyncing = false;
   private hasSyncedHistoryOnce = false;
+  private lastCleanupDate = '';
+  
+  // Function to get current date in Brazil timezone (UTC-3)
+  private getBrazilToday(): string {
+    const now = new Date();
+    // Convert to Brazil timezone (UTC-3)
+    const brazilOffset = -3 * 60; // -3 hours in minutes
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const brazilTime = new Date(utc + (brazilOffset * 60000));
+    
+    // Format as YYYY-MM-DD
+    const year = brazilTime.getFullYear();
+    const month = String(brazilTime.getMonth() + 1).padStart(2, '0');
+    const day = String(brazilTime.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+  }
+
+  // Function to clean completed tasks after 23:59-00:00 in Brazil timezone
+  private async cleanupCompletedTasks(userId: string): Promise<void> {
+    const now = new Date();
+    // Convert to Brazil timezone (UTC-3)
+    const brazilOffset = -3 * 60; // -3 hours in minutes
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const brazilTime = new Date(utc + (brazilOffset * 60000));
+    
+    const brazilToday = this.getBrazilToday();
+    const brazilHour = brazilTime.getHours();
+    const brazilMinute = brazilTime.getMinutes();
+    
+    // Only run cleanup after 23:59 (11:59 PM) in Brazil timezone
+    if (brazilHour < 23 || (brazilHour === 23 && brazilMinute < 59)) {
+      console.log('🕐 [DEBUG] DataSyncService.cleanupCompletedTasks - Ainda não é 23:59 no fuso de Brasília, pulando limpeza');
+      return;
+    }
+    
+    // Only run cleanup once per day
+    if (this.lastCleanupDate === brazilToday) {
+      console.log('🕐 [DEBUG] DataSyncService.cleanupCompletedTasks - Limpeza já executada hoje, pulando');
+      return;
+    }
+
+    try {
+      console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Iniciando limpeza de tarefas concluídas após 23:59...');
+      
+      const tasks = useTaskStore.getState().tasks;
+      const completedTasks = tasks.filter(task => task.completed);
+      
+      if (completedTasks.length === 0) {
+        console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Nenhuma tarefa concluída para remover');
+        this.lastCleanupDate = brazilToday;
+        return;
+      }
+      
+      // Remove completed tasks from local store
+      const activeTasks = tasks.filter(task => !task.completed);
+      useTaskStore.setState({ tasks: activeTasks });
+      
+      // Remove completed tasks from Supabase
+      for (const task of completedTasks) {
+        await db.deleteTask(userId, task.id);
+      }
+      
+      this.lastCleanupDate = brazilToday;
+      console.log('✅ [DEBUG] DataSyncService.cleanupCompletedTasks - Limpeza concluída:', completedTasks.length, 'tarefas removidas');
+    } catch (error) {
+      console.error('❌ [DEBUG] DataSyncService.cleanupCompletedTasks - Erro na limpeza:', error);
+    }
+  }
   
   // Load data from Supabase into stores and localStorage
   async loadAll(userId: string): Promise<void> {
@@ -106,14 +174,9 @@ class DataSyncService {
     console.log('🔍 [DEBUG] DataSyncService.syncAll - Tarefas para sincronizar:', tasksToSync.length);
     for (const t of tasksToSync) await db.saveTask(userId, t);
     console.log('✅ [DEBUG] DataSyncService.syncAll - Tarefas sincronizadas');
-    // Deletar tasks removidas no Supabase que não estão mais no store
-    const serverTasks = await db.getTasks(userId);
-    const localTaskIds = tasksToSync.map(t => t.id);
-    for (const st of serverTasks) {
-      if (!localTaskIds.includes(st.id)) {
-        await db.deleteTask(userId, st.id);
-      }
-    }
+    
+    // 2.a. Limpeza de tarefas concluídas após meia-noite no fuso de Brasília
+    await this.cleanupCompletedTasks(userId);
 
     // 3. Habits: sincronizar local para Supabase
     try {
@@ -152,15 +215,10 @@ class DataSyncService {
       console.log('🔍 [DEBUG] DataSyncService.syncAll - Sincronizando meta:', g.id, g.title);
       await db.saveGoal(userId, g);
     }
-    // Deletar metas removidas no Supabase que não estão mais no store
-    const serverGoals = await db.getGoals(userId);
-    const localGoalIds = goalsToSync.map(g => g.id);
-    for (const sg of serverGoals) {
-      if (!localGoalIds.includes(sg.id)) {
-        console.log('🔍 [DEBUG] DataSyncService.syncAll - Deletando meta removida:', sg.id);
-        await db.deleteGoal(userId, sg.id);
-      }
-    }
+    // METAS NUNCA SÃO REMOVIDAS AUTOMATICAMENTE
+    // Apenas o usuário pode remover metas manualmente através do dropdown
+    // Metas concluídas permanecem no sistema para histórico
+    console.log('🔍 [DEBUG] DataSyncService.syncAll - Metas sincronizadas (sem limpeza automática)');
     console.log('✅ [DEBUG] DataSyncService.syncAll - Metas sincronizadas');
 
     // 5. Shop Items: sincronizar estado atual (comprado ou não) para Supabase

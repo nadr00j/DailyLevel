@@ -15,6 +15,22 @@ import { SortableHabitCard } from '@/components/habits/SortableHabitCard';
 import { SortableCategory } from '@/components/habits/SortableCategory';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+// Function to get current date in Brazil timezone (UTC-3)
+const getBrazilToday = () => {
+  const now = new Date();
+  // Convert to Brazil timezone (UTC-3)
+  const brazilOffset = -3 * 60; // -3 hours in minutes
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const brazilTime = new Date(utc + (brazilOffset * 60000));
+  
+  // Format as YYYY-MM-DD
+  const year = brazilTime.getFullYear();
+  const month = String(brazilTime.getMonth() + 1).padStart(2, '0');
+  const day = String(brazilTime.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+};
+
 // mapa categoria -> ícone e classe de cor do texto
 const CAT_META: Record<string,{icon:any,color:string}> = {
   'Trabalho': { icon: Monitor, color: 'text-green-500' },
@@ -64,7 +80,7 @@ export const HabitsView = () => {
   const habitsToday = activeHabits.filter(isHabitActiveToday);
   const habitsInactive = activeHabits.filter(h=>!isHabitActiveToday(h));
 
-  const todayStr = new Date().toISOString().slice(0,10);
+  const todayStr = getBrazilToday(); // Use Brazil timezone
   const isHabitCompletedToday = (habit:any)=>{
     const progress = getProgressForDate(habit.id, todayStr);
     return progress? progress.count>=habit.targetCount : false;

@@ -6,13 +6,44 @@ import { generateId } from '@/lib/uuid';
 import type { Goal } from '@/types';
 import { useGamificationStore } from '@/stores/useGamificationStore';
 
+// Function to get current date in Brazil timezone (UTC-3)
+const getBrazilToday = (): string => {
+  const now = new Date();
+  // Convert to Brazil timezone (UTC-3)
+  const brazilOffset = -3 * 60; // -3 hours in minutes
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const brazilTime = new Date(utc + (brazilOffset * 60000));
+  
+  // Format as YYYY-MM-DD
+  const year = brazilTime.getFullYear();
+  const month = String(brazilTime.getMonth() + 1).padStart(2, '0');
+  const day = String(brazilTime.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+};
+
+// Function to format Date object to YYYY-MM-DD in Brazil timezone
+const formatDateBrazil = (date: Date): string => {
+  // Convert to Brazil timezone (UTC-3)
+  const brazilOffset = -3 * 60; // -3 hours in minutes
+  const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+  const brazilTime = new Date(utc + (brazilOffset * 60000));
+  
+  // Format as YYYY-MM-DD
+  const year = brazilTime.getFullYear();
+  const month = String(brazilTime.getMonth() + 1).padStart(2, '0');
+  const day = String(brazilTime.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+};
+
 interface GoalState {
   goals: Goal[];
   goalCategoryOrder: string[];
   setGoals: (goals: Goal[]) => void;
   addGoal: (goal: Goal) => void;
   updateGoal: (goal: Goal) => void;
-  removeGoal: (goalId: string) => void;
+  removeGoal: (goalId: string) => Promise<void>;
   clearGoals: () => void;
   setGoalCategoryOrder: (order: string[]) => void;
   reorderGoals: (ordered: Goal[]) => void;
@@ -20,7 +51,7 @@ interface GoalState {
 }
 
 export const useGoalStore = create<GoalState>((set, get) => {
-  // Initialize category order from localStorage
+  // Initialize category order from localStorage (only for UI preferences)
   const initialCatOrder = typeof window !== 'undefined'
     ? JSON.parse(localStorage.getItem('dl.goalCategoryOrder') || '[]')
     : [];
@@ -39,8 +70,8 @@ export const useGoalStore = create<GoalState>((set, get) => {
       const goalWithId = {
         ...goal,
         id: goal.id || generateId(),
-        createdAt: goal.createdAt || new Date().toISOString(),
-        updatedAt: goal.updatedAt || new Date().toISOString(),
+        createdAt: goal.createdAt || getBrazilToday(), // Use Brazil timezone
+        updatedAt: goal.updatedAt || getBrazilToday(), // Use Brazil timezone
         currentValue: goal.currentValue || 0,
         isCompleted: goal.isCompleted || false,
         milestones: goal.milestones || []
@@ -61,7 +92,7 @@ export const useGoalStore = create<GoalState>((set, get) => {
       
       const goalWithTimestamp = {
         ...goal,
-        updatedAt: new Date().toISOString()
+        updatedAt: getBrazilToday() // Use Brazil timezone
       };
       
       const goalsArr = get().goals.map(g => g.id === goal.id ? goalWithTimestamp : g); 
@@ -69,11 +100,21 @@ export const useGoalStore = create<GoalState>((set, get) => {
       console.log('✅ [DEBUG] useGoalStore.updateGoal - Meta atualizada no store:', goal.title, goal.id);
       console.log('🔍 [DEBUG] useGoalStore.updateGoal - Meta atualizada, useAutoSync irá sincronizar automaticamente');
     },
-    removeGoal: (goalId) => {
-      // Keep other goals intact; actual deletion handled server-side
+    removeGoal: async (goalId) => {
+      // Remove from local store
       set(state => ({ goals: state.goals.filter(g => g.id !== goalId) }));
       console.log('✅ [DEBUG] useGoalStore.removeGoal - Meta removida do store:', goalId);
-      console.log('🔍 [DEBUG] useGoalStore.removeGoal - Meta removida, useAutoSync irá sincronizar automaticamente');
+      
+      // Remove from Supabase directly
+      const userId = useAuthStore.getState().user?.id;
+      if (userId) {
+        try {
+          await db.deleteGoal(userId, goalId);
+          console.log('✅ [DEBUG] useGoalStore.removeGoal - Meta removida do Supabase:', goalId);
+        } catch (error) {
+          console.error('❌ [DEBUG] useGoalStore.removeGoal - Erro ao remover meta do Supabase:', error);
+        }
+      }
     },
     clearGoals: () => {
       set({ goals: [] });
@@ -99,7 +140,7 @@ export const useGoalStore = create<GoalState>((set, get) => {
       const isCompleted = newValue >= goal.targetValue;
       set(state => ({
         goals: state.goals.map(g =>
-          g.id === id ? { ...g, currentValue: newValue, isCompleted, updatedAt: new Date().toISOString() } : g
+          g.id === id ? { ...g, currentValue: newValue, isCompleted, updatedAt: getBrazilToday() } : g // Use Brazil timezone
         )
       }));
       if (!goal.isCompleted && isCompleted) {

@@ -49,6 +49,35 @@ export const PerformanceReports = () => {
   // Hold existing settings to merge
   const settingsRef = useRef<any>(null);
 
+  // Function to get current date in Brazil timezone (UTC-3)
+  const getBrazilToday = () => {
+    const now = new Date();
+    // Convert to Brazil timezone (UTC-3)
+    const brazilOffset = -3 * 60; // -3 hours in minutes
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const brazilTime = new Date(utc + (brazilOffset * 60000));
+    
+    // Format as YYYY-MM-DD
+    const year = brazilTime.getFullYear();
+    const month = String(brazilTime.getMonth() + 1).padStart(2, '0');
+    const day = String(brazilTime.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+  };
+
+  // Function to get date string in Brazil timezone
+  const formatDateBrazil = (date: Date) => {
+    const brazilOffset = -3 * 60; // -3 hours in minutes
+    const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+    const brazilTime = new Date(utc + (brazilOffset * 60000));
+    
+    const year = brazilTime.getFullYear();
+    const month = String(brazilTime.getMonth() + 1).padStart(2, '0');
+    const day = String(brazilTime.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+  };
+
   // Close date selector when period changes to 'day'
   useEffect(() => {
     if (activePeriod === 'day') {
@@ -375,14 +404,14 @@ export const PerformanceReports = () => {
       days = Array.from({ length: 7 }).map((_, i) => {
         const d = new Date(today);
         d.setDate(today.getDate() - 6 + i);
-        return d.toISOString().slice(0,10);
+        return formatDateBrazil(d); // Use Brazil timezone
       });
     } else if (activePeriod === 'month') {
       // Month: 31 days including today (30 days before + today)
       days = Array.from({ length: 31 }).map((_, i) => {
         const d = new Date(today);
         d.setDate(today.getDate() - 30 + i);
-        return d.toISOString().slice(0,10);
+        return formatDateBrazil(d); // Use Brazil timezone
       });
       // center carousel to middle
       setTimeout(() => {
@@ -392,19 +421,19 @@ export const PerformanceReports = () => {
         }
       }, 0);
     } else {
-      days = [today.toISOString().slice(0,10)];
+      days = [getBrazilToday()]; // Use Brazil timezone for today
     }
     
     console.log('[Period Debug]', {
       activePeriod,
       daysLength: days.length,
       days,
-      today: today.toISOString().slice(0,10),
-      todayDate: today.getDate(),
+      today: getBrazilToday(), // Use Brazil timezone
+      todayDate: new Date().getDate(),
       firstDay: days[0],
       lastDay: days[days.length - 1],
       calculation: activePeriod === 'week' ? 'today - 6 to today' : activePeriod === 'month' ? 'today - 30 to today' : 'today only',
-      dayNumbers: days.map(day => new Date(day).getDate())
+      dayNumbers: days.map(day => parseInt(day.split('-')[2], 10))
     });
     
     setPossibleDays(days);

@@ -8,7 +8,7 @@ interface TaskState {
   setTasks: (tasks: Task[]) => void;
   addTask: (task: Task) => void;
   updateTask: (task: Task) => void;
-  removeTask: (taskId: string) => void;
+  removeTask: (taskId: string) => Promise<void>;
   clearTasks: () => void;
 }
 
@@ -32,9 +32,21 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     set({ tasks });
     // useAutoSync irá detectar a mudança e sincronizar automaticamente
   },
-  removeTask: (taskId) => {
+  removeTask: async (taskId) => {
     const tasks = get().tasks.filter(t => t.id !== taskId);
     set({ tasks });
+    
+    // Remove imediatamente do Supabase também
+    const userId = useAuthStore.getState().user?.id;
+    if (userId) {
+      try {
+        await db.deleteTask(userId, taskId);
+        console.log('✅ [DEBUG] useTaskStore.removeTask - Tarefa removida do Supabase:', taskId);
+      } catch (error) {
+        console.error('❌ [DEBUG] useTaskStore.removeTask - Erro ao remover tarefa do Supabase:', error);
+      }
+    }
+    
     // useAutoSync irá detectar a mudança e sincronizar automaticamente
   },
   clearTasks: () => {

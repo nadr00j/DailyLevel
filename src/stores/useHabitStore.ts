@@ -6,6 +6,35 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { db } from '@/lib/database';
 import { dataSyncService } from '@/lib/DataSyncService';
 
+// Function to get current date in Brazil timezone (UTC-3)
+const getBrazilToday = () => {
+  const now = new Date();
+  // Convert to Brazil timezone (UTC-3)
+  const brazilOffset = -3 * 60; // -3 hours in minutes
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const brazilTime = new Date(utc + (brazilOffset * 60000));
+  
+  // Format as YYYY-MM-DD
+  const year = brazilTime.getFullYear();
+  const month = String(brazilTime.getMonth() + 1).padStart(2, '0');
+  const day = String(brazilTime.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+};
+
+// Function to format date in Brazil timezone
+const formatDateBrazil = (date: Date) => {
+  const brazilOffset = -3 * 60; // -3 hours in minutes
+  const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+  const brazilTime = new Date(utc + (brazilOffset * 60000));
+  
+  const year = brazilTime.getFullYear();
+  const month = String(brazilTime.getMonth() + 1).padStart(2, '0');
+  const day = String(brazilTime.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+};
+
 interface HabitState {
   habits: Record<string, Habit>;
   logs: Record<string, Record<string, number>>; // habitId -> date -> count
@@ -33,7 +62,7 @@ export const useHabitStore = create<HabitState>((set, get) => ({
 
       createHabit: (input) => {
         const id = generateId();
-        const createdAt = new Date().toISOString().slice(0,10); // Assuming date-fns is removed, use current date
+        const createdAt = getBrazilToday(); // Use Brazil timezone
         const currentHabits = get().habits;
         const order = Object.keys(currentHabits).length;
         const habit: Habit = { id, createdAt, targetInterval: 'daily', targetCount: 1, categories: [], order, ...input } as Habit;
@@ -98,7 +127,7 @@ export const useHabitStore = create<HabitState>((set, get) => ({
           
           // Verifica se completou o hábito hoje
           const habit = state.habits[habitId];
-          const today = new Date().toISOString().slice(0,10);
+          const today = getBrazilToday(); // Use Brazil timezone
           const isCompleted = habit && newCount === habit.targetCount && date === today;
           
           console.log('[HabitStore Debug] Verificando conclusão:', { 
@@ -160,7 +189,7 @@ export const useHabitStore = create<HabitState>((set, get) => ({
         for (let i = 0; i < days; i++) {
           const d = new Date(since);
           d.setDate(d.getDate() + i);
-          const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
+          const key = formatDateBrazil(d); // Use Brazil timezone
           result.push({ date: key, count: habitLogs[key] ?? 0 });
         }
         return result;
