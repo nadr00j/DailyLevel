@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import localforage from 'localforage';
-import { useGamificationStore } from '@/stores/useGamificationStore';
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { usePixelBuddyStore } from '@/stores/usePixelBuddyStore';
 import { fireGoldenConfetti } from '@/lib/confetti';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -278,13 +278,13 @@ export const useShopStore = create<ShopState>()(
         const item = items.find(i => i.id === itemId);
         if (!item || item.purchased) return false;
         
-        const { coins } = useGamificationStore.getState();
+        const { coins } = useGamificationStoreV21.getState();
         if (coins < item.price) return false;
         
         console.log('[Shop Debug] Buying item:', itemId);
         
         // Deduct coins using proper Zustand set
-        useGamificationStore.setState({ coins: coins - item.price });
+        useGamificationStoreV21.setState({ coins: coins - item.price });
         
         // Apply item effects
         applyItemEffect(itemId);
@@ -328,8 +328,8 @@ export const useShopStore = create<ShopState>()(
         const sellPrice = Math.floor(item.price / 2);
         
         // Add coins to user
-        const { coins } = useGamificationStore.getState();
-        useGamificationStore.setState({ coins: coins + sellPrice });
+        const { coins } = useGamificationStoreV21.getState();
+        useGamificationStoreV21.setState({ coins: coins + sellPrice });
         
         // Remove item effects if applicable
         removeItemEffect(itemId);
@@ -456,16 +456,16 @@ function applyItemEffect(itemId: string) {
     case 'xp_boost_1':
       // Activate XP boost for 1 hour
       const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
-      useGamificationStore.setState({
+      useGamificationStoreV21.setState({
         xpMultiplier: 1.5,
         xpMultiplierExpiry: Date.now() + oneHour
       });
       break;
     case 'vitality_boost':
       // Restore 50% vitality
-      const currentVitality = useGamificationStore.getState().vitality;
-      const newVitality = Math.min(100, currentVitality + 50);
-      useGamificationStore.setState({ vitality: newVitality });
+      // Note: Vitality is now handled by useVitalityV21, not the gamification store
+      // This effect would need to be implemented in the vitality system
+      console.log('[Shop] Vitality boost effect - needs implementation in V2.1');
       break;
     case 'confetti_effect':
       // Enable confetti effect
@@ -482,7 +482,7 @@ function removeItemEffect(itemId: string) {
   switch (itemId) {
     case 'xp_boost_1':
       // Remove XP boost
-      useGamificationStore.setState({
+      useGamificationStoreV21.setState({
         xpMultiplier: 1,
         xpMultiplierExpiry: 0
       });

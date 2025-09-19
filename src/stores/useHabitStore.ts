@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Habit, HabitLog } from '@/types/habit';
 import { generateId } from '@/lib/uuid';
-import { useGamificationStore } from '@/stores/useGamificationStore';
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { db } from '@/lib/database';
 import { dataSyncService } from '@/lib/DataSyncService';
@@ -115,7 +115,7 @@ export const useHabitStore = create<HabitState>((set, get) => ({
 
       logCompletion: (habitId, date) => {
         console.log('[HabitStore Debug] logCompletion chamado:', { habitId, date });
-        const addXp = useGamificationStore.getState().addXp;
+        const addXp = useGamificationStoreV21.getState().addXp;
         const userId = useAuthStore.getState().user!.id;
         
         // Incrementa localmente
@@ -139,9 +139,9 @@ export const useHabitStore = create<HabitState>((set, get) => ({
           
           // Se completou o hábito, registra XP e coins
           if (isCompleted) {
-            const us = useGamificationStore.getState();
+            const us = useGamificationStoreV21.getState();
             const habitXp = us.config.points.habit;
-            const habitCoins = Math.floor(habitXp * us.config.points.coinsPerXp);
+            const habitCoins = Math.floor(habitXp * 0.1); // 10% do XP
             console.log('[HabitStore] Hábito completado! Registrando histórico com:', { xp: habitXp, coins: habitCoins });
             
             // Registra no histórico

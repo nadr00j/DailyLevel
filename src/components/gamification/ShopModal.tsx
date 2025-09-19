@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { X, Package, Zap, ShoppingBag } from 'lucide-react';
 import { useShopStore } from '@/stores/useShopStore';
 import type { ShopItem } from '@/types';
-import { useGamificationStore } from '@/stores/useGamificationStore';
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { usePixelBuddyStore } from '@/stores/usePixelBuddyStore';
 import { toast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ type TabType = 'items' | 'vantagens' | 'inventory';
 
 const ShopItemCard = ({ item }: { item: ShopItem }) => {
   const { buyItem, openSellConfirmation } = useShopStore();
-  const { coins } = useGamificationStore();
+  const { coins } = useGamificationStoreV21();
   const canAfford = coins >= item.price;
   const isPurchased = item.purchased;
 
@@ -345,7 +345,7 @@ const SellConfirmationDialog = () => {
 
 export const ShopModal = () => {
   const { open, closeShop, items } = useShopStore();
-  const { coins } = useGamificationStore();
+  const { coins } = useGamificationStoreV21();
   const [activeTab, setActiveTab] = useState<TabType>('items');
 
   if (!open) return null;

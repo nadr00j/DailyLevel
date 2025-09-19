@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { storage } from './storage';
 import { db } from './database';
-import { useGamificationStore } from '@/stores/useGamificationStore';
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { useShopStore } from '@/stores/useShopStore';
 import localforage from 'localforage';
 import { useHabitStore } from '@/stores/useHabitStore';
@@ -15,8 +15,7 @@ export async function loadDataFromSupabase(userId: string): Promise<void> {
     const gamificationData = await db.getGamificationData(userId);
     if (gamificationData) {
       console.log('Dados de gamificação carregados:', gamificationData);
-      useGamificationStore.setState(gamificationData);
-      useGamificationStore.getState().init();
+      useGamificationStoreV21.getState().syncFromSupabase(gamificationData);
     }
 
     // 2. Carregar configurações do usuário
@@ -121,7 +120,7 @@ export async function syncDataToSupabase(userId: string): Promise<void> {
     console.log('Sincronizando dados locais para o Supabase...');
     
     // 1. Sincronizar dados de gamificação
-    const gamificationState = useGamificationStore.getState();
+    const gamificationState = useGamificationStoreV21.getState();
     await db.saveGamificationData({
       userId,
       xp: gamificationState.xp,

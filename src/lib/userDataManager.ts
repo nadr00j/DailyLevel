@@ -1,5 +1,5 @@
 import type { UserData } from '@/types/sync';
-import { useGamificationStore } from '@/stores/useGamificationStore';
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { useShopStore } from '@/stores/useShopStore';
 import { storage } from '@/lib/storage';
 import localforage from 'localforage';
@@ -33,7 +33,7 @@ export class UserDataManager {
   // Salvar dados automaticamente em JSON dentro do projeto
   static async saveUserDataAuto(): Promise<void> {
     try {
-      const gamificationData = useGamificationStore.getState();
+      const gamificationData = useGamificationStoreV21.getState();
       const shopData = useShopStore.getState();
       
       // Coletar dados reais diretamente do storage
@@ -156,7 +156,7 @@ export class UserDataManager {
     try {
       // Aplicar dados de gamificação
       const { gamification } = userData.data;
-      useGamificationStore.setState({
+      useGamificationStoreV21.getState().syncFromSupabase({
         xp: gamification.xp,
         coins: gamification.coins,
         xp30d: gamification.xp30d,
@@ -222,7 +222,7 @@ export class UserDataManager {
   static async generateUserDataReport(userId: string): Promise<UserDataFile> {
     try {
       // Coletar todos os dados dos stores
-      const gamificationData = useGamificationStore.getState();
+      const gamificationData = useGamificationStoreV21.getState();
       const shopData = useShopStore.getState();
       
       // Coletar dados reais diretamente do storage

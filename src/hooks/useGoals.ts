@@ -1,5 +1,5 @@
 import { useGoalStore } from '@/stores/useGoalStore';
-import { useGamificationStore } from '@/stores/useGamificationStore';
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { Goal, Milestone } from '@/types';
 
 export const useGoals = () => {
@@ -8,7 +8,7 @@ export const useGoals = () => {
   const updateGoal = useGoalStore(state => state.updateGoal);
   const deleteGoal = useGoalStore(state => state.removeGoal);
   const setGoals = useGoalStore(state => state.setGoals);
-  const addXp = useGamificationStore.getState().addXp;
+  const addXp = useGamificationStoreV21.getState().addXp;
 
   // Computed lists
   const byOrder = (a: Goal, b: Goal) => (a.order ?? 0) - (b.order ?? 0);

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useGamificationStore } from '@/stores/useGamificationStore';
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { Habit, formatLocalDate, isToday } from '@/types';
 import { storage } from '@/lib/storage';
 import { isToday as isDateToday, parseISO, startOfDay, differenceInDays } from 'date-fns';
@@ -104,7 +104,7 @@ export const useHabits = () => {
   }, []);
 
   const toggleHabit = useCallback(async (id: string, date?: string) => {
-    const addXp = useGamificationStore.getState().addXp;
+    const addXp = useGamificationStoreV21.getState().addXp;
     const targetDate = date || formatLocalDate(new Date());
     
     const updatedHabits = habits.map(habit => {
@@ -163,7 +163,7 @@ export const useHabits = () => {
     // Persist history item to Supabase
     const userId = useAuthStore.getState().user!.id;
     setTimeout(() => {
-      const history = useGamificationStore.getState().history;
+      const history = useGamificationStoreV21.getState().history;
       const last = history[history.length - 1];
       if (last && last.type === 'habit') {
         db.addHistoryItem(userId, last)

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { dataSyncService } from '@/lib/DataSyncService';
+import { db } from '@/lib/database';
 import type { Task } from '@/types';
 
 interface TaskState {

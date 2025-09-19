@@ -30,6 +30,7 @@ interface PixelBuddyState {
   unequipItem: (layer: 'clothes' | 'accessory' | 'hat' | 'effect') => void;
   unlockItem: (item: PixelBuddyItem) => void;
   syncToSupabase: () => Promise<void>;
+  initializeFromGamification: (xp: number, vitality: number) => void;
 }
 
 // Função para obter o caminho base do usuário
@@ -49,6 +50,7 @@ export const usePixelBuddyStore = create<PixelBuddyState>()(
       inventory: {},
 
       setBase: (layer, spritePath) => {
+        console.log(`[PixelBuddyStore] Atualizando ${layer}:`, spritePath);
         set({ [layer]: spritePath });
         // Sincronizar automaticamente
         get().syncToSupabase();
@@ -120,6 +122,37 @@ export const usePixelBuddyStore = create<PixelBuddyState>()(
         } catch (error) {
           console.error('❌ [DEBUG] PixelBuddyStore - Erro ao sincronizar com Supabase:', error);
         }
+      },
+
+      initializeFromGamification: (xp: number, vitality: number) => {
+        // Função para determinar o corpo baseado no XP
+        const getBodyFromXp = (xp: number): string => {
+          if (xp < 200) return '/Nadr00J/bodies/body_lvl1.png';
+          if (xp < 600) return '/Nadr00J/bodies/body_lvl2.png';
+          return '/Nadr00J/bodies/body_lvl3.png';
+        };
+
+        // Função para determinar a cabeça baseada na vitalidade
+        const getHeadFromVitality = (vitality: number): string => {
+          if (vitality < 25) return '/Nadr00J/heads/head_tired.png';
+          if (vitality < 50) return '/Nadr00J/heads/head_sad.png';
+          if (vitality < 75) return '/Nadr00J/heads/head_neutral.png';
+          if (vitality < 90) return '/Nadr00J/heads/head_happy.png';
+          return '/Nadr00J/heads/head_confident.png';
+        };
+
+        const newBody = getBodyFromXp(xp);
+        const newHead = getHeadFromVitality(vitality);
+
+        console.log('[PixelBuddyStore] Inicializando com:', { xp, vitality, newBody, newHead });
+
+        set({
+          body: newBody,
+          head: newHead
+        });
+        
+        // Sincronizar automaticamente após inicialização
+        get().syncToSupabase();
       }
     }),
     { name: 'dl.pixelbuddy.v1' }

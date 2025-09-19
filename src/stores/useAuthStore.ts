@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
+import { useAnimationStore } from './useAnimationStore'
 
 interface AuthState {
   user: User | null
@@ -109,6 +110,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     await supabase.auth.signOut()
     set({ user: null, username: null, isAuthenticated: false })
+    // Resetar animações para que sejam executadas novamente no próximo login
+    useAnimationStore.getState().resetAnimations()
   },
 
   initialize: async () => {

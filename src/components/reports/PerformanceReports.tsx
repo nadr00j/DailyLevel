@@ -5,9 +5,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Calendar, TrendingUp, Target, BarChart3, CalendarDays, CalendarRange, CalendarCheck, SquareCheckBig, Heart, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, TrendingUp, Target, BarChart3, CalendarDays, CalendarRange, CalendarCheck, SquareCheckBig, ChevronDown, ChevronUp } from 'lucide-react';
 import { useActiveCategories, ActiveCategory, CATEGORY_META } from '@/hooks/useActiveCategories';
-import { useGamificationStore } from '@/stores/useGamificationStore';
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useHabitStore } from '@/stores/useHabitStore';
 import { useTasks } from '@/hooks/useTasks';
@@ -27,7 +27,6 @@ interface PerformanceStats {
   tasksCompleted: number;
   habitsMaintained: number;
   goalsCompleted: number;
-  vitality: number;
   streak: number;
 }
 
@@ -86,14 +85,13 @@ export const PerformanceReports = () => {
   }, [activePeriod]);
 
   // Subscribe to specific slices to re-render on updates
-  const xp = useGamificationStore(state => state.xp);
-  const vitality = useGamificationStore(state => state.vitality);
+  const xp = useGamificationStoreV21(state => state.xp);
   // Local history state to force updates
-  const [historyList, setHistoryList] = useState(useGamificationStore.getState().history);
+  const [historyList, setHistoryList] = useState(useGamificationStoreV21.getState().history);
   
   // Subscribe to history changes
   useEffect(() => {
-    const unsubscribe = useGamificationStore.subscribe((state) => {
+    const unsubscribe = useGamificationStoreV21.subscribe((state) => {
       const newHistory = state.history;
       setHistoryList(newHistory);
     });
@@ -401,11 +399,7 @@ export const PerformanceReports = () => {
       fullHabitEntries: ph.filter(item => item.type === 'habit').slice(0, 3) // Show first 3 for structure
     });
     
-    // vitality based on XP relative to configured period targets
-    let vitalityPercent = 0;
-    const xpPerPeriod = activePeriod === 'day' ? 20 : activePeriod === 'week' ? 100 : 500;
-    vitalityPercent = Math.min(100, (totalXP / xpPerPeriod) * 100);
-    return { totalXP, tasksCompleted, habitsMaintained, goalsCompleted, vitality: vitalityPercent, streak: 0 };
+    return { totalXP, tasksCompleted, habitsMaintained, goalsCompleted, streak: 0 };
   }, [filteredHistory, activePeriod, habits]);
 
   // Load persisted filters on mount
@@ -718,16 +712,6 @@ export const PerformanceReports = () => {
                 <div className="space-y-8">
                   <h4 className="text-lg font-semibold">Estatísticas Gerais</h4>
                 <GeneralStats stats={currentStats} />
-                  <Card><CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Heart className="h-4 w-4 text-red-500" fill="#ef4444" />
-                      <span className="text-sm font-medium">Vitalidade</span>
-                    </div>
-                    <Progress value={currentStats.vitality} className="h-3" />
-                    <div className="text-sm text-muted-foreground mt-1">
-                      {currentStats.vitality}% - {currentStats.vitality >= 80 ? 'Excelente' : currentStats.vitality >= 60 ? 'Boa' : currentStats.vitality >= 40 ? 'Regular' : 'Baixa'}
-                    </div>
-                  </CardContent></Card>
                 </div>
                 {/* Detalhes por Categoria abaixo das estatísticas */}
                 <div className="mt-8">

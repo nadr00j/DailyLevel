@@ -8,22 +8,42 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { useAuthStore } from '@/stores/useAuthStore';
 import { dataSyncService } from '@/lib/DataSyncService';
+import { VitalityListener } from '@/components/gamification/VitalityListener';
 
 const queryClient = new QueryClient();
 
 const App = () => {
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isLoading } = useAuthStore();
+  
   useEffect(() => {
-    if (isAuthenticated && user) {
-      dataSyncService.loadAll(user.id);
+    console.log('[App] useEffect executado:', { 
+      isAuthenticated, 
+      isLoading, 
+      user: user?.id,
+      userEmail: user?.email 
+    });
+    
+    if (user?.id && !isLoading) {
+      console.log('[App] Chamando dataSyncService.loadAll para userId:', user.id);
+      dataSyncService.loadAll(user.id).catch(error => {
+        console.error('[App] Erro no loadAll:', error);
+      });
+    } else {
+      console.log('[App] Condições não atendidas para loadAll:', {
+        isAuthenticated,
+        hasUser: !!user,
+        userId: user?.id,
+        isLoading
+      });
     }
-  }, [isAuthenticated, user]);
+  }, [user?.id, isLoading]);
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <div className="dark">
           <Toaster />
           <Sonner />
+          <VitalityListener />
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />

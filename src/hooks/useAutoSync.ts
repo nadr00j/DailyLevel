@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useGamificationStore } from '@/stores/useGamificationStore';
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { useShopStore } from '@/stores/useShopStore';
 import { useHabitStore } from '@/stores/useHabitStore';
 import { db } from '@/lib/database';
@@ -55,7 +55,7 @@ export function useAutoSync() {
   // Assina mudanças no store de gamificação para auto-sync
   useEffect(() => {
     if (!isAuthenticated || !user) return;
-    const store = useGamificationStore;
+    const store = useGamificationStoreV21;
     let prev = { xp: store.getState().xp, coins: store.getState().coins };
     const unsubscribe = store.subscribe((state) => {
       if (state.xp !== prev.xp || state.coins !== prev.coins) {

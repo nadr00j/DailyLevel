@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useGamificationStore } from '@/stores/useGamificationStore'
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21'
 import { toast } from '@/components/ui/use-toast'
 import { Sparkles, Dumbbell, CheckSquare, Flag, Trophy } from 'lucide-react'
 import { motion, animate } from 'framer-motion'
@@ -29,10 +29,10 @@ const CountUp: React.FC<{ to:number; prefix?:string; className?:string }> = ({ t
 }
 
 export const GamificationListener = () => {
-  const xp = useGamificationStore(s=>s.xp)
-  const coins = useGamificationStore(s=>s.coins)
-  const rankIdx = useGamificationStore(s=>s.rankIdx)
-  const history = useGamificationStore(s=>s.history)
+  const xp = useGamificationStoreV21(s=>s.xp)
+  const coins = useGamificationStoreV21(s=>s.coins)
+  const rankIdx = useGamificationStoreV21(s=>s.rankIdx)
+  const history = useGamificationStoreV21(s=>s.history)
   // Ready flag to skip initial history loads
   const ready = useRef<boolean>(false)
   const prevLen = useRef<number>(0)
@@ -89,10 +89,10 @@ export const GamificationListener = () => {
 
       const emojiMap: Record<string,string> = {Habit:'🏋️',Tarefa:'✅',Milestone:'🚩',Meta:'🏆'} as any;
 
-      const xpTotal = useGamificationStore.getState().xp;
-      const rankIdx = useGamificationStore.getState().rankIdx;
-      const rankTier = useGamificationStore.getState().rankTier;
-      const rankDiv = useGamificationStore.getState().rankDiv;
+      const xpTotal = useGamificationStoreV21.getState().xp;
+      const rankIdx = useGamificationStoreV21.getState().rankIdx;
+      const rankTier = useGamificationStoreV21.getState().rankTier;
+      const rankDiv = useGamificationStoreV21.getState().rankDiv;
       const nextRankXp = (rankIdx + 1) * 200;
       const xpPercent = (xpTotal/nextRankXp)*100;
       const roman = ['I','II','III'];

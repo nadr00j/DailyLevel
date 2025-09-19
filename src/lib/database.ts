@@ -477,14 +477,30 @@ export class DatabaseService {
 
   // ===== GAMIFICATION =====
   async getGamificationData(userId: string): Promise<AppGamificationData | null> {
+    console.log('🔍 [DEBUG] getGamificationData - Buscando dados para userId:', userId);
+    
     const { data, error } = await supabase
       .from('user_gamification')
       .select('*')
       .eq('user_id', userId)
       .single();
-    if (error && error.code !== 'PGRST116') throw error;
-    if (!data) return null;
-    return toGamification(data as GamificationDb);
+    
+    console.log('🔍 [DEBUG] getGamificationData - Resposta do Supabase:', { data, error });
+    
+    if (error && error.code !== 'PGRST116') {
+      console.error('❌ [DEBUG] getGamificationData - Erro:', error);
+      throw error;
+    }
+    
+    if (!data) {
+      console.log('⚠️ [DEBUG] getGamificationData - Nenhum dado encontrado');
+      return null;
+    }
+    
+    const result = toGamification(data as GamificationDb);
+    console.log('✅ [DEBUG] getGamificationData - Dados convertidos:', result);
+    
+    return result;
   }
 
   async saveGamificationData(data: AppGamificationData): Promise<AppGamificationData> {

@@ -15,7 +15,6 @@ import { toast } from '@/components/ui/use-toast';
 import { storage } from '@/lib/storage';
 import { useSupabaseSync } from '@/hooks/useSupabaseSync';
 import { useAutoSync } from '@/hooks/useAutoSync';
-import { useVitalityUpdate } from '@/hooks/useVitalityUpdate';
 
 export default function Index() {
   const { activeTab } = useTabStore();
@@ -23,8 +22,6 @@ export default function Index() {
   const [isMigrating, setIsMigrating] = useState(false);
   const [migrationCompleted, setMigrationCompleted] = useState(false);
   
-  // Hook para atualizar vitalidade automaticamente
-  useVitalityUpdate();
   
   // Hook para sincronização com Supabase
   const { loadFromSupabase, syncToSupabase } = useSupabaseSync();

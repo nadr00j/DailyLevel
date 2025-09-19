@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTaskStore } from '@/stores/useTaskStore';
-import { useGamificationStore } from '@/stores/useGamificationStore';
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { generateId } from '@/lib/uuid';
 import type { Task } from '@/types';
 import { parseISO } from 'date-fns';
@@ -50,7 +50,7 @@ export const useTasks = () => {
         .catch(err => console.error('[useTasks] Erro ao salvar tarefa concluída:', err));
     }
     if (task && !task.completed) {
-      const us = useGamificationStore.getState();
+      const us = useGamificationStoreV21.getState();
       // Add XP - o toast será exibido automaticamente pelo GamificationListener
       us.addXp('task', [task.title, ...(task.category ? [task.category] : [])]);
       console.log('[useTasks] Tarefa concluída, XP adicionado, toast será exibido pelo GamificationListener');

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useHabitStore } from '@/stores/useHabitStore';
 import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
-import { useGamificationStore } from '@/stores/useGamificationStore';
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import gamificationConfig from '@/config/gamificationConfig.json';
 
 export interface ActiveCategory {
@@ -98,7 +98,7 @@ export const useActiveCategories = (period: 'day' | 'week' | 'month' = 'month', 
   const habits = useHabitStore(state => state.habits);
   const { todayTasks, weekTasks, laterTasks } = useTasks();
   const { activeGoals } = useGoals();
-  const { history } = useGamificationStore();
+  const { history } = useGamificationStoreV21();
   
   // Use filteredHistory if provided, otherwise use full history
   const historyToUse = filteredHistory || history;

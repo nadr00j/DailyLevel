@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
-import { useGamificationStore } from '@/stores/useGamificationStore';
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 
 export const useVitalityUpdate = () => {
-  const init = useGamificationStore(state => state.init);
+  const init = useGamificationStoreV21(state => state.init);
 
   useEffect(() => {
     // Recalcular vitalidade ao montar o componente

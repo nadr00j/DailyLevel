@@ -2,7 +2,7 @@ import { db } from './database';
 import { useShopStore, defaultItems } from '@/stores/useShopStore';
 import { useHabitStore } from '@/stores/useHabitStore';
 import { useGoalStore } from '@/stores/useGoalStore';
-import { useGamificationStore } from '@/stores/useGamificationStore';
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { useTaskStore } from '@/stores/useTaskStore';
 import { usePixelBuddyStore } from '@/stores/usePixelBuddyStore';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -28,7 +28,25 @@ class DataSyncService {
     return `${year}-${month}-${day}`;
   }
 
-  // Function to clean completed tasks after midnight in Brazil timezone
+  // Get yesterday's date in Brazil timezone (UTC-3)
+  private getBrazilYesterday(): string {
+    const now = new Date();
+    const brazilOffset = -3 * 60; // -3 hours in minutes
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const brazilTime = new Date(utc + (brazilOffset * 60000));
+    
+    // Subtract one day
+    brazilTime.setDate(brazilTime.getDate() - 1);
+    
+    // Format as YYYY-MM-DD
+    const year = brazilTime.getFullYear();
+    const month = String(brazilTime.getMonth() + 1).padStart(2, '0');
+    const day = String(brazilTime.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+  }
+
+  // Function to clean completed tasks from previous day after midnight in Brazil timezone
   private async cleanupCompletedTasks(userId: string): Promise<void> {
     const brazilToday = this.getBrazilToday();
     
@@ -44,39 +62,53 @@ class DataSyncService {
       return;
     }
     
-    console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Executando limpeza de tarefas concluídas...');
+    console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Executando limpeza de tarefas concluídas do dia anterior...');
 
     try {
       const tasks = useTaskStore.getState().tasks;
       console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Total de tarefas:', tasks.length);
       
-      const completedTasks = tasks.filter(task => task.completed);
-      console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Tarefas concluídas encontradas:', completedTasks.length);
+      // Filtrar apenas tarefas concluídas que foram atualizadas no dia anterior
+      const yesterday = this.getBrazilYesterday();
+      const completedTasksFromYesterday = tasks.filter(task => {
+        if (!task.completed) return false;
+        
+        // Verificar se a tarefa foi concluída no dia anterior
+        const taskUpdatedDate = task.updatedAt ? task.updatedAt.split('T')[0] : null;
+        return taskUpdatedDate === yesterday;
+      });
       
-      if (completedTasks.length === 0) {
-        console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Nenhuma tarefa concluída para remover');
+      console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Tarefas concluídas do dia anterior encontradas:', completedTasksFromYesterday.length);
+      
+      if (completedTasksFromYesterday.length === 0) {
+        console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Nenhuma tarefa concluída do dia anterior para remover');
         this.lastCleanupDate = brazilToday;
         return;
       }
       
       // Log das tarefas que serão removidas
-      completedTasks.forEach(task => {
-        console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Removendo tarefa:', task.id, task.title);
+      completedTasksFromYesterday.forEach(task => {
+        console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Removendo tarefa do dia anterior:', task.id, task.title, 'concluída em:', task.updatedAt);
       });
       
-      // Remove completed tasks from local store
-      const activeTasks = tasks.filter(task => !task.completed);
+      // Remove completed tasks from previous day from local store
+      const activeTasks = tasks.filter(task => {
+        if (!task.completed) return true;
+        const taskUpdatedDate = task.updatedAt ? task.updatedAt.split('T')[0] : null;
+        return taskUpdatedDate !== yesterday;
+      });
+      
       useTaskStore.setState({ tasks: activeTasks });
       console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Tarefas ativas restantes:', activeTasks.length);
       
-      // Remove completed tasks from Supabase
-      for (const task of completedTasks) {
+      // Remove completed tasks from previous day from Supabase
+      for (const task of completedTasksFromYesterday) {
         await db.deleteTask(userId, task.id);
-        console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Tarefa removida do Supabase:', task.id);
+        console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Tarefa do dia anterior removida do Supabase:', task.id);
       }
       
       this.lastCleanupDate = brazilToday;
-      console.log('✅ [DEBUG] DataSyncService.cleanupCompletedTasks - Limpeza concluída:', completedTasks.length, 'tarefas removidas');
+      console.log('✅ [DEBUG] DataSyncService.cleanupCompletedTasks - Limpeza concluída:', completedTasksFromYesterday.length, 'tarefas do dia anterior removidas');
     } catch (error) {
       console.error('❌ [DEBUG] DataSyncService.cleanupCompletedTasks - Erro na limpeza:', error);
     }
@@ -91,28 +123,30 @@ class DataSyncService {
   
   // Load data from Supabase into stores and localStorage
   async loadAll(userId: string): Promise<void> {
+    console.log('🔄 [DEBUG] DataSyncService.loadAll - Iniciando carregamento para userId:', userId);
+    
     // 1. Gamification
+    console.log('🔄 [DEBUG] DataSyncService.loadAll - Carregando dados de gamificação...');
     const gamification = await db.getGamificationData(userId);
+    console.log('🔄 [DEBUG] DataSyncService.loadAll - Dados de gamificação recebidos:', gamification);
+    
     if (gamification) {
-      // Apenas mesclar XP e coins para não perder progresso local
-      const local = useGamificationStore.getState();
-      const xp = Math.max(local.xp, gamification.xp);
-      const coins = Math.max(local.coins, gamification.coins);
-      // Atualizar XP e coins
-      useGamificationStore.setState({ xp, coins });
-      // 1.a. Carregar histórico de gamificação do Supabase
-      const history = await db.getGamificationHistory(userId);
-      useGamificationStore.setState({ history });
-      // Recalcular atributos baseado no histórico carregado
-      useGamificationStore.getState().init();
-      // 1.b. Carregar histórico de ações (history_items)
+      // Carregar dados do Supabase no store V2.1
+      console.log('🔄 [DEBUG] DataSyncService.loadAll - Sincronizando dados no store V2.1...');
+      useGamificationStoreV21.getState().syncFromSupabase(gamification);
+      console.log('✅ [DEBUG] DataSyncService.loadAll - Dados sincronizados no store V2.1');
+      
+      // 1.a. Carregar histórico de ações (history_items)
       try {
+        console.log('🔄 [DEBUG] DataSyncService.loadAll - Carregando histórico de ações...');
         const historyItems = await db.getHistoryItems(userId);
-        useGamificationStore.setState({ history: historyItems });
+        useGamificationStoreV21.setState({ history: historyItems });
         console.log('✅ [DEBUG] DataSyncService.loadAll - history_items carregados:', historyItems.length);
       } catch (err) {
         console.error('❌ [DEBUG] DataSyncService.loadAll - erro ao carregar history_items:', err);
       }
+    } else {
+      console.log('⚠️ [DEBUG] DataSyncService.loadAll - Nenhum dado de gamificação encontrado no Supabase');
     }
     // 2. User settings
     const settings = await db.getUserSettings(userId);
@@ -198,7 +232,7 @@ class DataSyncService {
     try {
       // 1. Gamification
       console.log('🔍 [DEBUG] DataSyncService.syncAll - Iniciando gamificação...');
-      const gm = useGamificationStore.getState();
+      const gm = useGamificationStoreV21.getState();
       await db.saveGamificationData({ userId, ...gm });
       console.log('✅ [DEBUG] DataSyncService.syncAll - Gamificação salva');
     // 1.a. Histórico de gamificação gerenciado diretamente em addHistoryItem; removido do syncAll para evitar duplicações

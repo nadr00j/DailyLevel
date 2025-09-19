@@ -4,7 +4,7 @@ import { dataSyncService } from '@/lib/DataSyncService';
 import { db } from '@/lib/database';
 import { generateId } from '@/lib/uuid';
 import type { Goal } from '@/types';
-import { useGamificationStore } from '@/stores/useGamificationStore';
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 
 // Function to get current date in Brazil timezone (UTC-3)
 const getBrazilToday = (): string => {
@@ -144,9 +144,9 @@ export const useGoalStore = create<GoalState>((set, get) => {
         )
       }));
       if (!goal.isCompleted && isCompleted) {
-        const us = useGamificationStore.getState();
+        const us = useGamificationStoreV21.getState();
         const goalXp = us.config.points.goal;
-        const goalCoins = Math.floor(goalXp * us.config.points.coinsPerXp);
+        const goalCoins = Math.floor(goalXp * 0.1); // 10% do XP
         
         console.log('[GoalStore] Meta completada! Registrando histórico com:', { 
           xp: goalXp, 

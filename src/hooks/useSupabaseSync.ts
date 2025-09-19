@@ -2,7 +2,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { db } from '@/lib/database';
 import { storage } from '@/lib/storage';
-import { useGamificationStore } from '@/stores/useGamificationStore';
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { useShopStore } from '@/stores/useShopStore';
 import { useHabitStore } from '@/stores/useHabitStore';
 import localforage from 'localforage';
