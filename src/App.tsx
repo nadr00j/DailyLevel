@@ -9,6 +9,7 @@ import NotFound from "./pages/NotFound";
 import { useAuthStore } from '@/stores/useAuthStore';
 import { dataSyncService } from '@/lib/DataSyncService';
 import { VitalityListener } from '@/components/gamification/VitalityListener';
+import { GamificationListener } from '@/components/gamification/GamificationListener';
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           <VitalityListener />
+          <GamificationListener />
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />

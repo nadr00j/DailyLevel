@@ -47,6 +47,7 @@ export const useVitalityV21 = () => {
   const { vitalityState, setVitalityState, updateVitality } = useVitalityStore();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   const user = useAuthStore(state => state.user);
 
@@ -54,11 +55,17 @@ export const useVitalityV21 = () => {
   const syncOnOpen = useCallback(async () => {
     if (!user?.id) return;
 
+    // Evitar múltiplas sincronizações simultâneas
+    if (isSyncing) {
+      return;
+    }
+
+    setIsSyncing(true);
     setIsLoading(true);
     setError(null);
 
     try {
-      console.log('[Vitality V2.1] Sincronização na abertura para usuário:', user.id);
+      // Log removido para reduzir spam
       
       // Chamar RPC para sincronizar na abertura (fecha dias pendentes)
       const { data, error } = await supabase.rpc('vitality_sync_open', {
@@ -73,7 +80,7 @@ export const useVitalityV21 = () => {
 
       if (data && data.length > 0) {
         const result = data[0];
-        console.log('[Vitality V2.1] Dados sincronizados:', result);
+        // Log removido para reduzir spam
         
         setVitalityState({
           value: Number(result.value) || 50,
@@ -93,8 +100,9 @@ export const useVitalityV21 = () => {
       setError('Erro inesperado ao sincronizar vitalidade');
     } finally {
       setIsLoading(false);
+      setIsSyncing(false);
     }
-  }, [user?.id]);
+  }, [user?.id, isSyncing]);
 
   // Aplicar evento de gamificação
   const applyEvent = useCallback(async (event: VitalityEvent) => {
@@ -126,9 +134,15 @@ export const useVitalityV21 = () => {
         console.error('[Vitality V2.1] Erro ao aplicar evento:', error);
         
         if (error.message.includes('version_conflict')) {
-          // Conflito de versão - recarregar estado
-          console.log('[Vitality V2.1] Conflito de versão, recarregando estado...');
-          await syncOnOpen();
+          // Conflito de versão - recarregar estado apenas uma vez
+          console.log('[Vitality V2.1] Conflito de versão detectado, recarregando estado...');
+          try {
+            await syncOnOpen();
+            console.log('[Vitality V2.1] Estado recarregado com sucesso após conflito de versão');
+          } catch (syncError) {
+            console.error('[Vitality V2.1] Erro ao recarregar estado após conflito:', syncError);
+            setError('Erro ao sincronizar vitalidade após conflito de versão');
+          }
         } else {
           setError('Erro ao aplicar evento de vitalidade');
         }
@@ -169,8 +183,12 @@ export const useVitalityV21 = () => {
     return 'confident';
   }, []);
 
-  // Função para determinar o corpo baseado no XP (mantém compatibilidade)
-  const getBodyFromXp = useCallback((xp: number): string => {
+  // Função para determinar o corpo baseado no XP e vitalidade
+  const getBodyFromXp = useCallback((xp: number, vitality: number): string => {
+    // Se vitalidade muito baixa, forçar corpo lvl_1
+    if (vitality < 25) return '/Nadr00J/bodies/body_lvl1.png';
+    
+    // Caso contrário, usar lógica baseada no XP
     if (xp < 200) return '/Nadr00J/bodies/body_lvl1.png';
     if (xp < 600) return '/Nadr00J/bodies/body_lvl2.png';
     return '/Nadr00J/bodies/body_lvl3.png';

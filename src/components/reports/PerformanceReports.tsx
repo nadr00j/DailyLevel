@@ -33,12 +33,25 @@ interface PerformanceStats {
 export const PerformanceReports = () => {
   const userId = useAuthStore(state => state.user?.id);
   const monthRef = useRef<HTMLDivElement>(null);
-  // Remove dataSyncService.loadAll useEffect
+  
+  // Carregar dados do Supabase quando o componente monta
+  useEffect(() => {
+    if (userId) {
+      console.log('🔄 [PerformanceReports] Carregando dados do Supabase...');
+      dataSyncService.loadAll(userId).then(() => {
+        console.log('✅ [PerformanceReports] Dados carregados com sucesso');
+      }).catch(err => {
+        console.error('❌ [PerformanceReports] Erro ao carregar dados:', err);
+      });
+    }
+  }, [userId]);
 
   // Performance filters state
   const [activePeriod, setActivePeriod] = useState<PeriodType>('week');
   // activeTab controls selected tab: 'performance' or 'history'
   const [activeTab, setActiveTab] = useState<'performance'|'history'>('performance');
+  // Force re-render key
+  const [renderKey, setRenderKey] = useState(0);
   // All possible days for current period
   const [possibleDays, setPossibleDays] = useState<string[]>([]);
   // Currently selected days for filtering
@@ -86,18 +99,15 @@ export const PerformanceReports = () => {
 
   // Subscribe to specific slices to re-render on updates
   const xp = useGamificationStoreV21(state => state.xp);
-  // Local history state to force updates
-  const [historyList, setHistoryList] = useState(useGamificationStoreV21.getState().history);
+  const history = useGamificationStoreV21(state => state.history);
   
-  // Subscribe to history changes
+  // Use history directly from store instead of local state
+  const historyList = history;
+  
+  // Force re-render when history changes significantly
   useEffect(() => {
-    const unsubscribe = useGamificationStoreV21.subscribe((state) => {
-      const newHistory = state.history;
-      setHistoryList(newHistory);
-    });
-    
-    return unsubscribe;
-  }, []);
+    setRenderKey(prev => prev + 1);
+  }, [historyList.length]);
   // Memoize filtered history entries based on selectedDays
   const filteredHistory = useMemo(() => {
     if (selectedDays.length === 0) {
@@ -153,26 +163,36 @@ export const PerformanceReports = () => {
     // Normalize category to lowercase for case-insensitive comparison
     const normalizedCategory = category.toLowerCase();
 
-    // Count items based on history (same logic as calculateRealItemCount)
-    const historyItems = filteredHistory.filter(item => {
+    // Count items based on ALL ACTIVE ITEMS (not just completed ones)
+    const allActiveItems = [
+      ...Object.values(habits).map(h => ({ 
+        type: 'habit', 
+        name: h.name, 
+        category: (h.categories && h.categories.length > 0) ? h.categories[0] : 'Sem Categoria' 
+      })),
+      ...todayTasks.map(t => ({ type: 'task', name: t.title, category: t.category || 'Sem Categoria' })),
+      ...weekTasks.map(t => ({ type: 'task', name: t.title, category: t.category || 'Sem Categoria' })),
+      ...laterTasks.map(t => ({ type: 'task', name: t.title, category: t.category || 'Sem Categoria' })),
+      ...activeGoals.map(g => ({ type: 'goal', name: g.title, category: g.category || 'Sem Categoria' }))
+    ];
+
+    const categoryItems = allActiveItems.filter(item => {
       const itemCategory = (item.category || 'Sem Categoria').toLowerCase();
       return itemCategory === normalizedCategory;
     });
 
-    // Count unique items by type and name (from tags)
+    // Count unique items by type and name
     const uniqueHabits = new Set();
     const uniqueTasks = new Set();
     const uniqueGoals = new Set();
 
-    historyItems.forEach(item => {
-      const itemName = item.tags && item.tags.length > 0 ? item.tags[0] : 'Unknown';
-      
+    categoryItems.forEach(item => {
       if (item.type === 'habit') {
-        uniqueHabits.add(itemName);
+        uniqueHabits.add(item.name);
       } else if (item.type === 'task') {
-        uniqueTasks.add(itemName);
+        uniqueTasks.add(item.name);
       } else if (item.type === 'goal') {
-        uniqueGoals.add(itemName);
+        uniqueGoals.add(item.name);
       }
     });
 
@@ -193,7 +213,7 @@ export const PerformanceReports = () => {
     const totalXP = habitsXP + tasksXP + goalsXP;
     
     // Debug para categorias com dados
-    if (historyItems.length > 0) {
+    if (categoryItems.length > 0) {
       console.log(`[XP Calculation Debug] ${category}:`, {
         activePeriod,
         daysMultiplier,
@@ -207,7 +227,7 @@ export const PerformanceReports = () => {
         uniqueHabits: Array.from(uniqueHabits),
         uniqueTasks: Array.from(uniqueTasks),
         uniqueGoals: Array.from(uniqueGoals),
-        historyItemsCount: historyItems.length
+        categoryItemsCount: categoryItems.length
       });
     }
     
@@ -218,26 +238,36 @@ export const PerformanceReports = () => {
   const calculateRealItemCount = (category: string) => {
     const normalizedCategory = category.toLowerCase();
 
-    // Count items based on history (completed items) instead of active items
-    const historyItems = filteredHistory.filter(item => {
+    // Count items based on ALL ACTIVE ITEMS (not just completed ones)
+    const allActiveItems = [
+      ...Object.values(habits).map(h => ({ 
+        type: 'habit', 
+        name: h.name, 
+        category: (h.categories && h.categories.length > 0) ? h.categories[0] : 'Sem Categoria' 
+      })),
+      ...todayTasks.map(t => ({ type: 'task', name: t.title, category: t.category || 'Sem Categoria' })),
+      ...weekTasks.map(t => ({ type: 'task', name: t.title, category: t.category || 'Sem Categoria' })),
+      ...laterTasks.map(t => ({ type: 'task', name: t.title, category: t.category || 'Sem Categoria' })),
+      ...activeGoals.map(g => ({ type: 'goal', name: g.title, category: g.category || 'Sem Categoria' }))
+    ];
+
+    const categoryItems = allActiveItems.filter(item => {
       const itemCategory = (item.category || 'Sem Categoria').toLowerCase();
       return itemCategory === normalizedCategory;
     });
 
-    // Count unique items by type and name (from tags)
+    // Count unique items by type and name
     const uniqueHabits = new Set();
     const uniqueTasks = new Set();
     const uniqueGoals = new Set();
 
-    historyItems.forEach(item => {
-      const itemName = item.tags && item.tags.length > 0 ? item.tags[0] : 'Unknown';
-      
+    categoryItems.forEach(item => {
       if (item.type === 'habit') {
-        uniqueHabits.add(itemName);
+        uniqueHabits.add(item.name);
       } else if (item.type === 'task') {
-        uniqueTasks.add(itemName);
+        uniqueTasks.add(item.name);
       } else if (item.type === 'goal') {
-        uniqueGoals.add(itemName);
+        uniqueGoals.add(item.name);
       }
     });
 
@@ -246,12 +276,8 @@ export const PerformanceReports = () => {
     const goalCount = uniqueGoals.size;
     const totalItems = habitCount + taskCount + goalCount;
 
-    // Debug para todas as categorias que aparecem no histórico
-    const hasHistoryData = filteredHistory.some(item => 
-      (item.category || 'Sem Categoria').toLowerCase() === normalizedCategory
-    );
-    
-    if (hasHistoryData) {
+    // Debug para todas as categorias que têm itens ativos
+    if (totalItems > 0) {
       console.log(`[Item Count Debug] ${category}:`, {
         normalizedCategory,
         habitCount,
@@ -261,10 +287,10 @@ export const PerformanceReports = () => {
         uniqueHabits: Array.from(uniqueHabits),
         uniqueTasks: Array.from(uniqueTasks),
         uniqueGoals: Array.from(uniqueGoals),
-        historyItemsCount: historyItems.length,
-        sampleHistoryItems: historyItems.slice(0, 3).map(item => ({
+        categoryItemsCount: categoryItems.length,
+        sampleCategoryItems: categoryItems.slice(0, 3).map(item => ({
           type: item.type,
-          name: item.tags && item.tags.length > 0 ? item.tags[0] : 'Unknown',
+          name: item.name,
           category: item.category
         }))
       });
@@ -624,6 +650,7 @@ export const PerformanceReports = () => {
 
   return (
     <motion.div
+      key={renderKey}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}

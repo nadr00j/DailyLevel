@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21'
-import { useVitalityV21 } from '@/hooks/useVitalityV21'
 import { useAnimationStore } from '@/stores/useAnimationStore'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
@@ -19,7 +18,7 @@ function tierFromVitality(v: number) {
 
 export const PixelBuddyCard = () => {
   const { pixelBuddyAnimationCount, incrementPixelBuddyAnimation } = useAnimationStore()
-  const { vitality, mood } = useVitalityV21()
+  const { vitality, mood } = useGamificationStoreV21()
   const aspect   = useGamificationStoreV21(s=>s.aspect)
   const rankIdx  = useGamificationStoreV21(s=>s.rankIdx)
   const coins    = useGamificationStoreV21(s=>s.coins)

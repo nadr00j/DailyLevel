@@ -119,8 +119,7 @@ export const useHabits = () => {
       } else {
         // Add the date
         newCompletedDates = [...habit.completedDates, targetDate].sort();
-        // Ganhar XP ao marcar hábito
-        addXp('habit', habit.categories);
+        // Removido: A gamificação agora é gerenciada pelo VitalityListener
       }
 
       const newStreak = calculateStreak(newCompletedDates);

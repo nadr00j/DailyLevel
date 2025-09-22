@@ -140,8 +140,16 @@ class DataSyncService {
       try {
         console.log('🔄 [DEBUG] DataSyncService.loadAll - Carregando histórico de ações...');
         const historyItems = await db.getHistoryItems(userId);
+        console.log('🔄 [DEBUG] DataSyncService.loadAll - history_items recebidos do banco:', historyItems);
         useGamificationStoreV21.setState({ history: historyItems });
-        console.log('✅ [DEBUG] DataSyncService.loadAll - history_items carregados:', historyItems.length);
+        console.log('✅ [DEBUG] DataSyncService.loadAll - history_items carregados no store:', historyItems.length);
+        
+        // Verificar se o store foi atualizado
+        const storeHistory = useGamificationStoreV21.getState().history;
+        console.log('🔄 [DEBUG] DataSyncService.loadAll - Verificando store após carregamento:', {
+          storeHistoryLength: storeHistory.length,
+          storeHistory: storeHistory.slice(0, 3) // Primeiros 3 itens
+        });
       } catch (err) {
         console.error('❌ [DEBUG] DataSyncService.loadAll - erro ao carregar history_items:', err);
       }

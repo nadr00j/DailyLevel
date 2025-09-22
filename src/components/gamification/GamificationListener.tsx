@@ -43,27 +43,45 @@ export const GamificationListener = () => {
       ready.current = true;
       prevLen.current = history.length;
       console.log('[GamificationListener Debug] Listener ativado, histórico inicial:', history.length);
-    }, 1000); // Reduzido para 1 segundo
+      
+      // Marcar todos os itens existentes como "não recentes" para evitar toasts na inicialização
+      const now = Date.now();
+      history.forEach((item, index) => {
+        if (item.ts && (now - item.ts) < 10000) { // Se o item foi criado nos últimos 10 segundos
+          console.log('[GamificationListener Debug] Item recente encontrado na inicialização, marcando como processado:', item);
+        }
+      });
+    }, 3000); // Aumentado para 3 segundos para garantir que todos os dados estejam carregados
     return () => clearTimeout(timer);
   }, []);
 
   useEffect(()=>{
+    console.log('[GamificationListener Debug] useEffect executado:', { 
+      historyLength: history.length, 
+      prevLength: prevLen.current,
+      ready: ready.current,
+      isReady: ready.current
+    });
+    
     if(!ready.current) {
       console.log('[GamificationListener Debug] Listener não pronto, ignorando mudanças iniciais');
       return;
     }
-    
-    console.log('[GamificationListener Debug] useEffect executado:', { 
-      historyLength: history.length, 
-      prevLength: prevLen.current
-    });
 
     if(history.length > prevLen.current){
       const last = history[history.length-1];
       
-      // Verificar se o item é recente (criado nos últimos 5 segundos)
+      // Verificar se o item é recente (criado nos últimos 2 segundos)
       const now = Date.now();
-      const isRecent = last.ts && (now - last.ts) < 5000;
+      const isRecent = last.ts && (now - last.ts) < 2000;
+      
+      console.log('[GamificationListener Debug] Verificando item:', {
+        lastItem: last,
+        isRecent,
+        timeDiff: last.ts ? (now - last.ts) : 'N/A',
+        now,
+        itemTs: last.ts
+      });
       
       if (!isRecent) {
         console.log('[GamificationListener Debug] Item não é recente, ignorando toast');

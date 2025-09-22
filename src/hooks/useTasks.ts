@@ -6,6 +6,7 @@ import type { Task } from '@/types';
 import { parseISO } from 'date-fns';
 import { db } from '@/lib/database';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { dataSyncService } from '@/lib/DataSyncService';
 
 export const useTasks = () => {
   const tasks = useTaskStore(state => state.tasks);
@@ -49,13 +50,58 @@ export const useTasks = () => {
       db.saveTask(userId, updatedTask)
         .catch(err => console.error('[useTasks] Erro ao salvar tarefa concluída:', err));
     }
-    if (task && !task.completed) {
-      const us = useGamificationStoreV21.getState();
-      // Add XP - o toast será exibido automaticamente pelo GamificationListener
-      us.addXp('task', [task.title, ...(task.category ? [task.category] : [])]);
-      console.log('[useTasks] Tarefa concluída, XP adicionado, toast será exibido pelo GamificationListener');
-    }
+    // Removido: A gamificação agora é gerenciada pelo VitalityListener
+    // para evitar chamadas duplicadas de addXp
   }, [tasks, updateTask]);
+
+  // Função para remover tarefas concluídas em dias anteriores
+  const cleanupOldCompletedTasks = useCallback(() => {
+    // Usar timezone brasileiro (UTC-3)
+    const now = new Date();
+    const brazilTime = new Date(now.getTime() - (3 * 60 * 60 * 1000)); // UTC-3
+    const todayBrazil = brazilTime.toISOString().split('T')[0];
+    
+    const tasksToCleanup = tasks.filter(task => {
+      if (!task.completed || !task.updatedAt) return false;
+      
+      // Converter timestamp da tarefa para timezone brasileiro
+      const taskTimestamp = new Date(task.updatedAt);
+      const taskBrazilTime = new Date(taskTimestamp.getTime() - (3 * 60 * 60 * 1000));
+      const taskDateBrazil = taskBrazilTime.toISOString().split('T')[0];
+      
+      const isOldCompleted = taskDateBrazil < todayBrazil;
+      
+      if (isOldCompleted) {
+        console.log('[useTasks] Removendo tarefa antiga concluída (timezone brasileiro):', {
+          id: task.id,
+          title: task.title,
+          completedOnUTC: new Date(task.updatedAt).toLocaleString(),
+          completedOnBrazil: taskBrazilTime.toLocaleString('pt-BR'),
+          taskDateBrazil,
+          todayBrazil
+        });
+      }
+      
+      return isOldCompleted;
+    });
+    
+    if (tasksToCleanup.length > 0) {
+      console.log(`[useTasks] Removendo ${tasksToCleanup.length} tarefas antigas concluídas`);
+      
+      // Remover tarefas antigas
+      tasksToCleanup.forEach(task => {
+        deleteTask(task.id);
+      });
+      
+      // Sincronizar com Supabase
+      const userId = useAuthStore.getState().user?.id;
+      if (userId) {
+        dataSyncService.syncAll(userId).catch(err => 
+          console.error('[useTasks] Erro ao sincronizar após limpeza:', err)
+        );
+      }
+    }
+  }, [tasks, deleteTask]);
 
   const moveTask = useCallback((id: string, newBucket: Task['bucket']) => {
     const task = tasks.find(t=>t.id===id);
@@ -74,6 +120,28 @@ export const useTasks = () => {
   useEffect(() => {
     // No-op; tasks are hydrated by DataSyncService
   }, []);
+
+  // Executar limpeza automática ao carregar e a cada mudança nas tarefas
+  useEffect(() => {
+    // Delay para garantir que as tarefas foram carregadas
+    const timer = setTimeout(() => {
+      cleanupOldCompletedTasks();
+    }, 2000); // 2 segundos após carregar
+
+    return () => clearTimeout(timer);
+  }, []); // Executar apenas uma vez ao montar
+
+  // Executar limpeza quando tarefas mudam (opcional - pode ser removido se causar problemas)
+  useEffect(() => {
+    const completedTasks = tasks.filter(t => t.completed);
+    if (completedTasks.length > 0) {
+      const timer = setTimeout(() => {
+        cleanupOldCompletedTasks();
+      }, 1000); // 1 segundo após mudanças
+      
+      return () => clearTimeout(timer);
+    }
+  }, [tasks.length, cleanupOldCompletedTasks]);
 
   // Computed values
   const todayDate = new Date();
@@ -132,6 +200,7 @@ export const useTasks = () => {
     deleteTask: removeTask,
     toggleTask: toggleTaskStatus,
     moveTask,
-    reorderTasks: reorderTasksStore
+    reorderTasks: reorderTasksStore,
+    cleanupOldCompletedTasks
   };
 };

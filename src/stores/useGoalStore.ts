@@ -155,8 +155,7 @@ export const useGoalStore = create<GoalState>((set, get) => {
           category: goal.category 
         });
         
-        // Dispara gamificação com tags corretas
-        us.addXp('goal', [goal.title, ...(goal.category ? [goal.category] : [])]);
+        // Removido: A gamificação agora é gerenciada pelo VitalityListener
         
         // Registra no histórico
         const userId = useAuthStore.getState().user!.id;

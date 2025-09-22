@@ -160,10 +160,10 @@ function toGamificationDb(data: AppGamificationData): GamificationDb {
     mood: data.mood,
     xp_multiplier: data.xpMultiplier,
     xp_multiplier_expiry: data.xpMultiplierExpiry,
-    str: data.str,
-    int: data.int,
-    cre: data.cre,
-    soc: data.soc,
+    str: Math.round(data.str), // Converter para inteiro
+    int: Math.round(data.int), // Converter para inteiro
+    cre: Math.round(data.cre), // Converter para inteiro
+    soc: Math.round(data.soc), // Converter para inteiro
     aspect: data.aspect,
     rank_idx: data.rankIdx,
     rank_tier: data.rankTier,
@@ -658,10 +658,36 @@ export class DatabaseService {
   // Adiciona um item de histórico de gamificação
   async addHistoryItem(userId: string, item: import('@/types/gamification').HistoryItem): Promise<void> {
     const { ts, type, xp, coins, category, tags } = item;
-    const { error } = await supabase
+    
+    console.log('[Database Debug] addHistoryItem chamado com:', { 
+      userId, 
+      item: { ts, type, xp, coins, category, tags },
+      timestamp: new Date(ts).toISOString()
+    });
+    
+    const insertData = { 
+      user_id: userId, 
+      ts: new Date(ts), 
+      type, 
+      xp, 
+      coins, 
+      category, 
+      tags 
+    };
+    
+    console.log('[Database Debug] Dados para inserção:', insertData);
+    
+    const { data, error } = await supabase
       .from('history_items')
-      .insert([{ user_id: userId, ts: new Date(ts), type, xp, coins, category, tags }]);
-    if (error) throw error;
+      .insert([insertData])
+      .select();
+      
+    if (error) {
+      console.error('[Database Debug] Erro ao inserir histórico:', error);
+      throw error;
+    }
+    
+    console.log('[Database Debug] Histórico inserido com sucesso:', data);
   }
 
   // Recupera itens de histórico de gamificação

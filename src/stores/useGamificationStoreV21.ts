@@ -14,28 +14,147 @@ import defaultConfigJson from '@/config/gamificationConfig.json';
 
 // Forçar recarregamento da configuração
 const defaultConfig = defaultConfigJson as GamificationConfig;
+console.log('[Gamification Debug] Configuração recarregada:', defaultConfig);
 
+import { toast } from '@/components/ui/use-toast';
+import { useVictoryDialog } from '@/stores/useVictoryDialog';
+import { usePixelBuddyStore } from '@/stores/usePixelBuddyStore';
+import { useHabitStore } from './useHabitStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { dataSyncService } from '@/lib/DataSyncService';
-import { generateId } from '@/lib/uuid';
 import { db } from '@/lib/database';
 
 // util: classifica categoria a partir das tags
 function resolveCategory(tags: string[] | undefined, cfg: GamificationConfig): string | undefined {
-  if (!tags?.length) return undefined;
+  if (!tags?.length) {
+    return undefined;
+  }
   
+  // Primeiro, verificar se alguma tag corresponde a uma categoria configurada
   for (const [name, c] of Object.entries(cfg.categories)) {
-    if (tags.some(t => c.tags.includes(t))) {
+    const matchingTags = tags.filter(t => c.tags.includes(t));
+    if (matchingTags.length > 0) {
+      console.log('[ResolveCategory Debug] Encontrou categoria por tags:', { 
+        categoryName: name, 
+        matchingTags, 
+        categoryTags: c.tags 
+      });
       return name;
     }
   }
   
-  return tags[0];
+  // Se não encontrou correspondência, verificar se alguma tag é uma categoria válida
+  for (const tag of tags) {
+    if (cfg.categories[tag]) {
+      console.log('[ResolveCategory Debug] Encontrou categoria direta:', { tag });
+      return tag;
+    }
+  }
+  
+  // Se não encontrou nada, retornar undefined (sem categoria)
+  console.log('[ResolveCategory Debug] Nenhuma categoria encontrada, retornando undefined');
+  return undefined;
 }
 
 function rollingSum(history: { ts: number; xp: number }[], days = 30) {
   const cutoff = dayjs().subtract(days, 'day').valueOf();
   return history.filter(h => h.ts >= cutoff).reduce((acc, h) => acc + h.xp, 0);
+}
+
+function calcVitality(xp30d: number, cfg: GamificationConfig, history: any[]) {
+  const now = Date.now();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStart = today.getTime();
+  const todayEnd = todayStart + (24 * 60 * 60 * 1000) - 1;
+  
+  // 1. BASE: Vitalidade baseada no XP dos últimos 30 dias
+  const baseVitality = Math.min(100, (xp30d / cfg.points.vitalityMonthlyTarget) * 100);
+  
+  // 2. HÁBITOS: Penalizar hábitos não completados hoje
+  let habitPenalty = 0;
+  try {
+    const habits = useHabitStore.getState().habits;
+    const totalHabits = Object.keys(habits).length;
+    if (totalHabits > 0) {
+      const completedHabitsToday = history.filter(item => 
+        item.type === 'habit' && 
+        item.ts >= todayStart && 
+        item.ts <= todayEnd
+      ).length;
+      
+      const missedHabits = totalHabits - completedHabitsToday;
+      habitPenalty = (missedHabits / totalHabits) * 30; // 30 pontos de penalidade máxima
+    }
+  } catch (error) {
+    console.warn('Erro ao acessar hábitos para cálculo de vitalidade:', error);
+  }
+  
+  // 3. TAREFAS: Penalizar tarefas atrasadas (temporariamente desabilitado para evitar erro de hook)
+  let taskPenalty = 0;
+  // TODO: Implementar cálculo de penalidade de tarefas sem usar hooks
+  
+  // 4. METAS: Bônus por metas concluídas (sem penalidade)
+  let goalBonus = 0;
+  const completedGoalsToday = history.filter(item => 
+    item.type === 'goal' && 
+    item.ts >= todayStart && 
+    item.ts <= todayEnd
+  ).length;
+  
+  goalBonus = completedGoalsToday * 5; // 5 pontos por meta concluída
+  
+  // 5. USO DO APP: Penalizar se não entrou hoje
+  let appUsagePenalty = 0;
+  const hasActivityToday = history.some(item => 
+    item.ts >= todayStart && item.ts <= todayEnd
+  );
+  
+  if (!hasActivityToday) {
+    appUsagePenalty = 20; // 20 pontos de penalidade por não usar o app
+  }
+  
+  // 6. CONSISTÊNCIA: Bônus por uso diário nos últimos 7 dias
+  let consistencyBonus = 0;
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    date.setHours(0, 0, 0, 0);
+    return date.getTime();
+  });
+  
+  const activeDays = last7Days.filter(dayStart => {
+    const dayEnd = dayStart + (24 * 60 * 60 * 1000) - 1;
+    return history.some(item => item.ts >= dayStart && item.ts <= dayEnd);
+  }).length;
+  
+  consistencyBonus = (activeDays / 7) * 15; // Até 15 pontos por consistência
+  
+  // 7. CALCULAR VITALIDADE FINAL
+  const finalVitality = Math.max(0, Math.min(100, 
+    baseVitality - habitPenalty - taskPenalty - appUsagePenalty + goalBonus + consistencyBonus
+  ));
+  
+  // Debug detalhado
+  console.log('[Vitality Debug]', {
+    baseVitality: Math.round(baseVitality),
+    habitPenalty: Math.round(habitPenalty),
+    taskPenalty: Math.round(taskPenalty),
+    goalBonus: Math.round(goalBonus),
+    appUsagePenalty: Math.round(appUsagePenalty),
+    consistencyBonus: Math.round(consistencyBonus),
+    finalVitality: Math.round(finalVitality),
+    completedHabitsToday: history.filter(item => 
+      item.type === 'habit' && 
+      item.ts >= todayStart && 
+      item.ts <= todayEnd
+    ).length,
+    completedGoalsToday,
+    hasActivityToday,
+    activeDays
+  });
+  
+  return finalVitality;
 }
 
 // Função para calcular rank baseado no XP
@@ -56,10 +175,11 @@ function calcAttributes(history: any[], cfg: GamificationConfig) {
     const category = resolveCategory(item.tags, cfg);
     if (category && cfg.categories[category]) {
       const cat = cfg.categories[category];
-      attrs.str += cat.str || 0;
-      attrs.int += cat.int || 0;
-      attrs.cre += cat.cre || 0;
-      attrs.soc += cat.soc || 0;
+      // Usar weight como base para atributos (simplificado)
+      attrs.str += cat.weight || 0;
+      attrs.int += cat.weight || 0;
+      attrs.cre += cat.weight || 0;
+      attrs.soc += cat.weight || 0;
     }
   });
   
@@ -95,8 +215,8 @@ export const useGamificationStoreV21 = create<GamificationState>()(
       xp: 0,
       coins: 0,
       xp30d: 0,
-      vitality: 50, // Será gerenciado pelo sistema V2.1
-      mood: 'neutral' as const, // Será gerenciado pelo sistema V2.1
+      vitality: 10,
+      mood: 'neutral' as const,
       xpMultiplier: 1,
       xpMultiplierExpiry: 0,
       str: 0,
@@ -115,75 +235,216 @@ export const useGamificationStoreV21 = create<GamificationState>()(
         console.log('[AddXP Debug] Função addXp chamada com:', { type, tags });
         
         const state = get();
-        const cfg = state.config;
-        const category = resolveCategory(tags, cfg);
+        // Capturar rank anterior
+        const prevRankIdx = state.rankIdx;
+        // Usar a configuração atualizada em vez da persistida
+        const cfg = defaultConfig;
         
-        // Calcular XP baseado no tipo e categoria
-        let xpGained = cfg.points[type] || 10;
-        
-        // Aplicar multiplicador se ativo
-        if (state.xpMultiplier > 1 && Date.now() < state.xpMultiplierExpiry) {
-          xpGained = Math.floor(xpGained * state.xpMultiplier);
-        }
-        
-        // Calcular moedas (10% do XP)
-        const coinsGained = Math.floor(xpGained * 0.1);
-        
-        // Criar entrada no histórico
-        const historyEntry = {
-          id: generateId(),
+        console.log('[AddXP Debug] Estado atual:', {
           type,
-          category,
-          tags: tags || [],
-          xp: xpGained,
-          coins: coinsGained,
-          ts: Date.now()
-        };
-        
-        // Atualizar estado
-        const newXp = state.xp + xpGained;
-        const newCoins = state.coins + coinsGained;
-        const newHistory = [...state.history, historyEntry];
-        const newXp30d = rollingSum(newHistory);
-        const newRank = calcRank(newXp);
-        const newAttrs = calcAttributes(newHistory, cfg);
-        const newAspect = calcAspect(newAttrs);
-        
-        set({
-          xp: newXp,
-          coins: newCoins,
-          xp30d: newXp30d,
-          str: newAttrs.str,
-          int: newAttrs.int,
-          cre: newAttrs.cre,
-          soc: newAttrs.soc,
-          aspect: newAspect,
-          rankIdx: newRank.idx,
-          rankTier: newRank.tier,
-          rankDiv: newRank.div,
-          history: newHistory
+          tags,
+          baseXp: cfg.points[type],
+          currentXp: state.xp,
+          currentCoins: state.coins,
+          config: cfg
         });
         
-        // Sincronizar com Supabase
-        const userId = useAuthStore.getState().user?.id;
-        if (userId) {
-          // Salvar item de histórico no Supabase
-          db.addHistoryItem(userId, historyEntry)
-            .catch(err => console.error('[AddXP] Erro ao salvar histórico no Supabase:', err));
-          
-          // Sincronizar outros dados
-          dataSyncService.syncAll(userId);
+        // Calcular XP base usando a estrutura correta
+        let baseXp = cfg.points[type] || 10;
+        
+        // Aplicar multiplicador se ativo
+        const multiplier = state.xpMultiplier;
+        const finalXp = Math.floor(baseXp * multiplier);
+        
+        // Atualizar XP
+        const newXp = state.xp + finalXp;
+        const newCoins = Math.floor(newXp * cfg.points.coinsPerXp);
+        
+        console.log('[AddXP Debug] Calculado:', {
+          baseXp,
+          multiplier,
+          finalXp,
+          newXp,
+          newCoins
+        });
+        
+        // Calcular novo rank baseado no XP total
+        const { idx: newRankIdx, tier: newRankTier, div: newRankDiv } = calcRank(newXp);
+        const newRank = { tier: newRankTier, div: newRankDiv };
+        console.log('[AddXP Debug] Rank calculado:', { newRankIdx, newRank });
+        
+        // Garantir que tags seja um array
+        const safeTags = tags || [];
+        
+        // Atualizar atributos baseado nas tags
+        const newStr = state.str + (safeTags.includes('strength') ? finalXp : 0);
+        const newInt = state.int + (safeTags.includes('intelligence') ? finalXp : 0);
+        const newCre = state.cre + (safeTags.includes('creativity') ? finalXp : 0);
+        const newSoc = state.soc + (safeTags.includes('social') ? finalXp : 0);
+        
+        // Calcular novo aspecto
+        let newAspect: Aspect = 'bal';
+        try {
+          newAspect = calcAspect({ str: newStr, int: newInt, cre: newCre, soc: newSoc });
+          console.log('[AddXP Debug] Aspecto calculado:', newAspect);
+        } catch (error) {
+          console.error('[AddXP Debug] Erro ao calcular aspecto:', error);
         }
         
-        // TODO: Verificar promoção de rank quando necessário
+        // Calcular vitalidade (XP dos últimos 30 dias)
+        const now = Date.now();
+        const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+        const recentHistory = state.history.filter(h => h.ts > thirtyDaysAgo);
+        let newXp30d = 0;
+        try {
+          newXp30d = rollingSum(recentHistory) + finalXp;
+          console.log('[AddXP Debug] XP30d calculado:', newXp30d);
+        } catch (error) {
+          console.error('[AddXP Debug] Erro ao calcular XP30d:', error);
+          newXp30d = finalXp;
+        }
         
-        console.log('[AddXP Debug] XP adicionado:', { xpGained, newXp, newCoins });
+        let newVitality = 0;
+        try {
+          newVitality = Math.floor(calcVitality(newXp30d, cfg, state.history));
+          console.log('[AddXP Debug] Vitalidade calculada:', newVitality);
+        } catch (error) {
+          console.error('[AddXP Debug] Erro ao calcular vitalidade:', error);
+          newVitality = 0;
+        }
+        
+        // Calcular humor baseado na vitalidade
+        let newMood = 'neutral';
+        try {
+          newMood = getMoodFromVitality(newVitality);
+          console.log('[AddXP Debug] Humor calculado:', newMood);
+        } catch (error) {
+          console.error('[AddXP Debug] Erro ao calcular humor:', error);
+        }
+        
+        // Atualizar estado
+        try {
+          set({
+            xp: newXp,
+            coins: newCoins,
+            xp30d: newXp30d,
+            vitality: newVitality,
+            mood: newMood as 'happy' | 'neutral' | 'tired' | 'sad',
+            str: newStr,
+            int: newInt,
+            cre: newCre,
+            soc: newSoc,
+            aspect: newAspect,
+            rankIdx: newRankIdx,
+            rankTier: newRankTier,
+            rankDiv: newRankDiv,
+            history: [...state.history, {
+              ts: now,
+              type,
+              xp: finalXp,
+              coins: Math.floor(finalXp * cfg.points.coinsPerXp),
+              tags: safeTags,
+              category: (() => {
+                try {
+                  console.log('[AddXP Debug] Resolvendo categoria:', { tags: safeTags, configCategories: Object.keys(cfg.categories) });
+                  const resolvedCategory = resolveCategory(safeTags, cfg);
+                  console.log('[AddXP Debug] Categoria resolvida:', { tags: safeTags, category: resolvedCategory });
+                  return resolvedCategory;
+                } catch (error) {
+                  console.error('[AddXP Debug] Erro ao resolver categoria:', error);
+                  return undefined;
+                }
+              })()
+            }]
+          });
+          console.log('[AddXP Debug] Estado atualizado com sucesso');
+          // Disparar diálogo de vitória se subiu de rank
+          if (newRankIdx > prevRankIdx) {
+            const roman = ['I','II','III'];
+            const divLabel = newRank.div === 0 ? '' : roman[newRank.div - 1];
+            const iconPath = `/ranks/${newRank.tier.toUpperCase()} ${divLabel}.png`;
+            useVictoryDialog.getState().show('Promoção de Rank!', 0, iconPath);
+          }
+        } catch (error) {
+          console.error('[AddXP Debug] Erro ao atualizar estado:', error);
+        }
+        
+        // Salvar no history_items do Supabase
+        const userId = useAuthStore.getState().user?.id;
+        if (userId) {
+          const historyEntry = {
+            ts: now,
+            type,
+            xp: finalXp,
+            coins: Math.floor(finalXp * cfg.points.coinsPerXp),
+            tags: safeTags,
+            category: (() => {
+              try {
+                const resolvedCategory = resolveCategory(safeTags, cfg);
+                return resolvedCategory;
+              } catch (error) {
+                console.error('[AddXP Debug] Erro ao resolver categoria para history:', error);
+                return undefined;
+              }
+            })()
+          };
+          
+          console.log('[AddXP Debug] Salvando no history_items:', historyEntry);
+          db.addHistoryItem(userId, historyEntry)
+            .then(() => {
+              console.log('[AddXP Debug] Item salvo no history_items com sucesso');
+            })
+            .catch(err => {
+              console.error('[AddXP Debug] Erro ao salvar no history_items:', err);
+            });
+        }
+
+        // Atualizar PixelBuddy automaticamente
+        try {
+          updatePixelBuddyState(newXp, newVitality, newMood);
+          console.log('[AddXP Debug] PixelBuddy atualizado com sucesso');
+        } catch (error) {
+          console.error('[AddXP Debug] Erro ao atualizar PixelBuddy:', error);
+        }
+        
+        // Toast será exibido automaticamente pelo GamificationListener
+        console.log('[AddXP Debug] XP adicionado, toast será exibido pelo GamificationListener');
       },
 
       setXpMultiplier: (multiplier: number, duration: number) => {
         set({
           xpMultiplier: multiplier,
           xpMultiplierExpiry: Date.now() + duration
+        });
+      },
+
+      // Métodos para resetar (debug)
+      resetXp: () => {
+        set({ xp: 0 });
+      },
+      
+      resetCoins: () => {
+        set({ coins: 0 });
+      },
+      
+      resetHistory: () => {
+        set({ history: [] });
+      },
+      
+      resetAll: () => {
+        set({
+          xp: 0,
+          coins: 0,
+          xp30d: 0,
+          str: 0,
+          int: 0,
+          cre: 0,
+          soc: 0,
+          aspect: 'bal',
+          rankIdx: 0,
+          rankTier: 'BRONZE',
+          rankDiv: 1,
+          history: []
         });
       },
 
@@ -230,18 +491,41 @@ export const useGamificationStoreV21 = create<GamificationState>()(
       },
 
 
-      init: async () => {
-        // Carregar dados do Supabase na inicialização
-        const userId = useAuthStore.getState().user?.id;
-        if (userId) {
-          try {
-            await dataSyncService.loadAll(userId);
-            console.log('[Gamification V2.1] Dados carregados do Supabase');
-          } catch (error) {
-            console.error('[Gamification V2.1] Erro ao carregar dados:', error);
-          }
+      init: () => {
+        const state = get();
+        // Usar a configuração atualizada em vez da persistida
+        const cfg = defaultConfig;
+        
+        // Recalcular vitalidade baseada no histórico atual
+        const now = Date.now();
+        const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+        const recentHistory = state.history.filter(h => h.ts > thirtyDaysAgo);
+        const newXp30d = rollingSum(recentHistory);
+        const newVitality = Math.floor(calcVitality(newXp30d, cfg, state.history));
+        
+        // Recalcular humor baseado na vitalidade
+        const newMood = getMoodFromVitality(newVitality);
+        
+        // Recalcular rank se necessário
+        let rankUpdate = {};
+        if (state.xp > 0) {
+          const { idx, tier, div } = calcRank(state.xp);
+          rankUpdate = {
+            rankIdx: idx,
+            rankTier: tier,
+            rankDiv: div
+          };
         }
-        console.log('[Gamification V2.1] Store inicializado');
+        
+        set({
+          xp30d: newXp30d,
+          vitality: newVitality,
+          mood: newMood as 'happy' | 'neutral' | 'tired' | 'sad',
+          ...rankUpdate
+        });
+        
+        // Atualizar PixelBuddy
+        updatePixelBuddyState(state.xp, newVitality, newMood);
       }
     }),
     {
@@ -251,6 +535,10 @@ export const useGamificationStoreV21 = create<GamificationState>()(
         xp: state.xp,
         coins: state.coins,
         xp30d: state.xp30d,
+        vitality: state.vitality,
+        mood: state.mood,
+        xpMultiplier: state.xpMultiplier,
+        xpMultiplierExpiry: state.xpMultiplierExpiry,
         str: state.str,
         int: state.int,
         cre: state.cre,
@@ -264,30 +552,72 @@ export const useGamificationStoreV21 = create<GamificationState>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          // Recalcular atributos e rank baseado no histórico
+          // Recalcular vitalidade ao carregar o app
+          // Usar a configuração atualizada em vez da persistida
           const cfg = defaultConfig;
-          const newRank = calcRank(state.xp);
-          const newAttrs = calcAttributes(state.history || [], cfg);
-          const newAspect = calcAspect(newAttrs);
+          const now = Date.now();
+          const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+          const recentHistory = state.history.filter(h => h.ts > thirtyDaysAgo);
+          const newXp30d = rollingSum(recentHistory);
+          const newVitality = Math.floor(calcVitality(newXp30d, cfg, state.history));
+          const newMood = getMoodFromVitality(newVitality);
           
-          state.xp30d = rollingSum(state.history || []);
-          state.str = newAttrs.str;
-          state.int = newAttrs.int;
-          state.cre = newAttrs.cre;
-          state.soc = newAttrs.soc;
-          state.aspect = newAspect;
-          state.rankIdx = newRank.idx;
-          state.rankTier = newRank.tier;
-          state.rankDiv = newRank.div;
-          state.config = cfg;
+          // Atualizar estado com vitalidade recalculada
+          state.xp30d = newXp30d;
+          state.vitality = newVitality;
+          state.mood = newMood as 'happy' | 'neutral' | 'tired' | 'sad';
           
-          console.log('[Gamification V2.1] Store reidratado com dados locais:', {
-            xp: state.xp,
-            rank: `${state.rankTier} ${state.rankDiv}`,
-            aspect: state.aspect
-          });
+          // Atualizar PixelBuddy
+          updatePixelBuddyState(state.xp, newVitality, newMood);
         }
       }
     }
   )
 );
+
+// Função para atualizar o estado do PixelBuddy baseado no XP e vitalidade
+function updatePixelBuddyState(xp: number, vitality: number, mood: string) {
+  const pixelBuddyStore = usePixelBuddyStore.getState();
+  
+  // Atualizar body baseado no XP
+  let newBody: string;
+  if (xp < 200) {
+    newBody = '/Nadr00J/bodies/body_lvl1.png';
+  } else if (xp < 600) {
+    newBody = '/Nadr00J/bodies/body_lvl2.png';
+  } else {
+    newBody = '/Nadr00J/bodies/body_lvl3.png';
+  }
+  
+  // Atualizar head baseado na vitalidade e humor
+  let newHead: string;
+  if (vitality < 25) {
+    newHead = '/Nadr00J/heads/head_tired.png';
+  } else if (vitality < 50) {
+    newHead = '/Nadr00J/heads/head_sad.png';
+  } else if (vitality < 75) {
+    newHead = '/Nadr00J/heads/head_neutral.png';
+  } else if (vitality < 90) {
+    newHead = '/Nadr00J/heads/head_happy.png';
+  } else {
+    newHead = '/Nadr00J/heads/head_confident.png';
+  }
+  
+  // Aplicar mudanças apenas se diferentes
+  if (pixelBuddyStore.body !== newBody) {
+    pixelBuddyStore.setBase('body', newBody);
+  }
+  
+  if (pixelBuddyStore.head !== newHead) {
+    pixelBuddyStore.setBase('head', newHead);
+  }
+}
+
+// Função para determinar o humor baseado na vitalidade
+function getMoodFromVitality(vitality: number): string {
+  if (vitality < 25) return 'tired';
+  if (vitality < 50) return 'sad';
+  if (vitality < 75) return 'neutral';
+  if (vitality < 90) return 'happy';
+  return 'confident';
+}

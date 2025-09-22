@@ -154,8 +154,7 @@ export const useHabitStore = create<HabitState>((set, get) => ({
               tags: [habit.name]
             }).catch(err => console.error('[HabitStore] Erro ao registrar histórico de hábito:', err));
             
-            // Dispara gamificação
-            addXp('habit', habit.categories || []);
+            // Removido: A gamificação agora é gerenciada pelo VitalityListener
           }
           
           // Atualiza logs

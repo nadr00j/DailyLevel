@@ -463,7 +463,7 @@ function applyItemEffect(itemId: string) {
       break;
     case 'vitality_boost':
       // Restore 50% vitality
-      // Note: Vitality is now handled by useVitalityV21, not the gamification store
+      // Note: Vitality is now handled by useGamificationStoreV21
       // This effect would need to be implemented in the vitality system
       console.log('[Shop] Vitality boost effect - needs implementation in V2.1');
       break;
