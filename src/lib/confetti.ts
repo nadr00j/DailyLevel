@@ -53,10 +53,12 @@ export async function fireVictoryConfetti() {
 export async function fireGoldenConfetti() {
   const confetti = await initInstance();
 
+  // Usar círculo dourado ao invés do emoji para melhor performance
   let coin: string = 'circle';
   let sparkle: string = 'star';
   if (confettiBase && (confettiBase as any).shapeFromText) {
-    coin = (confettiBase as any).shapeFromText({ text: '🪙', scalar: 1.2 });
+    // Manter como círculo dourado para melhor performance no confetti
+    // A imagem personalizada será usada na UI, mas para confetti usamos forma simples
     sparkle = (confettiBase as any).shapeFromText({ text: '✨', scalar: 1.3 });
   }
 

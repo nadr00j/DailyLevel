@@ -71,30 +71,11 @@ function calcVitality(xp30d: number, cfg: GamificationConfig, history: any[]) {
   // 1. BASE: Vitalidade baseada no XP dos últimos 30 dias
   const baseVitality = Math.min(100, (xp30d / cfg.points.vitalityMonthlyTarget) * 100);
   
-  // 2. HÁBITOS: Penalizar hábitos não completados hoje
-  let habitPenalty = 0;
-  try {
-    const habits = useHabitStore.getState().habits;
-    const totalHabits = Object.keys(habits).length;
-    if (totalHabits > 0) {
-      const completedHabitsToday = history.filter(item => 
-        item.type === 'habit' && 
-        item.ts >= todayStart && 
-        item.ts <= todayEnd
-      ).length;
-      
-      const missedHabits = totalHabits - completedHabitsToday;
-      habitPenalty = (missedHabits / totalHabits) * 30; // 30 pontos de penalidade máxima
-    }
-  } catch (error) {
-    console.warn('Erro ao acessar hábitos para cálculo de vitalidade:', error);
-  }
+  // IMPORTANTE: Penalidades de hábitos e tarefas não concluídas são aplicadas 
+  // automaticamente pelo sistema Supabase (vitality_close_day) UMA VEZ POR DIA.
+  // NÃO calcular penalidades aqui para evitar duplicação!
   
-  // 3. TAREFAS: Penalizar tarefas atrasadas (temporariamente desabilitado para evitar erro de hook)
-  let taskPenalty = 0;
-  // TODO: Implementar cálculo de penalidade de tarefas sem usar hooks
-  
-  // 4. METAS: Bônus por metas concluídas (sem penalidade)
+  // 2. METAS: Bônus por metas concluídas (sem penalidade)
   let goalBonus = 0;
   const completedGoalsToday = history.filter(item => 
     item.type === 'goal' && 
@@ -104,17 +85,17 @@ function calcVitality(xp30d: number, cfg: GamificationConfig, history: any[]) {
   
   goalBonus = completedGoalsToday * 5; // 5 pontos por meta concluída
   
-  // 5. USO DO APP: Penalizar se não entrou hoje
-  let appUsagePenalty = 0;
+  // 3. USO DO APP: Bônus por atividade hoje (sem penalidade para evitar duplicação)
+  let activityBonus = 0;
   const hasActivityToday = history.some(item => 
     item.ts >= todayStart && item.ts <= todayEnd
   );
   
-  if (!hasActivityToday) {
-    appUsagePenalty = 20; // 20 pontos de penalidade por não usar o app
+  if (hasActivityToday) {
+    activityBonus = 2; // Pequeno bônus por usar o app hoje
   }
   
-  // 6. CONSISTÊNCIA: Bônus por uso diário nos últimos 7 dias
+  // 4. CONSISTÊNCIA: Bônus por uso diário nos últimos 7 dias
   let consistencyBonus = 0;
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const date = new Date(today);
@@ -130,31 +111,26 @@ function calcVitality(xp30d: number, cfg: GamificationConfig, history: any[]) {
   
   consistencyBonus = (activeDays / 7) * 15; // Até 15 pontos por consistência
   
-  // 7. CALCULAR VITALIDADE FINAL
-  const finalVitality = Math.max(0, Math.min(100, 
-    baseVitality - habitPenalty - taskPenalty - appUsagePenalty + goalBonus + consistencyBonus
+  // 5. CALCULAR VITALIDADE FINAL (apenas bônus locais)
+  // IMPORTANTE: As penalidades são aplicadas pelo Supabase via vitality_close_day()
+  // Este valor é usado apenas para referência local
+  const localVitality = Math.max(0, Math.min(100, 
+    baseVitality + goalBonus + consistencyBonus + activityBonus
   ));
   
-  // Debug detalhado
-  console.log('[Vitality Debug]', {
+  // Debug detalhado (removido logs de penalidades que não são mais calculadas aqui)
+  console.log('[Vitality Debug - Local Only]', {
     baseVitality: Math.round(baseVitality),
-    habitPenalty: Math.round(habitPenalty),
-    taskPenalty: Math.round(taskPenalty),
     goalBonus: Math.round(goalBonus),
-    appUsagePenalty: Math.round(appUsagePenalty),
+    activityBonus: Math.round(activityBonus),
     consistencyBonus: Math.round(consistencyBonus),
-    finalVitality: Math.round(finalVitality),
-    completedHabitsToday: history.filter(item => 
-      item.type === 'habit' && 
-      item.ts >= todayStart && 
-      item.ts <= todayEnd
-    ).length,
+    localVitality: Math.round(localVitality),
     completedGoalsToday,
     hasActivityToday,
     activeDays
   });
   
-  return finalVitality;
+  return localVitality;
 }
 
 // Função para calcular rank baseado no XP
@@ -304,13 +280,22 @@ export const useGamificationStoreV21 = create<GamificationState>()(
           newXp30d = finalXp;
         }
         
-        let newVitality = 0;
+        // IMPORTANTE: Usar vitalidade do Supabase (via useVitalityV21) ao invés de calcular localmente
+        // O cálculo local é mantido apenas para fallback/debug
+        let newVitality = state.vitality; // Manter valor atual por padrão
+        
+        // Tentar obter valor do Supabase se disponível
         try {
-          newVitality = Math.floor(calcVitality(newXp30d, cfg, state.history));
-          console.log('[AddXP Debug] Vitalidade calculada:', newVitality);
+          // O valor real da vitalidade vem do useVitalityV21 que sincroniza com Supabase
+          // Este cálculo local é apenas para referência e não deve ser usado como valor final
+          const localVitality = Math.floor(calcVitality(newXp30d, cfg, state.history));
+          console.log('[AddXP Debug] Vitalidade local (referência):', localVitality, '| Vitalidade atual (Supabase):', state.vitality);
+          
+          // Usar valor atual do state (que vem do Supabase via useVitalityV21)
+          newVitality = state.vitality;
         } catch (error) {
-          console.error('[AddXP Debug] Erro ao calcular vitalidade:', error);
-          newVitality = 0;
+          console.error('[AddXP Debug] Erro ao calcular vitalidade de referência:', error);
+          newVitality = state.vitality; // Manter valor atual
         }
         
         // Calcular humor baseado na vitalidade
@@ -436,6 +421,8 @@ export const useGamificationStoreV21 = create<GamificationState>()(
           xp: 0,
           coins: 0,
           xp30d: 0,
+          vitality: 50,
+          mood: 'neutral',
           str: 0,
           int: 0,
           cre: 0,
@@ -446,6 +433,26 @@ export const useGamificationStoreV21 = create<GamificationState>()(
           rankDiv: 1,
           history: []
         });
+      },
+
+      // Função para sincronizar vitalidade do Supabase
+      syncVitalityFromSupabase: (vitalityValue: number) => {
+        const state = get();
+        const newMood = getMoodFromVitality(vitalityValue);
+        
+        console.log('[GamificationStore] Sincronizando vitalidade do Supabase:', {
+          anterior: state.vitality,
+          nova: vitalityValue,
+          mood: newMood
+        });
+        
+        set({
+          vitality: vitalityValue,
+          mood: newMood as 'happy' | 'neutral' | 'tired' | 'sad'
+        });
+        
+        // Atualizar PixelBuddy com nova vitalidade
+        updatePixelBuddyState(state.xp, vitalityValue, newMood);
       },
 
       // Função para sincronizar dados do Supabase
@@ -559,16 +566,21 @@ export const useGamificationStoreV21 = create<GamificationState>()(
           const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
           const recentHistory = state.history.filter(h => h.ts > thirtyDaysAgo);
           const newXp30d = rollingSum(recentHistory);
-          const newVitality = Math.floor(calcVitality(newXp30d, cfg, state.history));
-          const newMood = getMoodFromVitality(newVitality);
           
-          // Atualizar estado com vitalidade recalculada
+          // IMPORTANTE: NÃO recalcular vitalidade aqui - ela vem do Supabase via useVitalityV21
+          // Manter valor persistido e deixar o useVitalityV21 sincronizar
+          const currentVitality = state.vitality || 50; // Usar valor persistido ou padrão
+          const newMood = getMoodFromVitality(currentVitality);
+          
+          console.log('[Rehydrate] Mantendo vitalidade persistida:', currentVitality, '(será sincronizada pelo useVitalityV21)');
+          
+          // Atualizar apenas XP30d e mood
           state.xp30d = newXp30d;
-          state.vitality = newVitality;
           state.mood = newMood as 'happy' | 'neutral' | 'tired' | 'sad';
+          // state.vitality permanece como estava (será atualizada pelo useVitalityV21)
           
           // Atualizar PixelBuddy
-          updatePixelBuddyState(state.xp, newVitality, newMood);
+          updatePixelBuddyState(state.xp, currentVitality, newMood);
         }
       }
     }

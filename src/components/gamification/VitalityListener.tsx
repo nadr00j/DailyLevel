@@ -2,9 +2,9 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { usePixelBuddyStore } from '@/stores/usePixelBuddyStore';
 import { useHabitStore } from '@/stores/useHabitStore';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
-import { useAuthStore } from '@/stores/useAuthStore';
 
 export const VitalityListener = () => {
   const { user, isAuthenticated } = useAuthStore();
@@ -20,6 +20,7 @@ export const VitalityListener = () => {
   const { xp, vitality, mood, addXp } = useGamificationStoreV21();
   const { setBase, initializeFromGamification } = usePixelBuddyStore();
   const { habits } = useHabitStore();
+  const habitLogs = useHabitStore(state => state.logs);
   const { todayTasks } = useTasks();
   const { activeGoals } = useGoals();
   
@@ -188,19 +189,35 @@ export const VitalityListener = () => {
       return;
     }
     
+    // Obter dados dos hábitos do useHabitStore
     const currentHabits = habits;
+    const logs = habitLogs;
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD formato
+    
     const prevHabits = prevHabitsRef.current;
     
     // Verificar se algum hábito foi concluído hoje
     Object.entries(currentHabits).forEach(([habitId, habit]) => {
       const prevHabit = prevHabits[habitId];
       
-      // Se o hábito não existia antes ou se foi concluído hoje
-      if (!prevHabit || (habit.completedToday && !prevHabit.completedToday)) {
-        // Usar ID do hábito + timestamp para garantir unicidade
-        const eventKey = `habit-${habitId}-${habit.completedToday || Date.now()}`;
+      // Verificar se o hábito foi concluído hoje
+      const todayLog = logs[habitId]?.[today] || 0;
+      const prevTodayLog = prevHabits[habitId]?.todayLog || 0;
+      const isCompletedToday = todayLog >= habit.targetCount;
+      const wasCompletedBefore = prevTodayLog >= habit.targetCount;
+      
+      // Se o hábito foi recém concluído (não estava completo antes e agora está)
+      if (isCompletedToday && !wasCompletedBefore) {
+        // Usar ID do hábito + data + timestamp para garantir unicidade
+        const eventKey = `habit-${habitId}-completed-${today}-${Date.now()}`;
         
-        console.log('[VitalityListener] Hábito concluído detectado:', { habitId, habitName: habit.name, eventKey });
+        console.log('[VitalityListener] Hábito concluído detectado:', { 
+          habitId, 
+          habitName: habit.name, 
+          todayLog, 
+          targetCount: habit.targetCount,
+          eventKey 
+        });
         
         processEventSafely(eventKey, 'HABIT_DONE', {
           habitId,
@@ -211,8 +228,15 @@ export const VitalityListener = () => {
       }
     });
     
-    prevHabitsRef.current = currentHabits;
-  }, [habits, processEventSafely, isInitialLoading]);
+    // Atualizar referência com logs atuais
+    const habitsWithLogs = Object.fromEntries(
+      Object.entries(currentHabits).map(([id, habit]) => [
+        id, 
+        { ...habit, todayLog: logs[id]?.[today] || 0 }
+      ])
+    );
+    prevHabitsRef.current = habitsWithLogs;
+  }, [habits, habitLogs, processEventSafely, isInitialLoading]);
 
   // Detectar conclusão de tarefas
   useEffect(() => {

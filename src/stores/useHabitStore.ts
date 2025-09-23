@@ -99,14 +99,25 @@ export const useHabitStore = create<HabitState>((set, get) => ({
       },
 
       deleteHabit: (id) => {
+        console.log('🔍 [DEBUG] deleteHabit chamado:', { id });
         set(state => {
           const { [id]: _, ...rest } = state.habits;
           const { [id]: __, ...logRest } = state.logs;
           return { habits: rest, logs: logRest };
         });
-        // sync após exclusão
+        // Delete from Supabase immediately
         const userId = useAuthStore.getState().user!.id;
-        dataSyncService.syncAll(userId);
+        db.deleteHabit(userId, id)
+          .then(() => {
+            console.log('✅ [HabitStore] Hábito deletado do Supabase:', id);
+            // sync após exclusão para garantir consistência
+            dataSyncService.syncAll(userId);
+          })
+          .catch(err => {
+            console.error('❌ [HabitStore] Erro ao deletar hábito do Supabase:', err);
+            // sync mesmo com erro para tentar novamente
+            dataSyncService.syncAll(userId);
+          });
       },
 
       listHabits: () => {
@@ -154,7 +165,8 @@ export const useHabitStore = create<HabitState>((set, get) => ({
               tags: [habit.name]
             }).catch(err => console.error('[HabitStore] Erro ao registrar histórico de hábito:', err));
             
-            // Removido: A gamificação agora é gerenciada pelo VitalityListener
+            // Chamar addXp para disparar toast e gamificação
+            addXp('habit', habit.categories);
           }
           
           // Atualiza logs

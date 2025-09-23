@@ -776,7 +776,7 @@ export const PerformanceReports = () => {
                         </div>
                         <div className="flex items-center gap-1 text-yellow-400">
                           <span>+{item.coins}</span>
-                          <span role="img" aria-label="moeda">🪙</span>
+                          <img src="/moeda.png" alt="Moeda" className="w-4 h-4" />
                         </div>
                       </div>
                     </div>

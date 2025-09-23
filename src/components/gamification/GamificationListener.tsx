@@ -126,7 +126,10 @@ export const GamificationListener = () => {
             <div className="flex items-center gap-2">
               <img src="/xp.png" alt="xp" className="w-6 h-6" />
               <span className="font-semibold"><CountUp to={dXp} prefix="+" /> XP</span>
-              <span className="flex items-center gap-0.5 ml-auto animate-bounce">🪙<CountUp to={dCoins} prefix="+" className="font-semibold" /></span>
+              <span className="flex items-center gap-1 ml-auto animate-bounce">
+                <img src="/moeda.png" alt="Moeda" className="w-4 h-4" />
+                <CountUp to={dCoins} prefix="+" className="font-semibold" />
+              </span>
             </div>
             <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
               <motion.div

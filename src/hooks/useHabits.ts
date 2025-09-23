@@ -77,6 +77,15 @@ export const useHabits = () => {
   const deleteHabit = useCallback(async (id: string) => {
     const updatedHabits = habits.filter(habit => habit.id !== id);
     await saveHabits(updatedHabits);
+    
+    // Delete from Supabase
+    try {
+      const userId = useAuthStore.getState().user!.id;
+      await db.deleteHabit(userId, id);
+      console.log('✅ [useHabits] Hábito deletado do Supabase:', id);
+    } catch (err) {
+      console.error('❌ [useHabits] Erro ao deletar hábito do Supabase:', err);
+    }
   }, [habits, saveHabits]);
 
   const calculateStreak = useCallback((completedDates: string[]): number => {

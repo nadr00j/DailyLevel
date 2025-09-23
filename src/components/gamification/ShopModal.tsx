@@ -101,7 +101,7 @@ const ShopItemCard = ({ item }: { item: ShopItem }) => {
           ) : (
             <div className="flex items-center gap-1 mt-2">
               <span className="text-xs font-medium">{item.price}</span>
-              <span className="text-xs">🪙</span>
+              <img src="/moeda.png" alt="Moeda" className="w-3 h-3" />
             </div>
           )}
         </div>
@@ -312,11 +312,15 @@ const SellConfirmationDialog = () => {
           <div className="bg-muted/50 rounded-lg p-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span>Valor original:</span>
-              <span className="font-medium">{item.price} 🪙</span>
+              <span className="font-medium flex items-center gap-1">
+                {item.price} <img src="/moeda.png" alt="Moeda" className="w-4 h-4" />
+              </span>
             </div>
             <div className="flex justify-between text-sm">
               <span>Valor de venda:</span>
-              <span className="font-medium text-red-500">{sellPrice} 🪙</span>
+              <span className="font-medium text-red-500 flex items-center gap-1">
+                {sellPrice} <img src="/moeda.png" alt="Moeda" className="w-4 h-4" />
+              </span>
             </div>
             <div className="text-xs text-muted-foreground">
               (50% do valor original)
@@ -424,7 +428,7 @@ export const ShopModal = () => {
             <h2 className="text-lg font-semibold">Loja e Inventário</h2>
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">{coins}</span>
-              <span className="text-sm">🪙</span>
+              <img src="/moeda.png" alt="Moeda" className="w-4 h-4" />
               <button onClick={closeShop} className="ml-2 p-1 hover:bg-muted rounded">
                 <X className="h-4 w-4" />
               </button>

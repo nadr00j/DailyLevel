@@ -91,7 +91,7 @@ export const PixelBuddyCard = () => {
               }}
             >
               <span className="font-semibold">{coins}</span>
-              <span className="text-lg">🪙</span>
+              <img src="/moeda.png" alt="Moeda" className="w-5 h-5" style={{ margin: '3px' }} />
             </div>
           </div>
           {/* Vitalidade em corações SVG */}

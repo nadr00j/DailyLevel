@@ -82,11 +82,21 @@ export const useVitalityV21 = () => {
         const result = data[0];
         // Log removido para reduzir spam
         
+        const newVitalityValue = Number(result.value) || 50;
+        
         setVitalityState({
-          value: Number(result.value) || 50,
+          value: newVitalityValue,
           version: Number(result.version) || 0,
           lastCloseDate: result.last_close_date || new Date().toISOString().split('T')[0]
         });
+        
+        // Sincronizar com useGamificationStoreV21
+        try {
+          const { useGamificationStoreV21 } = await import('@/stores/useGamificationStoreV21');
+          useGamificationStoreV21.getState().syncVitalityFromSupabase(newVitalityValue);
+        } catch (err) {
+          console.warn('[Vitality V2.1] Erro ao sincronizar com GamificationStore:', err);
+        }
       } else {
         // Se não há dados, usar valores padrão
         setVitalityState({
@@ -153,11 +163,21 @@ export const useVitalityV21 = () => {
         const result = data[0];
         console.log('[Vitality V2.1] Evento aplicado com sucesso:', result);
         
+        const newVitalityValue = Number(result.new_value) || vitalityState.value;
+        
         setVitalityState({
-          value: Number(result.new_value) || vitalityState.value,
+          value: newVitalityValue,
           version: Number(result.new_version) || vitalityState.version + 1,
           lastCloseDate: vitalityState.lastCloseDate
         });
+        
+        // Sincronizar com useGamificationStoreV21
+        try {
+          const { useGamificationStoreV21 } = await import('@/stores/useGamificationStoreV21');
+          useGamificationStoreV21.getState().syncVitalityFromSupabase(newVitalityValue);
+        } catch (err) {
+          console.warn('[Vitality V2.1] Erro ao sincronizar com GamificationStore após evento:', err);
+        }
       }
     } catch (err) {
       console.error('[Vitality V2.1] Erro inesperado ao aplicar evento:', err);

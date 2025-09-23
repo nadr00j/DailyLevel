@@ -68,6 +68,7 @@ export interface GamificationState {
   addXp: (type: ActionType, tags?: string[]) => void;
   setXpMultiplier: (multiplier: number, duration: number) => void;
   syncFromSupabase: (data: any) => void;
+  syncVitalityFromSupabase: (vitalityValue: number) => void;
   setConfig: (cfg: Partial<GamificationConfig>) => void;
   init: () => void;
 }
