@@ -155,18 +155,8 @@ export const useHabitStore = create<HabitState>((set, get) => ({
             const habitCoins = Math.floor(habitXp * 0.1); // 10% do XP
             console.log('[HabitStore] Hábito completado! Registrando histórico com:', { xp: habitXp, coins: habitCoins });
             
-            // Registra no histórico
-            db.addHistoryItem(userId, {
-              ts: Date.now(),
-              type: 'habit',
-              xp: habitXp,
-              coins: habitCoins,
-              category: habit.categories?.[0],
-              tags: [habit.name]
-            }).catch(err => console.error('[HabitStore] Erro ao registrar histórico de hábito:', err));
-            
-            // Chamar addXp para disparar toast e gamificação
-            addXp('habit', habit.categories);
+            // Chamar addXp para disparar toast e gamificação (ele já salva no histórico)
+            addXp('habit', [habit.name], habit.categories?.[0]);
           }
           
           // Atualiza logs

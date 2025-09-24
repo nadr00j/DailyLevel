@@ -155,7 +155,8 @@ export const PerformanceReports = () => {
     completedGoals,
     completedGoalsLength: completedGoals?.length || 0,
     activeGoalsType: typeof activeGoals,
-    activeGoalsIsArray: Array.isArray(activeGoals)
+    activeGoalsIsArray: Array.isArray(activeGoals),
+    activeGoalsCategories: activeGoals?.map(g => ({ title: g.title, category: g.category })) || []
   });
   
   // Simple calculation: tasks/habits = 10xp, goals = 30xp

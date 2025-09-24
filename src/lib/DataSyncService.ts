@@ -211,8 +211,25 @@ class DataSyncService {
     }
 
     // 5. Goals
+    console.log('🔄 [DEBUG] DataSyncService.loadAll - Carregando metas...');
     const goals = await db.getGoals(userId);
-    if (goals.length) useGoalStore.setState({ goals });
+    console.log('🔄 [DEBUG] DataSyncService.loadAll - Metas recebidas do banco:', {
+      goalsLength: goals.length,
+      goals: goals.map(g => ({ id: g.id, title: g.title, category: g.category, isCompleted: g.isCompleted }))
+    });
+    if (goals.length) {
+      useGoalStore.setState({ goals });
+      console.log('✅ [DEBUG] DataSyncService.loadAll - Metas carregadas no store');
+      
+      // Verificar se o store foi atualizado
+      const storeGoals = useGoalStore.getState().goals;
+      console.log('🔄 [DEBUG] DataSyncService.loadAll - Verificando store de metas:', {
+        storeGoalsLength: storeGoals.length,
+        storeGoals: storeGoals.map(g => ({ id: g.id, title: g.title, category: g.category }))
+      });
+    } else {
+      console.log('⚠️ [DEBUG] DataSyncService.loadAll - Nenhuma meta encontrada no Supabase');
+    }
 
     // 6. Shop Items
     const shopItems = await db.getShopItems(userId);

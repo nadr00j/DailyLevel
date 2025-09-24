@@ -7,16 +7,9 @@ import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 
 export const VitalityListener = () => {
+  // ✅ TODOS OS HOOKS NO INÍCIO (antes de qualquer early return)
   const { user, isAuthenticated } = useAuthStore();
-  
-  // Só renderizar se o usuário estiver autenticado
-  if (!isAuthenticated || !user?.id) {
-    return null;
-  }
-  
-  // Flag para evitar processamento durante carregamento inicial
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  
   const { xp, vitality, mood, addXp } = useGamificationStoreV21();
   const { setBase, initializeFromGamification } = usePixelBuddyStore();
   const { habits } = useHabitStore();
@@ -24,8 +17,7 @@ export const VitalityListener = () => {
   const { todayTasks } = useTasks();
   const { activeGoals } = useGoals();
   
-  // Logs removidos para reduzir spam
-  
+  // ✅ TODOS OS useRef TAMBÉM NO INÍCIO
   const prevXpRef = useRef(xp);
   const prevHabitsRef = useRef<Record<string, any>>({});
   const prevTasksRef = useRef<any[]>([]);
@@ -34,20 +26,7 @@ export const VitalityListener = () => {
   const isProcessingRef = useRef<boolean>(false);
   const lastProcessedTimeRef = useRef<number>(0);
   
-  // Limpar cache de eventos processados a cada 10 minutos
-  useEffect(() => {
-    const cleanupInterval = setInterval(() => {
-      const currentSize = processedEventsRef.current.size;
-      if (currentSize > 0) {
-        console.log(`[VitalityListener] Limpando cache de eventos processados (${currentSize} itens)`);
-        processedEventsRef.current.clear();
-      }
-    }, 10 * 60 * 1000); // 10 minutos
-    
-    return () => clearInterval(cleanupInterval);
-  }, []);
-
-  // Função auxiliar para processar eventos de forma segura
+  // ✅ Função auxiliar para processar eventos de forma segura (useCallback)
   const processEventSafely = useCallback(async (eventKey: string, eventType: string, eventData: any) => {
     console.log('⚡ [VitalityListener] Processando evento:', { eventType, eventData: { type: eventData.type, tags: eventData.tags } });
     
@@ -99,28 +78,36 @@ export const VitalityListener = () => {
       if (checkError) {
         console.error('❌ [VitalityListener] Erro ao verificar eventos existentes:', checkError);
       } else {
-        // Verificar se já existe um evento com as mesmas tags
+        // Verificar se existe um evento com as mesmas tags
         const duplicateEvent = existingEvents?.find(event => 
-          event.type === eventData.type &&
-          JSON.stringify(event.tags?.sort()) === JSON.stringify(eventData.tags?.sort())
+          event.tags && eventData.tags && 
+          event.tags.length === eventData.tags.length &&
+          event.tags.every((tag: string) => eventData.tags.includes(tag))
         );
-
+        
         if (duplicateEvent) {
-          console.log('⚠️ [VitalityListener] Evento já existe no Supabase, ignorando:', {
+          console.log('⚠️ [VitalityListener] Evento duplicado encontrado no Supabase, ignorando:', {
             eventKey,
-            existingId: duplicateEvent.id,
-            tags: eventData.tags
+            existingEvent: duplicateEvent,
+            newEventData: eventData
           });
           return;
         }
       }
 
-      // Adicionar XP para gamificação (que já inclui vitalidade)
+      // Adicionar XP para gamificação (addXp já salva no histórico com categoria)
       const xpType = eventData.type || 'task';
       
       // Verificar se há tags válidas antes de chamar addXp
       if (eventData.tags && eventData.tags.length > 0) {
-        addXp(xpType, eventData.tags);
+        console.log('🎯 [VitalityListener] Chamando addXp com:', {
+          type: xpType,
+          tags: eventData.tags,
+          explicitCategory: eventData.category
+        });
+        
+        // Passar categoria explícita para addXp
+        addXp(xpType, eventData.tags, eventData.category);
       } else {
         console.warn('⚠️ [VitalityListener] Evento sem tags válidas ignorado:', { eventType, eventData });
       }
@@ -134,6 +121,24 @@ export const VitalityListener = () => {
       isProcessingRef.current = false;
     }
   }, [addXp]);
+  
+  // ✅ Early return DEPOIS de todos os hooks
+  if (!isAuthenticated || !user?.id) {
+    return null;
+  }
+  
+  // Limpar cache de eventos processados a cada 10 minutos
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      const currentSize = processedEventsRef.current.size;
+      if (currentSize > 0) {
+        console.log(`[VitalityListener] Limpando cache de eventos processados (${currentSize} itens)`);
+        processedEventsRef.current.clear();
+      }
+    }, 10 * 60 * 1000); // 10 minutos
+    
+    return () => clearInterval(cleanupInterval);
+  }, []);
 
   // Aguardar carregamento inicial dos dados antes de começar a detectar eventos
   useEffect(() => {
@@ -328,8 +333,8 @@ export const VitalityListener = () => {
     currentGoals.forEach(goal => {
       const prevGoal = prevGoals.find(g => g.id === goal.id);
       
-      // Se a meta não existia antes ou se foi concluída
-      if (!prevGoal || (goal.completed && !prevGoal.completed)) {
+      // APENAS detectar conclusão real (meta existia antes E mudou para concluída)
+      if (prevGoal && goal.isCompleted && !prevGoal.isCompleted) {
         // Usar ID da meta + timestamp atual para garantir unicidade
         const eventKey = `goal-${goal.id}-completed-${Date.now()}`;
         
@@ -339,7 +344,8 @@ export const VitalityListener = () => {
           goalId: goal.id,
           goalTitle: goal.title,
           type: 'goal',
-          tags: [goal.title, ...(goal.category ? [goal.category] : [])]
+          tags: [goal.title], // Nome da meta nas tags
+          category: goal.category // Incluir categoria para salvar corretamente
         });
       }
     });

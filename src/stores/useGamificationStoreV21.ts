@@ -207,8 +207,8 @@ export const useGamificationStoreV21 = create<GamificationState>()(
       config: defaultConfig,
 
       // ------- ações -------
-      addXp: (type: ActionType, tags?: string[]) => {
-        console.log('[AddXP Debug] Função addXp chamada com:', { type, tags });
+      addXp: (type: ActionType, tags?: string[], explicitCategory?: string) => {
+        console.log('[AddXP Debug] Função addXp chamada com:', { type, tags, explicitCategory });
         
         const state = get();
         // Capturar rank anterior
@@ -364,8 +364,27 @@ export const useGamificationStoreV21 = create<GamificationState>()(
             coins: Math.floor(finalXp * cfg.points.coinsPerXp),
             tags: safeTags,
             category: (() => {
+              // Função para capitalizar primeira letra
+              const capitalizeFirstLetter = (str: string) => {
+                if (!str) return str;
+                return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+              };
+              
+              // Usar categoria explícita se fornecida, senão resolver pelas tags
+              if (explicitCategory) {
+                const capitalizedCategory = capitalizeFirstLetter(explicitCategory);
+                console.log('[AddXP Debug] Usando categoria explícita capitalizada:', explicitCategory, '→', capitalizedCategory);
+                return capitalizedCategory;
+              }
+              
               try {
                 const resolvedCategory = resolveCategory(safeTags, cfg);
+                if (resolvedCategory) {
+                  const capitalizedCategory = capitalizeFirstLetter(resolvedCategory);
+                  console.log('[AddXP Debug] Categoria resolvida e capitalizada:', resolvedCategory, '→', capitalizedCategory);
+                  return capitalizedCategory;
+                }
+                console.log('[AddXP Debug] Categoria resolvida pelas tags:', resolvedCategory);
                 return resolvedCategory;
               } catch (error) {
                 console.error('[AddXP Debug] Erro ao resolver categoria para history:', error);

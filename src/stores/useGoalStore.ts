@@ -155,18 +155,12 @@ export const useGoalStore = create<GoalState>((set, get) => {
           category: goal.category 
         });
         
-        // Removido: A gamificação agora é gerenciada pelo VitalityListener
+        // REMOVIDO: db.addHistoryItem (VitalityListener já faz isso)
+        // Histórico é registrado pelo VitalityListener para evitar duplicação
         
-        // Registra no histórico
-        const userId = useAuthStore.getState().user!.id;
-        db.addHistoryItem(userId, {
-          ts: Date.now(),
-          type: 'goal',
-          xp: goalXp,
-          coins: goalCoins,
-          category: goal.category,
-          tags: [goal.title],
-        }).catch(err => console.error('[GoalStore] Erro ao registrar histórico de meta:', err));
+        // Chamar addXp para disparar toast e gamificação
+        const addXp = us.addXp;
+        addXp('goal', [goal.title], goal.category); // Passar categoria explícita
       }
     }
   };
