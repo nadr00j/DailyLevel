@@ -13,12 +13,13 @@ export const VitalityListener = () => {
   // ✅ TODOS OS HOOKS NO INÍCIO (antes de qualquer early return)
   const { user, isAuthenticated } = useAuthStore();
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const { xp, vitality, mood, addXp } = useGamificationStoreV21();
+  const [hasDataLoaded, setHasDataLoaded] = useState(false);
+  const { xp, vitality, mood, addXp, history } = useGamificationStoreV21();
   const { setBase, initializeFromGamification } = usePixelBuddyStore();
   const { habits } = useHabitStore();
   const habitLogs = useHabitStore(state => state.logs);
   const { todayTasks } = useTasks();
-  const { activeGoals } = useGoals();
+  const { activeGoals, completedGoals } = useGoals();
   
   // ✅ TODOS OS useRef TAMBÉM NO INÍCIO
   const prevXpRef = useRef(xp);
@@ -113,6 +114,71 @@ export const VitalityListener = () => {
     return () => clearInterval(cleanupInterval);
   }, []);
 
+  // OTIMIZAÇÃO: Memoizar dados de hoje para evitar recálculos
+  const todayString = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  // Detectar quando os dados foram carregados do Supabase
+  useEffect(() => {
+    // Verificar se os dados foram carregados baseado em indicadores
+    const hasHabits = Object.keys(habits).length > 0;
+    const hasTasks = todayTasks && todayTasks.length > 0;
+    const hasHistory = history && history.length > 0;
+    const hasXP = xp > 0;
+    const hasGoals = (activeGoals && activeGoals.length > 0) || (completedGoals && completedGoals.length > 0);
+    
+    if (IS_DEBUG) {
+      console.log('[VitalityListener] Verificando carregamento de dados:', {
+        hasDataLoaded,
+        hasHabits,
+        hasTasks,
+        hasHistory,
+        hasXP,
+        hasGoals,
+        shouldLoadData: !hasDataLoaded && (hasHabits || hasTasks || hasHistory || hasXP || hasGoals)
+      });
+    }
+    
+    // Se temos pelo menos alguns dados ou após timeout, considerar carregado
+    if (!hasDataLoaded && (hasHabits || hasTasks || hasHistory || hasXP || hasGoals)) {
+      setHasDataLoaded(true);
+      if (IS_DEBUG) {
+        console.log('[VitalityListener] Dados detectados do Supabase, sincronizando refs:', {
+          hasHabits,
+          hasTasks,
+          hasHistory,
+          hasXP,
+          hasGoals
+        });
+      }
+      
+      // SINCRONIZAR REFS COM DADOS CARREGADOS
+      // Hábitos
+      if (hasHabits) {
+        const habitsWithLogs = Object.fromEntries(
+          Object.entries(habits).map(([id, habit]) => [
+            id, 
+            { ...habit, todayLog: habitLogs[id]?.[todayString] || 0 }
+          ])
+        );
+        prevHabitsRef.current = habitsWithLogs;
+        if (IS_DEBUG) console.log('[VitalityListener] prevHabitsRef sincronizado com Supabase');
+      }
+      
+      // Tarefas
+      if (hasTasks) {
+        prevTasksRef.current = [...todayTasks];
+        if (IS_DEBUG) console.log('[VitalityListener] prevTasksRef sincronizado com Supabase');
+      }
+      
+      // Metas (todas: ativas + completadas)
+      const allGoals = [...(activeGoals || []), ...(completedGoals || [])];
+      if (allGoals.length > 0) {
+        prevGoalsRef.current = [...allGoals];
+        if (IS_DEBUG) console.log('[VitalityListener] prevGoalsRef sincronizado com Supabase (ativas + completadas)');
+      }
+    }
+  }, [habits, todayTasks, activeGoals, completedGoals, history, xp, hasDataLoaded, habitLogs, todayString]);
+
   // Aguardar carregamento inicial dos dados - OTIMIZADO
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -122,12 +188,18 @@ export const VitalityListener = () => {
       }
       setIsInitialLoading(false);
       
+      // FALLBACK: Se dados ainda não foram carregados após timeout, forçar hasDataLoaded = true
+      if (!hasDataLoaded) {
+        setHasDataLoaded(true);
+        if (IS_DEBUG) console.log('[VitalityListener] FALLBACK: Forçando hasDataLoaded = true após timeout');
+      }
+      
       // Sempre inicializar, mesmo com valores 0 (usuário novo)
       initializeFromGamification(xp, vitality);
-    }, 2000); // OTIMIZADO: Reduzido de 5s para 2s
+    }, 3000); // Aumentado para 3s para dar tempo dos dados carregarem
 
     return () => clearTimeout(timer);
-  }, []); // Executa apenas uma vez na montagem
+  }, [hasDataLoaded, xp, vitality, initializeFromGamification]); // Adicionadas dependências
 
   // OTIMIZAÇÃO: Memoizar cálculo do PixelBuddy para evitar recálculos desnecessários
   const pixelBuddyAssets = useMemo(() => {
@@ -172,18 +244,29 @@ export const VitalityListener = () => {
     setBase('head', pixelBuddyAssets.newHead);
   }, [pixelBuddyAssets, setBase]);
 
-  // OTIMIZAÇÃO: Memoizar dados de hoje para evitar recálculos
-  const todayString = useMemo(() => new Date().toISOString().split('T')[0], []);
-
   // Detectar conclusão de hábitos - OTIMIZADO
   useEffect(() => {
-    // Não processar durante carregamento inicial
-    if (isInitialLoading) {
-      if (IS_DEBUG) console.log('[VitalityListener] Ignorando detecção de hábitos durante carregamento inicial');
+    // Não processar durante carregamento inicial ou se dados não foram carregados
+    if (isInitialLoading || !hasDataLoaded) {
+      if (IS_DEBUG) console.log('[VitalityListener] Ignorando detecção de hábitos durante carregamento inicial ou dados não carregados');
       return;
     }
     
     const prevHabits = prevHabitsRef.current;
+    
+    // CORREÇÃO: Se prevHabits está vazio (primeira execução APÓS carregamento), inicializar com estado atual
+    // para evitar detecção falsa de "novos" hábitos concluídos
+    if (Object.keys(prevHabits).length === 0) {
+      const habitsWithLogs = Object.fromEntries(
+        Object.entries(habits).map(([id, habit]) => [
+          id, 
+          { ...habit, todayLog: habitLogs[id]?.[todayString] || 0 }
+        ])
+      );
+      prevHabitsRef.current = habitsWithLogs;
+      if (IS_DEBUG) console.log('[VitalityListener] Inicializando prevHabitsRef na primeira execução APÓS carregamento');
+      return;
+    }
     
     // OTIMIZAÇÃO: Processar apenas hábitos que mudaram
     let hasChanges = false;
@@ -210,6 +293,8 @@ export const VitalityListener = () => {
               habitName: habit.name, 
               todayLog, 
               targetCount: habit.targetCount,
+              prevTodayLog,
+              wasCompletedBefore,
               eventKey 
             });
           }
@@ -235,18 +320,26 @@ export const VitalityListener = () => {
       );
       prevHabitsRef.current = habitsWithLogs;
     }
-  }, [habits, habitLogs, processEventSafely, isInitialLoading, todayString]);
+  }, [habits, habitLogs, processEventSafely, isInitialLoading, hasDataLoaded, todayString]);
 
   // Detectar conclusão de tarefas - OTIMIZADO
   useEffect(() => {
-    // Não processar durante carregamento inicial
-    if (isInitialLoading) {
-      if (IS_DEBUG) console.log('[VitalityListener] Ignorando detecção de tarefas durante carregamento inicial');
+    // Não processar durante carregamento inicial ou se dados não foram carregados
+    if (isInitialLoading || !hasDataLoaded) {
+      if (IS_DEBUG) console.log('[VitalityListener] Ignorando detecção de tarefas durante carregamento inicial ou dados não carregados');
       return;
     }
     
     const currentTasks = todayTasks || [];
     const prevTasks = prevTasksRef.current;
+    
+    // CORREÇÃO: Se prevTasks está vazio (primeira execução APÓS carregamento), inicializar com estado atual
+    // para evitar detecção falsa de "novas" tarefas concluídas
+    if (prevTasks.length === 0 && currentTasks.length > 0) {
+      prevTasksRef.current = [...currentTasks];
+      if (IS_DEBUG) console.log('[VitalityListener] Inicializando prevTasksRef na primeira execução APÓS carregamento');
+      return;
+    }
     
     // OTIMIZAÇÃO: Log reduzido - apenas quando há mudanças significativas
     if (IS_DEBUG && currentTasks.length !== prevTasks.length) {
@@ -275,7 +368,8 @@ export const VitalityListener = () => {
             taskId: task.id, 
             taskTitle: task.title,
             eventKey,
-            completed: task.completed
+            completed: task.completed,
+            prevCompleted: prevTask?.completed
           });
         }
         
@@ -290,25 +384,65 @@ export const VitalityListener = () => {
     });
     
     prevTasksRef.current = currentTasks;
-  }, [todayTasks, processEventSafely, isInitialLoading]);
+  }, [todayTasks, processEventSafely, isInitialLoading, hasDataLoaded]);
 
   // Detectar conclusão de metas - OTIMIZADO
   useEffect(() => {
-    // Não processar durante carregamento inicial
-    if (isInitialLoading) {
-      if (IS_DEBUG) console.log('[VitalityListener] Ignorando detecção de metas durante carregamento inicial');
+    // Combinar todas as metas (ativas + completadas)
+    const allCurrentGoals = [...(activeGoals || []), ...(completedGoals || [])];
+    
+    if (IS_DEBUG) {
+      console.log('[VitalityListener] useEffect de metas executado:', {
+        isInitialLoading,
+        hasDataLoaded,
+        activeGoalsLength: activeGoals?.length || 0,
+        completedGoalsLength: completedGoals?.length || 0,
+        allCurrentGoalsLength: allCurrentGoals.length,
+        prevGoalsLength: prevGoalsRef.current.length
+      });
+    }
+    
+    // Não processar durante carregamento inicial ou se dados não foram carregados
+    if (isInitialLoading || !hasDataLoaded) {
+      if (IS_DEBUG) console.log('[VitalityListener] Ignorando detecção de metas durante carregamento inicial ou dados não carregados');
       return;
     }
     
-    const currentGoals = activeGoals || [];
     const prevGoals = prevGoalsRef.current;
+    
+    // CORREÇÃO: Se prevGoals está vazio (primeira execução APÓS carregamento), inicializar com estado atual
+    // para evitar detecção falsa de "novas" metas concluídas
+    if (prevGoals.length === 0 && allCurrentGoals.length > 0) {
+      prevGoalsRef.current = [...allCurrentGoals];
+      if (IS_DEBUG) console.log('[VitalityListener] Inicializando prevGoalsRef na primeira execução APÓS carregamento (todas as metas)');
+      return;
+    }
     
     // OTIMIZAÇÃO: Usar Map para busca mais rápida de metas anteriores
     const prevGoalsMap = new Map(prevGoals.map(g => [g.id, g]));
     
-    // Verificar se alguma meta foi concluída
-    currentGoals.forEach(goal => {
+    if (IS_DEBUG) {
+      console.log('[VitalityListener] Verificando mudanças nas metas:', {
+        allCurrentGoalsCount: allCurrentGoals.length,
+        prevGoalsCount: prevGoals.length,
+        allCurrentGoals: allCurrentGoals.map(g => ({ id: g.id, title: g.title, isCompleted: g.isCompleted })),
+        prevGoals: prevGoals.map(g => ({ id: g.id, title: g.title, isCompleted: g.isCompleted }))
+      });
+    }
+    
+    // Verificar se alguma meta foi concluída (agora verificando TODAS as metas)
+    allCurrentGoals.forEach(goal => {
       const prevGoal = prevGoalsMap.get(goal.id);
+      
+      if (IS_DEBUG) {
+        console.log('[VitalityListener] Verificando meta:', {
+          goalId: goal.id,
+          goalTitle: goal.title,
+          currentCompleted: goal.isCompleted,
+          prevCompleted: prevGoal?.isCompleted,
+          hasChanged: prevGoal && goal.isCompleted && !prevGoal.isCompleted
+        });
+      }
       
       // APENAS detectar conclusão real (meta existia antes E mudou para concluída)
       if (prevGoal && goal.isCompleted && !prevGoal.isCompleted) {
@@ -319,7 +453,8 @@ export const VitalityListener = () => {
           console.log('[VitalityListener] Meta concluída detectada:', { 
             goalId: goal.id, 
             goalTitle: goal.title, 
-            eventKey 
+            eventKey,
+            prevCompleted: prevGoal.isCompleted
           });
         }
         
@@ -333,8 +468,9 @@ export const VitalityListener = () => {
       }
     });
     
-    prevGoalsRef.current = currentGoals;
-  }, [activeGoals, processEventSafely, isInitialLoading]);
+    // Atualizar referência com TODAS as metas
+    prevGoalsRef.current = allCurrentGoals;
+  }, [activeGoals, completedGoals, processEventSafely, isInitialLoading, hasDataLoaded]);
 
   // OTIMIZAÇÃO: Removido useEffect de detecção de XP
   // O XP é atualizado diretamente pelo addXp, não precisamos detectar mudanças

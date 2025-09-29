@@ -1,74 +1,66 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Download, Upload, LogOut } from 'lucide-react';
+import { Settings, RotateCcw, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { UserDataManager } from '@/lib/userDataManager';
 import { toast } from '@/components/ui/use-toast';
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { PerformanceReports } from '@/components/reports/PerformanceReports';
 
 export const TodayViewContent = () => {
   const { username, signOut } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleExportData = async () => {
-    try {
-      setIsLoading(true);
-      const userData = await UserDataManager.generateUserDataReport(username);
-      const blob = new Blob([JSON.stringify(userData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `daily-level-data-${username}-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      toast({
-        title: "Dados exportados!",
-        description: "Seus dados foram salvos com sucesso.",
-      });
-    } catch (error) {
-      console.error('Erro ao exportar dados:', error);
-      toast({
-        title: "Erro ao exportar",
-        description: "Não foi possível exportar os dados. Tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+  const handleSettings = () => {
+    toast({
+      title: "Configurações",
+      description: "Funcionalidade em desenvolvimento.",
+    });
   };
 
-  const handleImportData = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  const handleReload = async () => {
     try {
       setIsLoading(true);
-      const userData = await UserDataManager.loadUserData(file);
-      await UserDataManager.applyUserData(userData);
+      
+      // Limpar localStorage, sessionStorage e cache
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Para PWA, limpar cache
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames.map(cacheName => caches.delete(cacheName))
+        );
+      }
+      
+      // Limpar cookies do domínio atual
+      document.cookie.split(";").forEach(cookie => {
+        const eqPos = cookie.indexOf("=");
+        const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+      });
       
       toast({
-        title: "Dados importados!",
-        description: "Seus dados foram carregados com sucesso.",
+        title: "App atualizado!",
+        description: "Cache limpo. Recarregando para nova versão...",
       });
+      
+      // Aguardar um pouco para o toast aparecer e então recarregar
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+      
     } catch (error) {
-      console.error('Erro ao importar dados:', error);
+      console.error('Erro ao limpar cache:', error);
       toast({
-        title: "Erro ao importar",
-        description: "Arquivo inválido ou corrompido. Verifique o arquivo e tente novamente.",
+        title: "Erro ao atualizar",
+        description: "Não foi possível limpar o cache completamente.",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
   };
 
@@ -108,25 +100,25 @@ export const TodayViewContent = () => {
           <CardContent className="space-y-3">
             <div className="grid grid-cols-3 gap-2">
               <Button 
-                onClick={handleExportData} 
+                onClick={handleSettings} 
                 disabled={isLoading}
                 size="sm"
                 variant="outline"
                 className="flex items-center gap-2"
               >
-                <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">Exportar</span>
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Config</span>
               </Button>
   
               <Button 
-                onClick={() => fileInputRef.current?.click()} 
+                onClick={handleReload} 
                 disabled={isLoading}
                 size="sm"
                 variant="outline"
                 className="flex items-center gap-2"
               >
-                <Upload className="h-4 w-4" />
-                <span className="hidden sm:inline">Importar</span>
+                <RotateCcw className="h-4 w-4" />
+                <span className="hidden sm:inline">Atualizar</span>
               </Button>
   
               <Button 
@@ -140,13 +132,6 @@ export const TodayViewContent = () => {
               </Button>
             </div>
   
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json"
-              onChange={handleImportData}
-              className="hidden"
-            />
   
           </CardContent>
         </Card>
