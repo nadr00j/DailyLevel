@@ -10,6 +10,7 @@ import { useActiveCategories, ActiveCategory, CATEGORY_META } from '@/hooks/useA
 import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useHabitStore } from '@/stores/useHabitStore';
+import { useHabitCategories } from '@/hooks/useHabitCategories';
 import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import gamificationConfig from '@/config/gamificationConfig.json';
@@ -144,20 +145,32 @@ export const PerformanceReports = () => {
   // Removed activeCategories - using historyCategories instead for consistency
 
   // Get data for simple XP calculation
-  const habits = useHabitStore(state => state.habits);
+  const { all: allHabits, active: activeHabits, inactive: inactiveHabits } = useHabitCategories();
   const { todayTasks, weekTasks, laterTasks } = useTasks();
-  const { activeGoals, completedGoals } = useGoals();
+  const { activeGoals, completedGoals, futureGoals } = useGoals();
   
-  // Debug para verificar se useGoals está funcionando
-  console.log('[useGoals Debug]', {
-    activeGoals,
-    activeGoalsLength: activeGoals?.length || 0,
-    completedGoals,
-    completedGoalsLength: completedGoals?.length || 0,
-    activeGoalsType: typeof activeGoals,
-    activeGoalsIsArray: Array.isArray(activeGoals),
-    activeGoalsCategories: activeGoals?.map(g => ({ title: g.title, category: g.category })) || []
-  });
+    // Debug para verificar se useGoals está funcionando
+    console.log('[useGoals Debug]', {
+      activeGoals,
+      activeGoalsLength: activeGoals?.length || 0,
+      completedGoals,
+      completedGoalsLength: completedGoals?.length || 0,
+      futureGoals,
+      futureGoalsLength: futureGoals?.length || 0,
+      activeGoalsType: typeof activeGoals,
+      activeGoalsIsArray: Array.isArray(activeGoals),
+      activeGoalsCategories: activeGoals?.map(g => ({ title: g.title, category: g.category })) || [],
+      futureGoalsCategories: futureGoals?.map(g => ({ title: g.title, category: g.category })) || []
+    });
+
+    // Debug para verificar hábitos ativos vs inativos
+    console.log('[Habits Debug]', {
+      allHabits: allHabits.length,
+      activeHabits: activeHabits.length,
+      inactiveHabits: inactiveHabits.length,
+      activeHabitsCategories: activeHabits.map(h => ({ name: h.name, category: h.categories?.[0] })),
+      inactiveHabitsCategories: inactiveHabits.map(h => ({ name: h.name, category: h.categories?.[0] }))
+    });
   
   // Simple calculation: tasks/habits = 10xp, goals = 30xp
   const calculatePotentialXP = (category: string) => {
@@ -166,7 +179,7 @@ export const PerformanceReports = () => {
 
     // Count items based on ALL ACTIVE ITEMS (not just completed ones)
     const allActiveItems = [
-      ...Object.values(habits).map(h => ({ 
+      ...allHabits.map(h => ({ 
         type: 'habit', 
         name: h.name, 
         category: (h.categories && h.categories.length > 0) ? h.categories[0] : 'Sem Categoria' 
@@ -174,7 +187,8 @@ export const PerformanceReports = () => {
       ...todayTasks.map(t => ({ type: 'task', name: t.title, category: t.category || 'Sem Categoria' })),
       ...weekTasks.map(t => ({ type: 'task', name: t.title, category: t.category || 'Sem Categoria' })),
       ...laterTasks.map(t => ({ type: 'task', name: t.title, category: t.category || 'Sem Categoria' })),
-      ...activeGoals.map(g => ({ type: 'goal', name: g.title, category: g.category || 'Sem Categoria' }))
+      ...activeGoals.map(g => ({ type: 'goal', name: g.title, category: g.category || 'Sem Categoria' })),
+      ...futureGoals.map(g => ({ type: 'goal', name: g.title, category: g.category || 'Sem Categoria' }))
     ];
 
     const categoryItems = allActiveItems.filter(item => {
@@ -241,7 +255,7 @@ export const PerformanceReports = () => {
 
     // Count items based on ALL ACTIVE ITEMS (not just completed ones)
     const allActiveItems = [
-      ...Object.values(habits).map(h => ({ 
+      ...allHabits.map(h => ({ 
         type: 'habit', 
         name: h.name, 
         category: (h.categories && h.categories.length > 0) ? h.categories[0] : 'Sem Categoria' 
@@ -249,7 +263,8 @@ export const PerformanceReports = () => {
       ...todayTasks.map(t => ({ type: 'task', name: t.title, category: t.category || 'Sem Categoria' })),
       ...weekTasks.map(t => ({ type: 'task', name: t.title, category: t.category || 'Sem Categoria' })),
       ...laterTasks.map(t => ({ type: 'task', name: t.title, category: t.category || 'Sem Categoria' })),
-      ...activeGoals.map(g => ({ type: 'goal', name: g.title, category: g.category || 'Sem Categoria' }))
+      ...activeGoals.map(g => ({ type: 'goal', name: g.title, category: g.category || 'Sem Categoria' })),
+      ...futureGoals.map(g => ({ type: 'goal', name: g.title, category: g.category || 'Sem Categoria' }))
     ];
 
     const categoryItems = allActiveItems.filter(item => {
@@ -320,11 +335,12 @@ export const PerformanceReports = () => {
     
     // Then, add categories from all items (habits, tasks, goals) even if not completed
     const allItems = [
-      ...Object.values(habits).map(h => ({ category: (h.categories && h.categories.length > 0) ? h.categories[0] : 'Sem Categoria', type: 'habit' })),
+      ...allHabits.map(h => ({ category: (h.categories && h.categories.length > 0) ? h.categories[0] : 'Sem Categoria', type: 'habit' })),
       ...todayTasks.map(t => ({ category: t.category || 'Sem Categoria', type: 'task' })),
       ...weekTasks.map(t => ({ category: t.category || 'Sem Categoria', type: 'task' })),
       ...laterTasks.map(t => ({ category: t.category || 'Sem Categoria', type: 'task' })),
-      ...activeGoals.map(g => ({ category: g.category || 'Sem Categoria', type: 'goal' }))
+      ...activeGoals.map(g => ({ category: g.category || 'Sem Categoria', type: 'goal' })),
+      ...futureGoals.map(g => ({ category: g.category || 'Sem Categoria', type: 'goal' }))
     ];
     
     allItems.forEach(item => {
@@ -390,7 +406,7 @@ export const PerformanceReports = () => {
     });
     
     return categories;
-  }, [filteredHistory, habits, todayTasks, weekTasks, laterTasks, activeGoals, selectedDays.length]);
+  }, [filteredHistory, allHabits, todayTasks, weekTasks, laterTasks, activeGoals, futureGoals, selectedDays.length]);
 
   // Stats will be computed directly from filteredHistory to reflect selectedDays
 
@@ -422,12 +438,12 @@ export const PerformanceReports = () => {
         xp: item.xp,
         ts: new Date(item.ts).toISOString().slice(0, 10)
       })),
-      totalHabitsInStore: Object.keys(habits).length,
+      totalHabitsInStore: allHabits.length,
       fullHabitEntries: ph.filter(item => item.type === 'habit').slice(0, 3) // Show first 3 for structure
     });
     
     return { totalXP, tasksCompleted, habitsMaintained, goalsCompleted, streak: 0 };
-  }, [filteredHistory, activePeriod, habits]);
+  }, [filteredHistory, activePeriod, allHabits]);
 
   // Load persisted filters on mount
   useEffect(() => {

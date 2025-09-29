@@ -113,7 +113,8 @@ export const useHabits = () => {
   }, []);
 
   const toggleHabit = useCallback(async (id: string, date?: string) => {
-    const addXp = useGamificationStoreV21.getState().addXp;
+    // REMOVIDO: addXp agora é chamado apenas pelo VitalityListener
+    // const addXp = useGamificationStoreV21.getState().addXp;
     const targetDate = date || formatLocalDate(new Date());
     
     const updatedHabits = habits.map(habit => {
@@ -172,11 +173,12 @@ export const useHabits = () => {
     const userId = useAuthStore.getState().user!.id;
     setTimeout(() => {
       const history = useGamificationStoreV21.getState().history;
-      const last = history[history.length - 1];
-      if (last && last.type === 'habit') {
-        db.addHistoryItem(userId, last)
-          .catch(err => console.error('[useHabits] Erro ao gravar history_item de hábito:', err));
-      }
+      // REMOVIDO: db.addHistoryItem agora é chamado apenas pelo VitalityListener
+      // const last = history[history.length - 1];
+      // if (last && last.type === 'habit') {
+      //   db.addHistoryItem(userId, last)
+      //     .catch(err => console.error('[useHabits] Erro ao gravar history_item de hábito:', err));
+      // }
     }, 0);
   }, [habits, saveHabits, calculateStreak]);
 

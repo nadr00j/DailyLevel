@@ -8,7 +8,8 @@ export const useGoals = () => {
   const updateGoal = useGoalStore(state => state.updateGoal);
   const deleteGoal = useGoalStore(state => state.removeGoal);
   const setGoals = useGoalStore(state => state.setGoals);
-  const addXp = useGamificationStoreV21.getState().addXp;
+  // REMOVIDO: addXp agora é chamado apenas pelo VitalityListener
+  // const addXp = useGamificationStoreV21.getState().addXp;
 
   // Computed lists
   const byOrder = (a: Goal, b: Goal) => (a.order ?? 0) - (b.order ?? 0);

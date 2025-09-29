@@ -126,7 +126,8 @@ export const useHabitStore = create<HabitState>((set, get) => ({
 
       logCompletion: (habitId, date) => {
         console.log('[HabitStore Debug] logCompletion chamado:', { habitId, date });
-        const addXp = useGamificationStoreV21.getState().addXp;
+        // REMOVIDO: addXp agora é chamado apenas pelo VitalityListener
+        // const addXp = useGamificationStoreV21.getState().addXp;
         const userId = useAuthStore.getState().user!.id;
         
         // Incrementa localmente
@@ -155,8 +156,8 @@ export const useHabitStore = create<HabitState>((set, get) => ({
             const habitCoins = Math.floor(habitXp * 0.1); // 10% do XP
             console.log('[HabitStore] Hábito completado! Registrando histórico com:', { xp: habitXp, coins: habitCoins });
             
-            // Chamar addXp para disparar toast e gamificação (ele já salva no histórico)
-            addXp('habit', [habit.name], habit.categories?.[0]);
+            // REMOVIDO: addXp agora é chamado apenas pelo VitalityListener
+            // addXp('habit', [habit.name], habit.categories?.[0]);
           }
           
           // Atualiza logs

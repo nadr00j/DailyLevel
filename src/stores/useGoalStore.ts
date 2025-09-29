@@ -158,9 +158,9 @@ export const useGoalStore = create<GoalState>((set, get) => {
         // REMOVIDO: db.addHistoryItem (VitalityListener já faz isso)
         // Histórico é registrado pelo VitalityListener para evitar duplicação
         
-        // Chamar addXp para disparar toast e gamificação
-        const addXp = us.addXp;
-        addXp('goal', [goal.title], goal.category); // Passar categoria explícita
+        // REMOVIDO: addXp agora é chamado apenas pelo VitalityListener
+        // const addXp = us.addXp;
+        // addXp('goal', [goal.title], goal.category); // Passar categoria explícita
       }
     }
   };
