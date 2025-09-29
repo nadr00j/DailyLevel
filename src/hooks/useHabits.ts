@@ -206,21 +206,26 @@ export const useHabits = () => {
     return Math.round((completedDays / days) * 100);
   }, []);
 
-  // Generate heatmap data for a habit
+  // Generate heatmap data for a habit (only current month for new weekly view)
   const getHeatmapData = useCallback((habit: Habit, months: number = 3) => {
     const data: { date: string; completed: boolean }[] = [];
     const now = new Date();
-    const totalDays = months * 31; // Approximate
-
-    for (let i = totalDays - 1; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(now.getDate() - i);
-      const dateString = formatLocalDate(date);
+    
+    // Para o novo layout de 4 semanas, usar apenas o mês atual
+    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    // Gerar dados apenas para o mês atual
+    const currentDate = new Date(startOfCurrentMonth);
+    while (currentDate <= endOfCurrentMonth) {
+      const dateString = formatLocalDate(currentDate);
       
       data.push({
         date: dateString,
         completed: habit.completedDates.includes(dateString)
       });
+      
+      currentDate.setDate(currentDate.getDate() + 1);
     }
 
     return data;

@@ -73,13 +73,52 @@ export const HabitCard: React.FC<Props> = ({ habit, onEdit, onView, dragHandlePr
 
   const todayStr = getBrazilToday(); // Use Brazil timezone
 
-  // Últimas 12 semanas alinhadas ao calendário (semana começa na segunda)
-  const days: string[] = [];
-  const todayDate = new Date();
-  const start = startOfWeek(subDays(todayDate, 77), { weekStartsOn: 1 });
-  for (let i = 0; i < 84; i++) {
-    days.push(formatDateBrazil(addDays(start, i))); // Use Brazil timezone
-  }
+  // Gerar semanas dinâmicas baseado no mês atual
+  const generateWeeklyData = () => {
+    const now = new Date();
+    const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    // Começar na segunda-feira da primeira semana do mês
+    const startDate = new Date(currentMonth);
+    startDate.setDate(currentMonth.getDate() - ((currentMonth.getDay() + 6) % 7)); // Ajustar para segunda-feira
+    
+    const weeks = [];
+    let currentWeekStart = new Date(startDate);
+    
+    // Gerar semanas até cobrir todo o mês
+    let weekIndex = 0;
+    while (weekIndex < 6) { // Máximo 6 semanas para qualquer mês
+      const weekDays = [];
+      
+      // Gerar 7 dias da semana (seg-dom)
+      for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+        const currentDay = new Date(currentWeekStart);
+        currentDay.setDate(currentWeekStart.getDate() + dayIndex);
+        
+        // Incluir todos os dias (mesmo de outros meses)
+        weekDays.push(formatDateBrazil(currentDay));
+      }
+      
+      weeks.push(weekDays);
+      
+      // Verificar se já cobrimos todo o mês
+      const weekEndDate = new Date(currentWeekStart);
+      weekEndDate.setDate(currentWeekStart.getDate() + 6);
+      
+      if (weekEndDate >= endOfMonth && weekIndex >= 3) { // Mínimo 4 semanas
+        break;
+      }
+      
+      currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+      weekIndex++;
+    }
+    
+    return weeks;
+  };
+
+  const weeklyData = generateWeeklyData();
+  const days = weeklyData.flat(); // Achatar para array linear
 
   // progresso de hoje
   const todayProgress = getProgress(habit.id, todayStr);
@@ -189,36 +228,117 @@ export const HabitCard: React.FC<Props> = ({ habit, onEdit, onView, dragHandlePr
       {/* Divider colorido */}
       <div className="mt-2 mb-2 h-[3px] w-full rounded-full" style={{backgroundColor: habit.color, opacity:0.7}} />
 
-      {/* heatmap 7×12 alinhado a calendário */}
-      <div className="flex justify-center w-full overflow-x-auto">
-        <div className="grid grid-flow-col grid-rows-7 auto-cols-max gap-1">
-        {days.map((dateStr) => {
-          const progress = getProgress(habit.id, dateStr);
-          const ratio = progress ? progress.ratio : 0;
-          let color = useHeatmapColor(habit.color, ratio);
-          if(ratio===0){
-            // Variação pseudo-aleatória, mistura com cor escura
-            const variance = (dateStr.charCodeAt(8)%3)*0.1; // 0,0.1,0.2
-            color = blendWithDark(habit.color, 0.1 + variance); // fator 0.3-0.5, ligeiramente mais claro
-          }
-          return (
-            <div
-              key={dateStr}
-              className="h-5 w-5 rounded"
-              style={{
-                backgroundColor: color,
-                opacity: ratio === 0 ? 0.35 : 1,
-                borderRadius: '7px',
-                transition: 'border-radius 0.2s, box-shadow 0.2s',
-                boxShadow: ratio > 0 ? '0 1px 4px 0 rgba(0,0,0,0.10)' : 'none',
-                border: ratio > 0.8 ? `2px solid ${habit.color}` : '1px solid rgba(255,255,255,0.08)',
-                marginLeft: '5px' // aumenta um pouco o espaçamento entre os quadrados
-              }}
-              onClick={() => handleToggle(dateStr)}
-              title={dateStr}
-            ></div>
-          );
-        })}
+      {/* heatmap dinâmico baseado no número de semanas */}
+      <div className="w-full">
+        <div className={`grid gap-2 ${
+          weeklyData.length === 4 ? 'grid-cols-2' : 
+          weeklyData.length === 5 ? 'grid-cols-2' : 
+          'grid-cols-3'
+        }`}>
+          {/* Reorganizar ordem dinamicamente */}
+          {weeklyData.length === 4 ? 
+            // 4 semanas: SEM1 SEM2 / SEM3 SEM4
+            weeklyData.map((weekDays, weekIndex) => (
+            <div key={weekIndex} className="border border-border/30 rounded-lg bg-card/20" style={{ padding: '0.2rem' }}>
+              <div className="grid grid-cols-7 gap-1">
+                {weekDays.map((dateStr) => {
+                  const progress = getProgress(habit.id, dateStr);
+                  const ratio = progress ? progress.ratio : 0;
+                  let color = useHeatmapColor(habit.color, ratio);
+                  if(ratio===0){
+                    // Variação pseudo-aleatória, mistura com cor escura
+                    const variance = (dateStr.charCodeAt(8)%3)*0.1; // 0,0.1,0.2
+                    color = blendWithDark(habit.color, 0.1 + variance); // fator 0.3-0.5, ligeiramente mais claro
+                  }
+                  
+                  // Verificar se é do mês atual
+                  const dayDate = new Date(dateStr + 'T00:00:00');
+                  const currentMonth = new Date().getMonth();
+                  const dayMonth = dayDate.getMonth();
+                  const isCurrentMonth = dayMonth === currentMonth;
+                  
+                  // Se não é do mês atual, mostrar espaço vazio
+                  if (!isCurrentMonth) {
+                    return (
+                      <div
+                        key={dateStr}
+                        className="h-4 w-4"
+                        style={{ opacity: 0 }}
+                      />
+                    );
+                  }
+                  
+                  return (
+                    <div
+                      key={dateStr}
+                      className="h-4 w-4 rounded"
+                      style={{
+                        backgroundColor: color,
+                        opacity: ratio > 0 ? 1 : 0.35,
+                        borderRadius: '4px',
+                        transition: 'border-radius 0.2s, box-shadow 0.2s',
+                        boxShadow: ratio > 0 ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                        border: ratio > 0.8 ? `2px solid ${habit.color}` : '1px solid rgba(255,255,255,0.08)',
+                      }}
+                      onClick={() => handleToggle(dateStr)}
+                      title={dateStr}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+            )) :
+            // Para 5 ou 6 semanas: ordem sequencial
+            weeklyData.map((weekDays, weekIndex) => (
+            <div key={weekIndex} className="border border-border/30 rounded-lg bg-card/20" style={{ padding: '0.2rem' }}>
+              <div className="grid grid-cols-7 gap-1">
+                {weekDays.map((dateStr) => {
+                  const progress = getProgress(habit.id, dateStr);
+                  const ratio = progress ? progress.ratio : 0;
+                  let color = useHeatmapColor(habit.color, ratio);
+                  if(ratio===0){
+                    // Variação pseudo-aleatória, mistura com cor escura
+                    const variance = (dateStr.charCodeAt(8)%3)*0.1; // 0,0.1,0.2
+                    color = blendWithDark(habit.color, 0.1 + variance); // fator 0.3-0.5, ligeiramente mais claro
+                  }
+                  
+                  // Verificar se é do mês atual
+                  const dayDate = new Date(dateStr + 'T00:00:00');
+                  const currentMonth = new Date().getMonth();
+                  const dayMonth = dayDate.getMonth();
+                  const isCurrentMonth = dayMonth === currentMonth;
+                  
+                  // Se não é do mês atual, mostrar espaço vazio
+                  if (!isCurrentMonth) {
+                    return (
+                      <div
+                        key={dateStr}
+                        className="h-4 w-4"
+                        style={{ opacity: 0 }}
+                      />
+                    );
+                  }
+                  
+                  return (
+                    <div
+                      key={dateStr}
+                      className="h-4 w-4 rounded"
+                      style={{
+                        backgroundColor: color,
+                        opacity: ratio > 0 ? 1 : 0.35,
+                        borderRadius: '4px',
+                        transition: 'border-radius 0.2s, box-shadow 0.2s',
+                        boxShadow: ratio > 0 ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                        border: ratio > 0.8 ? `2px solid ${habit.color}` : '1px solid rgba(255,255,255,0.08)',
+                      }}
+                      onClick={() => handleToggle(dateStr)}
+                      title={dateStr}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
