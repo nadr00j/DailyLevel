@@ -1,12 +1,13 @@
 import { Trophy } from 'lucide-react';
 import { useVictoryDialog } from '@/stores/useVictoryDialog';
 import { motion } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, memo } from 'react';
 
-export const VictoryDialog = () => {
+const VictoryDialogComponent = () => {
   const { open, title, points, icon, close } = useVictoryDialog();
 
-  console.log('VictoryDialog render:', { open, title, points, icon });
+  // Debug removido para evitar spam no console
+  // console.log('VictoryDialog render:', { open, title, points, icon });
 
   // Auto close after 2 seconds
   useEffect(() => {
@@ -46,3 +47,6 @@ export const VictoryDialog = () => {
     </>
   );
 };
+
+// Memoizar o componente para evitar re-renders desnecessários
+export const VictoryDialog = memo(VictoryDialogComponent);

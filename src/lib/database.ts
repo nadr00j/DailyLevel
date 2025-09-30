@@ -479,6 +479,12 @@ export class DatabaseService {
   async getGamificationData(userId: string): Promise<AppGamificationData | null> {
     console.log('🔍 [DEBUG] getGamificationData - Buscando dados para userId:', userId);
     
+    // Validação de userId para evitar erro de UUID inválido
+    if (!userId || userId.trim() === '' || userId === 'undefined') {
+      console.error('❌ [DEBUG] getGamificationData - userId inválido:', userId);
+      return null;
+    }
+    
     const { data, error } = await supabase
       .from('user_gamification')
       .select('*')
@@ -504,6 +510,12 @@ export class DatabaseService {
   }
 
   async saveGamificationData(data: AppGamificationData): Promise<AppGamificationData> {
+    // Validação de userId para evitar erro de UUID inválido
+    if (!data.userId || data.userId.trim() === '' || data.userId === 'undefined') {
+      console.error('❌ [DEBUG] saveGamificationData - userId inválido:', data.userId);
+      throw new Error('userId inválido para saveGamificationData');
+    }
+    
     const dbData = toGamificationDb(data);
     // check existing
     const existing = await this.getGamificationData(data.userId);

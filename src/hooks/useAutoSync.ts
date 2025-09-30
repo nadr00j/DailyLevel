@@ -22,6 +22,7 @@ function debounce<T extends (...args: any[]) => any>(func: T, wait: number): T {
 export function useAutoSync() {
   const { user, isAuthenticated } = useAuthStore();
   const syncTimeoutRef = useRef<NodeJS.Timeout>();
+  const isSyncingRef = useRef(false);
 
   // Função para verificar conectividade com Supabase
   const checkSupabaseConnection = async (): Promise<boolean> => {
@@ -33,24 +34,32 @@ export function useAutoSync() {
     }
   };
 
-  // Função para sincronizar dados para o Supabase
+  // Função para sincronizar dados para o Supabase - com proteção contra loops
   const syncToSupabase = async (userId: string) => {
+    if (isSyncingRef.current) {
+      console.log('⚠️ Auto-sync: Já está sincronizando, pulando...');
+      return;
+    }
+    
     try {
+      isSyncingRef.current = true;
       const online = await checkSupabaseConnection();
       if (!online) {
         console.warn('Auto-sync: Sem conexão com Supabase, pulando sync.');
         return;
       }
-      console.log('🔄 Auto-sync: Sincronizando todos os dados via DataSyncService...');
+      console.log('🔄 Auto-sync: Sincronizando dados...');
       await dataSyncService.syncAll(userId);
-      console.log('✅ Auto-sync: Dados sincronizados com sucesso!');
+      console.log('✅ Auto-sync: Sincronizado!');
     } catch (error) {
-      console.error('❌ Auto-sync: Erro ao sincronizar dados via DataSyncService:', error);
+      console.error('❌ Auto-sync: Erro:', error);
+    } finally {
+      isSyncingRef.current = false;
     }
   };
 
-  // Função debounced para sincronização - REDUZIDO para sincronização mais rápida
-  const debouncedSync = debounce(syncToSupabase, 500); // 500ms de delay
+  // Função debounced para sincronização - AUMENTADO para evitar loops
+  const debouncedSync = useRef(debounce(syncToSupabase, 2000)).current; // 2s de delay
 
   // Assina mudanças no store de gamificação para auto-sync
   useEffect(() => {
@@ -74,11 +83,8 @@ export function useAutoSync() {
       );
       
       if (hasChanges) {
-        console.log('🔄 [AutoSync] Mudança detectada no store de gamificação:', {
-          xp: `${prev.xp} → ${state.xp}`,
-          coins: `${prev.coins} → ${state.coins}`,
-          historyLength: `${prev.historyLength} → ${state.history.length}`
-        });
+        // Reduzido log para evitar spam
+        // console.log('🔄 [AutoSync] Mudança detectada no store de gamificação');
         
         prev = { 
           xp: state.xp, 
@@ -91,7 +97,7 @@ export function useAutoSync() {
       }
     });
     return unsubscribe;
-  }, [isAuthenticated, user, debouncedSync]);
+  }, [isAuthenticated, user?.id]);
 
   // Monitorar mudanças no store da loja (apenas quando items são comprados/vendidos)
   useEffect(() => {
@@ -128,23 +134,7 @@ export function useAutoSync() {
       }
     });
     return unsubscribe;
-  }, [isAuthenticated, user, debouncedSync]);
-
-  // Monitorar mudanças nos logs de hábitos para sincronizar incrementos parciais
-  useEffect(() => {
-    if (!isAuthenticated || !user) return;
-    const store = useHabitStore;
-    let prevLogs = store.getState().logs;
-    
-    const unsubscribe = store.subscribe((state) => {
-      // Sincronizar apenas quando logs mudarem (conclusões de hábitos)
-      if (JSON.stringify(state.logs) !== JSON.stringify(prevLogs)) {
-        prevLogs = state.logs;
-        debouncedSync(user.id);
-      }
-    });
-    return unsubscribe;
-  }, [isAuthenticated, user, debouncedSync]);
+  }, [isAuthenticated, user?.id]);
 
   // Sincronizar antes de sair da página
   useEffect(() => {
@@ -175,7 +165,7 @@ export function useAutoSync() {
       }
     });
     return unsubscribe;
-  }, [isAuthenticated, user, debouncedSync]);
+  }, [isAuthenticated, user?.id]);
 
   // Monitorar mudanças no store de metas para auto-sync
   useEffect(() => {
@@ -186,13 +176,14 @@ export function useAutoSync() {
     const unsubscribe = store.subscribe((state) => {
       // Sincronizar apenas quando metas mudarem
       if (JSON.stringify(state.goals) !== JSON.stringify(prevGoals)) {
-        console.log('🔍 [DEBUG] useAutoSync - Metas mudaram, sincronizando...', state.goals.length);
+        // Reduzido log para evitar spam
+        // console.log('🔍 [DEBUG] useAutoSync - Metas mudaram, sincronizando...', state.goals.length);
         prevGoals = state.goals;
         debouncedSync(user.id);
       }
     });
     return unsubscribe;
-  }, [isAuthenticated, user, debouncedSync]);
+  }, [isAuthenticated, user?.id]);
 
   return {
     syncToSupabase: (userId: string) => debouncedSync(userId)

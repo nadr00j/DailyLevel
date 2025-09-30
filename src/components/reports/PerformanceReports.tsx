@@ -31,6 +31,9 @@ interface PerformanceStats {
   streak: number;
 }
 
+// Debug flag - set to false to reduce console spam
+const IS_DEBUG = false;
+
 export const PerformanceReports = () => {
   const userId = useAuthStore(state => state.user?.id);
   const monthRef = useRef<HTMLDivElement>(null);
@@ -53,8 +56,8 @@ export const PerformanceReports = () => {
   // Hold existing settings to merge
   const settingsRef = useRef<any>(null);
 
-  // Function to get current date in Brazil timezone (UTC-3)
-  const getBrazilToday = () => {
+  // Function to get current date in Brazil timezone (UTC-3) - memoized
+  const getBrazilToday = useCallback(() => {
     const now = new Date();
     // Convert to Brazil timezone (UTC-3)
     const brazilOffset = -3 * 60; // -3 hours in minutes
@@ -67,10 +70,10 @@ export const PerformanceReports = () => {
     const day = String(brazilTime.getDate()).padStart(2, '0');
     
     return `${year}-${month}-${day}`;
-  };
+  }, []);
 
-  // Function to get date string in Brazil timezone
-  const formatDateBrazil = (date: Date) => {
+  // Function to get date string in Brazil timezone - memoized
+  const formatDateBrazil = useCallback((date: Date) => {
     const brazilOffset = -3 * 60; // -3 hours in minutes
     const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
     const brazilTime = new Date(utc + (brazilOffset * 60000));
@@ -80,7 +83,7 @@ export const PerformanceReports = () => {
     const day = String(brazilTime.getDate()).padStart(2, '0');
     
     return `${year}-${month}-${day}`;
-  };
+  }, []);
 
   // Close date selector when period changes to 'day'
   useEffect(() => {
@@ -93,10 +96,10 @@ export const PerformanceReports = () => {
   const xp = useGamificationStoreV21(state => state.xp);
   const history = useGamificationStoreV21(state => state.history);
   
-  // Use history directly from store instead of local state
-  const historyList = history;
+  // Use history directly from store instead of local state - memoized
+  const historyList = useMemo(() => history, [history]);
   
-  // Force re-render when history changes significantly
+  // Force re-render when history changes significantly - optimized
   useEffect(() => {
     setRenderKey(prev => prev + 1);
   }, [historyList.length]);
@@ -119,34 +122,68 @@ export const PerformanceReports = () => {
       .sort((a, b) => b.ts - a.ts); // Ordenar por timestamp decrescente (mais recente primeiro)
     
     // Debug para verificar filtro de dias
-    console.log('[Day Filter Debug]', {
-      activePeriod,
-      selectedDays,
-      selectedDaysLength: selectedDays.length,
-      historyListLength: historyList.length,
-      filteredLength: filtered.length,
-      filteredDays: [...new Set(filtered.map(item => new Date(item.ts).toISOString().slice(0,10)))],
-      allHistoryDays: [...new Set(historyList.map(item => new Date(item.ts).toISOString().slice(0,10)))],
-      sampleHistoryItems: historyList.slice(0, 5).map(item => ({
-        type: item.type,
-        category: item.category,
-        tags: item.tags,
-        ts: new Date(item.ts).toISOString().slice(0, 10)
-      }))
-    });
+    if (IS_DEBUG) {
+      console.log('[Day Filter Debug]', {
+        activePeriod,
+        selectedDays,
+        selectedDaysLength: selectedDays.length,
+        historyListLength: historyList.length,
+        filteredLength: filtered.length,
+        filteredDays: [...new Set(filtered.map(item => new Date(item.ts).toISOString().slice(0,10)))],
+        allHistoryDays: [...new Set(historyList.map(item => new Date(item.ts).toISOString().slice(0,10)))],
+        sampleHistoryItems: historyList.slice(0, 5).map(item => ({
+          type: item.type,
+          category: item.category,
+          tags: item.tags,
+          ts: new Date(item.ts).toISOString().slice(0, 10)
+        }))
+      });
+    }
     
     return filtered;
   }, [historyList, selectedDays, activePeriod]);
 
   // Removed activeCategories - using historyCategories instead for consistency
 
-  // Get data for simple XP calculation
-  const { all: allHabits, active: activeHabits, inactive: inactiveHabits } = useHabitCategories();
-  const { todayTasks, weekTasks, laterTasks } = useTasks();
-  const { activeGoals, completedGoals, futureGoals } = useGoals();
+  // Get data for simple XP calculation - memoized with stable references
+  const habitData = useHabitCategories();
+  const taskData = useTasks();
+  const goalData = useGoals();
+  
+  const { all: allHabits, active: activeHabits, inactive: inactiveHabits } = useMemo(() => habitData, [habitData]);
+  const { todayTasks, weekTasks, laterTasks } = useMemo(() => taskData, [taskData]);
+  const { activeGoals, completedGoals, futureGoals } = useMemo(() => goalData, [goalData]);
+  
+  // Cache para categorias com debounce agressivo
+  const categoryCache = useRef<{
+    key: string;
+    data: ActiveCategory[];
+    timestamp: number;
+  } | null>(null);
+  
+  // Create stable cache key for category calculation - com hash do conteúdo
+  const categoryCacheKey = useMemo(() => {
+    // Criar hash mais inteligente baseado no conteúdo relevante
+    const historyHash = filteredHistory.slice(0, 5).map(h => `${h.type}-${h.xp}-${h.category}`).join('|');
+    const habitsHash = allHabits.slice(0, 3).map(h => `${h.name}-${h.categories?.[0] || 'none'}`).join('|');
+    const tasksHash = `${todayTasks.length}-${weekTasks.length}-${laterTasks.length}`;
+    const goalsHash = `${activeGoals.length}-${futureGoals.length}`;
+    
+    return `${activePeriod}-${selectedDays.length}-${historyHash}-${habitsHash}-${tasksHash}-${goalsHash}`;
+  }, [
+    allHabits,
+    todayTasks.length, 
+    weekTasks.length,
+    laterTasks.length,
+    activeGoals.length,
+    futureGoals.length,
+    filteredHistory,
+    selectedDays.length,
+    activePeriod
+  ]);
   
     // Debug para verificar se useGoals está funcionando
-    console.log('[useGoals Debug]', {
+    if (IS_DEBUG) console.log('[useGoals Debug]', {
       activeGoals,
       activeGoalsLength: activeGoals?.length || 0,
       completedGoals,
@@ -160,7 +197,7 @@ export const PerformanceReports = () => {
     });
 
     // Debug para verificar hábitos ativos vs inativos
-    console.log('[Habits Debug]', {
+    if (IS_DEBUG) console.log('[Habits Debug]', {
       allHabits: allHabits.length,
       activeHabits: activeHabits.length,
       inactiveHabits: inactiveHabits.length,
@@ -225,7 +262,7 @@ export const PerformanceReports = () => {
     
     // Debug para categorias com dados
     if (categoryItems.length > 0) {
-      console.log(`[XP Calculation Debug] ${category}:`, {
+      if (IS_DEBUG) console.log(`[XP Calculation Debug] ${category}:`, {
         activePeriod,
         daysMultiplier,
         habitCount,
@@ -290,7 +327,7 @@ export const PerformanceReports = () => {
 
     // Debug para todas as categorias que têm itens ativos
     if (totalItems > 0) {
-      console.log(`[Item Count Debug] ${category}:`, {
+      if (IS_DEBUG) console.log(`[Item Count Debug] ${category}:`, {
         normalizedCategory,
         habitCount,
         taskCount,
@@ -311,8 +348,21 @@ export const PerformanceReports = () => {
     return totalItems;
   };
 
-  // Compute categories from filteredHistory + all items (including non-completed)
+  // Compute categories from filteredHistory + all items (including non-completed) - com cache agressivo
   const historyCategories = useMemo(() => {
+    const now = Date.now();
+    const CACHE_TIMEOUT = 5000; // 5 segundos de cache mínimo
+    
+    // Verificar se temos cache válido
+    if (categoryCache.current && 
+        categoryCache.current.key === categoryCacheKey &&
+        (now - categoryCache.current.timestamp) < CACHE_TIMEOUT) {
+      const timeLeft = Math.round((CACHE_TIMEOUT - (now - categoryCache.current.timestamp)) / 1000);
+      if (IS_DEBUG) console.log(`🔄 [Category Cache] Usando cache válido (${timeLeft}s restantes), evitando recálculo`);
+      return categoryCache.current.data;
+    }
+    
+    if (IS_DEBUG) console.log('🔄 [Category Cache] Cache inválido ou expirado, recalculando categorias...');
     
     // Mapping category to xp and count - normalize categories to avoid duplicates
     const map: Record<string, { xp: number; count: number; originalName: string }> = {};
@@ -351,7 +401,7 @@ export const PerformanceReports = () => {
     });
     
     // Debug para investigar categorias incluídas
-    console.log('[Category Debug]', {
+    if (IS_DEBUG) console.log('[Category Debug]', {
       filteredHistoryLength: filteredHistory.length,
       allItemsLength: allItems.length,
       categoriesFromHistory: filteredHistory.map(item => ({
@@ -401,8 +451,16 @@ export const PerformanceReports = () => {
       };
     });
     
+    // Atualizar cache
+    categoryCache.current = {
+      key: categoryCacheKey,
+      data: categories,
+      timestamp: now
+    };
+    
+    if (IS_DEBUG) console.log('✅ [Category Cache] Cache atualizado com', categories.length, 'categorias');
     return categories;
-  }, [filteredHistory, allHabits, todayTasks, weekTasks, laterTasks, activeGoals, futureGoals, selectedDays.length]);
+  }, [categoryCacheKey]);
 
   // Stats will be computed directly from filteredHistory to reflect selectedDays
 
@@ -423,7 +481,7 @@ export const PerformanceReports = () => {
     const goalsCompleted = ph.filter(item => item.type === 'goal').length;
     
     // Debug para investigar contagem de hábitos
-    console.log('[Habit Count Debug]', {
+    if (IS_DEBUG) console.log('[Habit Count Debug]', {
       activePeriod,
       filteredHistoryLength: ph.length,
       habitsMaintained,
@@ -484,7 +542,7 @@ export const PerformanceReports = () => {
       days = [getBrazilToday()]; // Use Brazil timezone for today
     }
     
-    console.log('[Period Debug]', {
+    if (IS_DEBUG) console.log('[Period Debug]', {
       activePeriod,
       daysLength: days.length,
       days,
@@ -501,10 +559,10 @@ export const PerformanceReports = () => {
     // Always set selectedDays to the full period when period changes
     // This ensures filtering works correctly
     setSelectedDays(days);
-  }, [activePeriod]);
+  }, [activePeriod, getBrazilToday, formatDateBrazil]);
 
-  // Persist filters on change
-  useEffect(() => {
+  // Persist filters on change - memoized
+  const saveSettings = useCallback(async () => {
     if (!userId) return;
     const conf = settingsRef.current || {};
     const newSettings = {
@@ -516,12 +574,20 @@ export const PerformanceReports = () => {
         // Don't save selectedDays - they should always be based on current period
       }
     };
-    db.saveUserSettings(newSettings).catch(console.error);
+    try {
+      await db.saveUserSettings(newSettings);
+    } catch (error) {
+      console.error('Error saving settings:', error);
+    }
   }, [userId, activePeriod]);
+
+  useEffect(() => {
+    saveSettings();
+  }, [saveSettings]);
 
   // Removed getStatsForPeriod; stats computed inline via filteredHistory
 
-  const CategoryList = ({ categories }: { categories: ActiveCategory[] }) => {
+  const CategoryList = React.memo(({ categories }: { categories: ActiveCategory[] }) => {
     if (categories.length === 0) {
       return (
         <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -537,12 +603,9 @@ export const PerformanceReports = () => {
     return (
       <div className="space-y-4">
         {categories.map((category, index) => (
-          <motion.div
+          <div
             key={category.name}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="flex items-center gap-4 p-3 rounded-lg border bg-card"
+            className="flex items-center gap-4 p-3 rounded-lg border bg-card opacity-100"
           >
             <div className="flex-shrink-0">
               <span className="text-2xl">{category.icon}</span>
@@ -565,11 +628,11 @@ export const PerformanceReports = () => {
                 <span>{category.xp30d} XP / {category.target30d}</span>
               </div>
             </div>
-          </motion.div>
+          </div>
         ))}
       </div>
     );
-  };
+  });
 
   const GeneralStats = ({ stats }: { stats: PerformanceStats }) => (
     <div className="grid grid-cols-2 gap-4">
@@ -702,7 +765,7 @@ export const PerformanceReports = () => {
                 
                 // Debug para verificar renderização dos botões
                 if (activePeriod === 'week') {
-                  console.log('[Button Render Debug]', {
+                  if (IS_DEBUG) console.log('[Button Render Debug]', {
                     dateStr,
                     dayNumber,
                     possibleDaysLength: possibleDays.length,

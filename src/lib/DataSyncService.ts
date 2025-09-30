@@ -11,6 +11,7 @@ class DataSyncService {
   private isSyncing = false;
   private hasSyncedHistoryOnce = false;
   private lastCleanupDate = '';
+  private IS_DEBUG = false; // Flag para controlar logs de debug
   
   // Function to get current date in Brazil timezone (UTC-3)
   private getBrazilToday(): string {
@@ -50,7 +51,7 @@ class DataSyncService {
   private async cleanupCompletedTasks(userId: string): Promise<void> {
     const brazilToday = this.getBrazilToday();
     
-    console.log('🕐 [DEBUG] DataSyncService.cleanupCompletedTasks - Verificando limpeza:', {
+    if (this.IS_DEBUG) console.log('🕐 [DEBUG] DataSyncService.cleanupCompletedTasks - Verificando limpeza:', {
       brazilToday,
       lastCleanupDate: this.lastCleanupDate,
       shouldRun: this.lastCleanupDate !== brazilToday
@@ -58,15 +59,15 @@ class DataSyncService {
     
     // Only run cleanup once per day
     if (this.lastCleanupDate === brazilToday) {
-      console.log('🕐 [DEBUG] DataSyncService.cleanupCompletedTasks - Limpeza já executada hoje, pulando');
+      if (this.IS_DEBUG) console.log('🕐 [DEBUG] DataSyncService.cleanupCompletedTasks - Limpeza já executada hoje, pulando');
       return;
     }
     
-    console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Executando limpeza de tarefas concluídas do dia anterior...');
+    if (this.IS_DEBUG) console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Executando limpeza de tarefas concluídas do dia anterior...');
 
     try {
       const tasks = useTaskStore.getState().tasks;
-      console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Total de tarefas:', tasks.length);
+      if (this.IS_DEBUG) console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Total de tarefas:', tasks.length);
       
       // Filtrar apenas tarefas concluídas que foram atualizadas no dia anterior
       const yesterday = this.getBrazilYesterday();
@@ -78,17 +79,17 @@ class DataSyncService {
         return taskUpdatedDate === yesterday;
       });
       
-      console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Tarefas concluídas do dia anterior encontradas:', completedTasksFromYesterday.length);
+      if (this.IS_DEBUG) console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Tarefas concluídas do dia anterior encontradas:', completedTasksFromYesterday.length);
       
       if (completedTasksFromYesterday.length === 0) {
-        console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Nenhuma tarefa concluída do dia anterior para remover');
+        if (this.IS_DEBUG) console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Nenhuma tarefa concluída do dia anterior para remover');
         this.lastCleanupDate = brazilToday;
         return;
       }
       
       // Log das tarefas que serão removidas
       completedTasksFromYesterday.forEach(task => {
-        console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Removendo tarefa do dia anterior:', task.id, task.title, 'concluída em:', task.updatedAt);
+        if (this.IS_DEBUG) console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Removendo tarefa do dia anterior:', task.id, task.title, 'concluída em:', task.updatedAt);
       });
       
       // Remove completed tasks from previous day from local store
@@ -99,16 +100,16 @@ class DataSyncService {
       });
       
       useTaskStore.setState({ tasks: activeTasks });
-      console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Tarefas ativas restantes:', activeTasks.length);
+      if (this.IS_DEBUG) console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Tarefas ativas restantes:', activeTasks.length);
       
       // Remove completed tasks from previous day from Supabase
       for (const task of completedTasksFromYesterday) {
         await db.deleteTask(userId, task.id);
-        console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Tarefa do dia anterior removida do Supabase:', task.id);
+        if (this.IS_DEBUG) console.log('🧹 [DEBUG] DataSyncService.cleanupCompletedTasks - Tarefa do dia anterior removida do Supabase:', task.id);
       }
       
       this.lastCleanupDate = brazilToday;
-      console.log('✅ [DEBUG] DataSyncService.cleanupCompletedTasks - Limpeza concluída:', completedTasksFromYesterday.length, 'tarefas do dia anterior removidas');
+      if (this.IS_DEBUG) console.log('✅ [DEBUG] DataSyncService.cleanupCompletedTasks - Limpeza concluída:', completedTasksFromYesterday.length, 'tarefas do dia anterior removidas');
     } catch (error) {
       console.error('❌ [DEBUG] DataSyncService.cleanupCompletedTasks - Erro na limpeza:', error);
     }
@@ -116,7 +117,7 @@ class DataSyncService {
 
   // Public function to force cleanup of completed tasks (for testing)
   async forceCleanupCompletedTasks(userId: string): Promise<void> {
-    console.log('🧹 [DEBUG] DataSyncService.forceCleanupCompletedTasks - Forçando limpeza de tarefas concluídas...');
+    if (this.IS_DEBUG) console.log('🧹 [DEBUG] DataSyncService.forceCleanupCompletedTasks - Forçando limpeza de tarefas concluídas...');
     this.lastCleanupDate = ''; // Reset to force cleanup
     await this.cleanupCompletedTasks(userId);
   }
@@ -128,15 +129,15 @@ class DataSyncService {
       return;
     }
     
-    console.log('🔄 [DEBUG] DataSyncService.loadAll - Iniciando carregamento para userId:', userId);
+    if (this.IS_DEBUG) console.log('🔄 [DEBUG] DataSyncService.loadAll - Iniciando carregamento para userId:', userId);
     
     // 1. Gamification
-    console.log('🔄 [DEBUG] DataSyncService.loadAll - Carregando dados de gamificação...');
+    if (this.IS_DEBUG) console.log('🔄 [DEBUG] DataSyncService.loadAll - Carregando dados de gamificação...');
     const gamification = await db.getGamificationData(userId);
-    console.log('🔄 [DEBUG] DataSyncService.loadAll - Dados de gamificação recebidos:', gamification);
+    if (this.IS_DEBUG) console.log('🔄 [DEBUG] DataSyncService.loadAll - Dados de gamificação recebidos:', gamification);
     
     if (gamification) {
-      console.log('🔍 [DEBUG] DataSyncService.loadAll - Dados do Supabase:', {
+      if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.loadAll - Dados do Supabase:', {
         xp: gamification.xp,
         coins: gamification.coins,
         vitality: gamification.vitality,
@@ -144,18 +145,18 @@ class DataSyncService {
       });
       
       // SEMPRE sincronizar dados do Supabase como fonte da verdade
-      console.log('🔄 [DEBUG] DataSyncService.loadAll - Sincronizando dados do Supabase...');
+      if (this.IS_DEBUG) console.log('🔄 [DEBUG] DataSyncService.loadAll - Sincronizando dados do Supabase...');
       
       // Se dados do Supabase estão zerados, tentar reconciliação primeiro
       if ((gamification.xp === 0 && gamification.coins === 0)) {
-        console.log('⚠️ [DEBUG] DataSyncService.loadAll - Dados zerados, tentando reconciliação...');
+        if (this.IS_DEBUG) console.log('⚠️ [DEBUG] DataSyncService.loadAll - Dados zerados, tentando reconciliação...');
         try {
           await this.reconcileFromHistory(userId);
           // Recarregar dados após reconciliação
           const updatedGamification = await db.getGamificationData(userId);
           if (updatedGamification) {
             useGamificationStoreV21.getState().syncFromSupabase({ ...updatedGamification, userId });
-            console.log('✅ [DEBUG] DataSyncService.loadAll - Dados reconciliados e sincronizados');
+            if (this.IS_DEBUG) console.log('✅ [DEBUG] DataSyncService.loadAll - Dados reconciliados e sincronizados');
           }
         } catch (error) {
           console.error('❌ [DEBUG] DataSyncService.loadAll - Erro na reconciliação:', error);
@@ -165,14 +166,14 @@ class DataSyncService {
       } else {
         // Dados válidos, sincronizar normalmente
         useGamificationStoreV21.getState().syncFromSupabase({ ...gamification, userId });
-        console.log('✅ [DEBUG] DataSyncService.loadAll - Dados sincronizados');
+        if (this.IS_DEBUG) console.log('✅ [DEBUG] DataSyncService.loadAll - Dados sincronizados');
       }
       
       // 1.a. Carregar histórico de ações (history_items)
       try {
-        console.log('🔄 [DEBUG] DataSyncService.loadAll - Carregando histórico de ações...');
+        if (this.IS_DEBUG) console.log('🔄 [DEBUG] DataSyncService.loadAll - Carregando histórico de ações...');
         const historyItems = await db.getHistoryItems(userId);
-        console.log('🔄 [DEBUG] DataSyncService.loadAll - history_items recebidos do banco:', historyItems);
+        if (this.IS_DEBUG) console.log('🔄 [DEBUG] DataSyncService.loadAll - history_items recebidos do banco:', historyItems);
         
         // CRÍTICO: Converter dados do Supabase para formato do store
         const convertedHistory = historyItems.map(item => {
@@ -204,14 +205,14 @@ class DataSyncService {
           };
         });
         
-        console.log('🔄 [DEBUG] DataSyncService.loadAll - Dados convertidos:', convertedHistory.slice(0, 3));
+        if (this.IS_DEBUG) console.log('🔄 [DEBUG] DataSyncService.loadAll - Dados convertidos:', convertedHistory.slice(0, 3));
         
         useGamificationStoreV21.setState({ history: convertedHistory });
-        console.log('✅ [DEBUG] DataSyncService.loadAll - history_items carregados no store:', convertedHistory.length);
+        if (this.IS_DEBUG) console.log('✅ [DEBUG] DataSyncService.loadAll - history_items carregados no store:', convertedHistory.length);
         
         // Verificar se o store foi atualizado
         const storeHistory = useGamificationStoreV21.getState().history;
-        console.log('🔄 [DEBUG] DataSyncService.loadAll - Verificando store após carregamento:', {
+        if (this.IS_DEBUG) console.log('🔄 [DEBUG] DataSyncService.loadAll - Verificando store após carregamento:', {
           storeHistoryLength: storeHistory.length,
           storeHistory: storeHistory.slice(0, 3) // Primeiros 3 itens
         });
@@ -219,7 +220,7 @@ class DataSyncService {
         console.error('❌ [DEBUG] DataSyncService.loadAll - erro ao carregar history_items:', err);
       }
     } else {
-      console.log('⚠️ [DEBUG] DataSyncService.loadAll - Nenhum dado de gamificação encontrado no Supabase');
+      if (this.IS_DEBUG) console.log('⚠️ [DEBUG] DataSyncService.loadAll - Nenhum dado de gamificação encontrado no Supabase');
     }
     // 2. User settings
     const settings = await db.getUserSettings(userId);
@@ -238,12 +239,12 @@ class DataSyncService {
           effect: pixelBuddyState.effect,
           inventory: pixelBuddyState.inventory
         });
-        console.log('✅ [DEBUG] DataSyncService.loadAll - PixelBuddy carregado');
+        if (this.IS_DEBUG) console.log('✅ [DEBUG] DataSyncService.loadAll - PixelBuddy carregado');
       }
     } catch (error: any) {
       if (error?.code === 'PGRST205' || error?.message?.includes('Could not find the table')) {
-        console.warn('⚠️ [DEBUG] DataSyncService.loadAll - Tabela pixelbuddy_state não existe. Execute o SQL de criação da tabela.');
-        console.warn('📋 [DEBUG] DataSyncService.loadAll - Consulte o arquivo: create-pixelbuddy-state-table.sql');
+        if (this.IS_DEBUG) console.warn('⚠️ [DEBUG] DataSyncService.loadAll - Tabela pixelbuddy_state não existe. Execute o SQL de criação da tabela.');
+        if (this.IS_DEBUG) console.warn('📋 [DEBUG] DataSyncService.loadAll - Consulte o arquivo: create-pixelbuddy-state-table.sql');
       } else {
         console.error('❌ [DEBUG] DataSyncService.loadAll - Erro ao carregar PixelBuddy:', error);
       }
@@ -276,24 +277,24 @@ class DataSyncService {
     }
 
     // 5. Goals
-    console.log('🔄 [DEBUG] DataSyncService.loadAll - Carregando metas...');
+    if (this.IS_DEBUG) console.log('🔄 [DEBUG] DataSyncService.loadAll - Carregando metas...');
     const goals = await db.getGoals(userId);
-    console.log('🔄 [DEBUG] DataSyncService.loadAll - Metas recebidas do banco:', {
+    if (this.IS_DEBUG) console.log('🔄 [DEBUG] DataSyncService.loadAll - Metas recebidas do banco:', {
       goalsLength: goals.length,
       goals: goals.map(g => ({ id: g.id, title: g.title, category: g.category, isCompleted: g.isCompleted }))
     });
     if (goals.length) {
       useGoalStore.setState({ goals });
-      console.log('✅ [DEBUG] DataSyncService.loadAll - Metas carregadas no store');
+      if (this.IS_DEBUG) console.log('✅ [DEBUG] DataSyncService.loadAll - Metas carregadas no store');
       
       // Verificar se o store foi atualizado
       const storeGoals = useGoalStore.getState().goals;
-      console.log('🔄 [DEBUG] DataSyncService.loadAll - Verificando store de metas:', {
+      if (this.IS_DEBUG) console.log('🔄 [DEBUG] DataSyncService.loadAll - Verificando store de metas:', {
         storeGoalsLength: storeGoals.length,
         storeGoals: storeGoals.map(g => ({ id: g.id, title: g.title, category: g.category }))
       });
     } else {
-      console.log('⚠️ [DEBUG] DataSyncService.loadAll - Nenhuma meta encontrada no Supabase');
+      if (this.IS_DEBUG) console.log('⚠️ [DEBUG] DataSyncService.loadAll - Nenhuma meta encontrada no Supabase');
     }
 
     // 6. Shop Items
@@ -315,12 +316,12 @@ class DataSyncService {
     }
     
     try {
-      console.log('🔧 [DataSync] Iniciando reconciliação baseada no histórico...');
+      if (this.IS_DEBUG) console.log('🔧 [DataSync] Iniciando reconciliação baseada no histórico...');
       
       // Buscar histórico completo
       const historyItems = await db.getHistoryItems(userId);
       if (!historyItems || historyItems.length === 0) {
-        console.log('⚠️ [DataSync] Nenhum histórico encontrado para reconciliação');
+        if (this.IS_DEBUG) console.log('⚠️ [DataSync] Nenhum histórico encontrado para reconciliação');
         return;
       }
       
@@ -337,7 +338,7 @@ class DataSyncService {
       });
       const xp30d = recentHistory.reduce((sum, item) => sum + (item.xp || 0), 0);
       
-      console.log('📊 [DataSync] Dados reconciliados:', { totalXP, totalCoins, xp30d });
+      if (this.IS_DEBUG) console.log('📊 [DataSync] Dados reconciliados:', { totalXP, totalCoins, xp30d });
       
       // Atualizar user_gamification no Supabase
       const correctedData = {
@@ -381,7 +382,7 @@ class DataSyncService {
       };
       
       useGamificationStoreV21.getState().syncFromSupabase(completeData);
-      console.log('✅ [DataSync] Reconciliação concluída com sucesso');
+      if (this.IS_DEBUG) console.log('✅ [DataSync] Reconciliação concluída com sucesso');
       
     } catch (error) {
       console.error('❌ [DataSync] Erro na reconciliação:', error);
@@ -414,77 +415,77 @@ class DataSyncService {
     
     // Evitar execuções simultâneas
     if (this.isSyncing) {
-      console.log('⚠️ [DEBUG] DataSyncService.syncAll - Já está sincronizando, pulando...');
+      if (this.IS_DEBUG) console.log('⚠️ [DEBUG] DataSyncService.syncAll - Já está sincronizando, pulando...');
       return;
     }
     
     this.isSyncing = true;
-    console.log('🔍 [DEBUG] DataSyncService.syncAll iniciado para userId:', userId);
-    console.log('🔍 [DEBUG] DataSyncService.syncAll - Stack trace:', new Error().stack);
+    if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll iniciado para userId:', userId);
+    if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Stack trace:', new Error().stack);
     
     try {
       // 1. Gamification
-      console.log('🔍 [DEBUG] DataSyncService.syncAll - Iniciando gamificação...');
+      if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Iniciando gamificação...');
       const gm = useGamificationStoreV21.getState();
       await db.saveGamificationData({ userId, ...gm });
-      console.log('✅ [DEBUG] DataSyncService.syncAll - Gamificação salva');
+      if (this.IS_DEBUG) console.log('✅ [DEBUG] DataSyncService.syncAll - Gamificação salva');
     // 1.a. Histórico de gamificação gerenciado diretamente em addHistoryItem; removido do syncAll para evitar duplicações
     
     // 2. Tasks: sincronizar a partir do store
-    console.log('🔍 [DEBUG] DataSyncService.syncAll - Iniciando tarefas...');
+    if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Iniciando tarefas...');
     const tasksToSync = useTaskStore.getState().tasks;
-    console.log('🔍 [DEBUG] DataSyncService.syncAll - Tarefas para sincronizar:', tasksToSync.length);
+    if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Tarefas para sincronizar:', tasksToSync.length);
     for (const t of tasksToSync) await db.saveTask(userId, t);
-    console.log('✅ [DEBUG] DataSyncService.syncAll - Tarefas sincronizadas');
+    if (this.IS_DEBUG) console.log('✅ [DEBUG] DataSyncService.syncAll - Tarefas sincronizadas');
     
     // 2.a. Limpeza de tarefas concluídas após meia-noite no fuso de Brasília
     await this.cleanupCompletedTasks(userId);
 
     // 3. Habits: sincronizar local para Supabase
     try {
-      console.log('🔍 [DEBUG] DataSyncService.syncAll - Iniciando hábitos...');
+      if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Iniciando hábitos...');
       const state = useHabitStore.getState();
       const habitsToSync = Object.values(state.habits);
-      console.log('🔍 [DEBUG] DataSyncService.syncAll - Hábitos para sincronizar:', habitsToSync.length);
+      if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Hábitos para sincronizar:', habitsToSync.length);
       
       for (const habit of habitsToSync) {
         try {
-          console.log('🔍 [DEBUG] DataSyncService.syncAll - Sincronizando hábito:', habit.id, habit.name);
+          if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Sincronizando hábito:', habit.id, habit.name);
           await db.saveHabit(userId, habit);
-          console.log('✅ [DEBUG] DataSyncService.syncAll - Hábito salvo:', habit.name);
+          if (this.IS_DEBUG) console.log('✅ [DEBUG] DataSyncService.syncAll - Hábito salvo:', habit.name);
           
         } catch (habitError) {
           console.error('❌ [DEBUG] DataSyncService.syncAll - Erro ao sincronizar hábito:', habit.name, habitError);
           // Continuar com o próximo hábito
         }
       }
-      console.log('✅ [DEBUG] DataSyncService.syncAll - Hábitos sincronizados');
+      if (this.IS_DEBUG) console.log('✅ [DEBUG] DataSyncService.syncAll - Hábitos sincronizados');
     } catch (error) {
       console.error('❌ [DEBUG] DataSyncService.syncAll - Erro na seção de hábitos:', error);
       // Não fazer throw aqui para não interromper o sync
     }
     
-    console.log('🔍 [DEBUG] DataSyncService.syncAll - Passou da seção de hábitos, continuando...');
+    if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Passou da seção de hábitos, continuando...');
 
     // 4. Goals: sincronizar a partir do store
-    console.log('🔍 [DEBUG] DataSyncService.syncAll - Iniciando metas...');
-    console.log('🔍 [DEBUG] DataSyncService.syncAll - CHEGOU NA SEÇÃO DE METAS!');
+    if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Iniciando metas...');
+    if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - CHEGOU NA SEÇÃO DE METAS!');
     const goalStore = useGoalStore.getState();
-    console.log('🔍 [DEBUG] DataSyncService.syncAll - Estado completo do GoalStore:', goalStore);
+    if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Estado completo do GoalStore:', goalStore);
     const goalsToSync = goalStore.goals;
-    console.log('🔍 [DEBUG] DataSyncService.syncAll - Metas para sincronizar:', goalsToSync.length);
+    if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Metas para sincronizar:', goalsToSync.length);
     for (const g of goalsToSync) {
-      console.log('🔍 [DEBUG] DataSyncService.syncAll - Sincronizando meta:', g.id, g.title);
+      if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Sincronizando meta:', g.id, g.title);
       await db.saveGoal(userId, g);
     }
     // METAS NUNCA SÃO REMOVIDAS AUTOMATICAMENTE
     // Apenas o usuário pode remover metas manualmente através do dropdown
     // Metas concluídas permanecem no sistema para histórico
-    console.log('🔍 [DEBUG] DataSyncService.syncAll - Metas sincronizadas (sem limpeza automática)');
-    console.log('✅ [DEBUG] DataSyncService.syncAll - Metas sincronizadas');
+    if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Metas sincronizadas (sem limpeza automática)');
+    if (this.IS_DEBUG) console.log('✅ [DEBUG] DataSyncService.syncAll - Metas sincronizadas');
 
     // 5. PixelBuddy: sincronizar estado atual (equipamentos e inventário)
-    console.log('🔍 [DEBUG] DataSyncService.syncAll - Iniciando sincronização do PixelBuddy...');
+    if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Iniciando sincronização do PixelBuddy...');
     try {
       const pixelBuddyState = usePixelBuddyStore.getState();
       await db.savePixelBuddyState(userId, {
@@ -496,11 +497,11 @@ class DataSyncService {
         effect: pixelBuddyState.effect,
         inventory: pixelBuddyState.inventory
       });
-      console.log('✅ [DEBUG] DataSyncService.syncAll - PixelBuddy sincronizado');
+      if (this.IS_DEBUG) console.log('✅ [DEBUG] DataSyncService.syncAll - PixelBuddy sincronizado');
     } catch (error: any) {
       if (error?.code === 'PGRST205' || error?.message?.includes('Could not find the table')) {
-        console.warn('⚠️ [DEBUG] DataSyncService.syncAll - Tabela pixelbuddy_state não existe. Execute o SQL de criação da tabela.');
-        console.warn('📋 [DEBUG] DataSyncService.syncAll - Consulte o arquivo: create-pixelbuddy-state-table.sql');
+        if (this.IS_DEBUG) console.warn('⚠️ [DEBUG] DataSyncService.syncAll - Tabela pixelbuddy_state não existe. Execute o SQL de criação da tabela.');
+        if (this.IS_DEBUG) console.warn('📋 [DEBUG] DataSyncService.syncAll - Consulte o arquivo: create-pixelbuddy-state-table.sql');
       } else {
         console.error('❌ [DEBUG] DataSyncService.syncAll - Erro na sincronização do PixelBuddy:', error);
       }
@@ -512,13 +513,13 @@ class DataSyncService {
       await db.saveShopItem(userId, item as any);
     }
     
-    console.log('✅ [DEBUG] DataSyncService.syncAll concluído com sucesso');
+    if (this.IS_DEBUG) console.log('✅ [DEBUG] DataSyncService.syncAll concluído com sucesso');
     } catch (error) {
       console.error('❌ [DEBUG] DataSyncService.syncAll erro:', error);
       // Não rethrow para não interromper outras seções de sincronização
     } finally {
       this.isSyncing = false;
-      console.log('🔍 [DEBUG] DataSyncService.syncAll - Flag isSyncing resetada');
+      if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Flag isSyncing resetada');
     }
   }
 }
@@ -533,7 +534,7 @@ if (typeof window !== 'undefined') {
       console.error('❌ Usuário não logado');
       return;
     }
-    console.log('🧪 Testando limpeza manual de tarefas...');
+    if (this.IS_DEBUG) console.log('🧪 Testando limpeza manual de tarefas...');
     await dataSyncService.forceCleanupCompletedTasks(userId);
   };
 }

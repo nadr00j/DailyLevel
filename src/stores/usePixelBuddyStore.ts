@@ -16,6 +16,9 @@ export interface PixelBuddyItem {
   unlockCondition?: string;
 }
 
+// Debug flag
+const IS_DEBUG = false;
+
 interface PixelBuddyState {
   body: string | null;
   head: string | null;
@@ -121,7 +124,7 @@ export const usePixelBuddyStore = create<PixelBuddyState>()(
         
         try {
           await dataSyncService.syncAll(userId);
-          console.log('✅ [DEBUG] PixelBuddyStore - Estado sincronizado com Supabase');
+          if (IS_DEBUG) console.log('✅ [DEBUG] PixelBuddyStore - Estado sincronizado com Supabase');
         } catch (error) {
           console.error('❌ [DEBUG] PixelBuddyStore - Erro ao sincronizar com Supabase:', error);
         }
@@ -147,7 +150,7 @@ export const usePixelBuddyStore = create<PixelBuddyState>()(
         const newBody = getBodyFromXp(xp);
         const newHead = getHeadFromVitality(vitality);
 
-        console.log('[PixelBuddyStore] Inicializando com:', { xp, vitality, newBody, newHead });
+        if (IS_DEBUG) console.log('[PixelBuddyStore] Inicializando com:', { xp, vitality, newBody, newHead });
 
         set({
           body: newBody,
