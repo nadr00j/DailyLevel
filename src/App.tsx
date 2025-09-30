@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { dataSyncService } from '@/lib/DataSyncService';
 import { VitalityListener } from '@/components/gamification/VitalityListener';
 import { GamificationListener } from '@/components/gamification/GamificationListener';
@@ -16,6 +17,8 @@ const queryClient = new QueryClient();
 
 const App = () => {
   const { user, isAuthenticated, isLoading } = useAuthStore();
+  const { setUserId } = useGamificationStoreV21();
+  const isInitializedRef = useRef(false);
   
   // Hook para sincronização automática
   useAutoSync();
@@ -28,16 +31,16 @@ const App = () => {
       userEmail: user?.email 
     });
     
-    // Verificações rigorosas para evitar userId undefined
-    if (isAuthenticated && user?.id && user.id !== 'undefined' && !isLoading) {
+    // Verificações rigorosas para evitar userId undefined e múltiplas execuções
+    if (isAuthenticated && user?.id && user.id !== 'undefined' && !isLoading && !isInitializedRef.current) {
       console.log('[App] Usuário autenticado, definindo userId no store:', user.id);
       
-      // Definir userId no store de gamificação
-      const gamificationStore = useGamificationStoreV21.getState();
-      if (gamificationStore.userId !== user.id) {
-        gamificationStore.setUserId(user.id);
-        console.log('[App] userId definido no store de gamificação');
-      }
+      // Marcar como inicializado para evitar múltiplas execuções
+      isInitializedRef.current = true;
+      
+      // Definir userId no store de gamificação usando hook
+      setUserId(user.id);
+      console.log('[App] userId definido no store de gamificação');
       
       console.log('[App] Chamando dataSyncService.loadAll para userId:', user.id);
       dataSyncService.loadAll(user.id).catch(error => {
@@ -49,7 +52,8 @@ const App = () => {
         hasUser: !!user,
         userId: user?.id,
         userIdValid: user?.id && user.id !== 'undefined',
-        isLoading
+        isLoading,
+        alreadyInitialized: isInitializedRef.current
       });
     }
   }, [isAuthenticated, user?.id, isLoading]);
