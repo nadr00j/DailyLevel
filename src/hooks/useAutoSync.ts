@@ -49,17 +49,44 @@ export function useAutoSync() {
     }
   };
 
-  // Função debounced para sincronização
-  const debouncedSync = debounce(syncToSupabase, 2000); // 2 segundos de delay
+  // Função debounced para sincronização - REDUZIDO para sincronização mais rápida
+  const debouncedSync = debounce(syncToSupabase, 500); // 500ms de delay
 
   // Assina mudanças no store de gamificação para auto-sync
   useEffect(() => {
     if (!isAuthenticated || !user) return;
     const store = useGamificationStoreV21;
-    let prev = { xp: store.getState().xp, coins: store.getState().coins };
+    let prev = { 
+      xp: store.getState().xp, 
+      coins: store.getState().coins,
+      xp30d: store.getState().xp30d,
+      vitality: store.getState().vitality,
+      historyLength: store.getState().history.length
+    };
+    
     const unsubscribe = store.subscribe((state) => {
-      if (state.xp !== prev.xp || state.coins !== prev.coins) {
-        prev = { xp: state.xp, coins: state.coins };
+      const hasChanges = (
+        state.xp !== prev.xp || 
+        state.coins !== prev.coins ||
+        state.xp30d !== prev.xp30d ||
+        state.vitality !== prev.vitality ||
+        state.history.length !== prev.historyLength
+      );
+      
+      if (hasChanges) {
+        console.log('🔄 [AutoSync] Mudança detectada no store de gamificação:', {
+          xp: `${prev.xp} → ${state.xp}`,
+          coins: `${prev.coins} → ${state.coins}`,
+          historyLength: `${prev.historyLength} → ${state.history.length}`
+        });
+        
+        prev = { 
+          xp: state.xp, 
+          coins: state.coins,
+          xp30d: state.xp30d,
+          vitality: state.vitality,
+          historyLength: state.history.length
+        };
         debouncedSync(user.id);
       }
     });

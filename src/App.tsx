@@ -10,11 +10,15 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { dataSyncService } from '@/lib/DataSyncService';
 import { VitalityListener } from '@/components/gamification/VitalityListener';
 import { GamificationListener } from '@/components/gamification/GamificationListener';
+import { useAutoSync } from '@/hooks/useAutoSync';
 
 const queryClient = new QueryClient();
 
 const App = () => {
   const { user, isAuthenticated, isLoading } = useAuthStore();
+  
+  // Hook para sincronização automática
+  useAutoSync();
   
   useEffect(() => {
     console.log('[App] useEffect executado:', { 
@@ -24,7 +28,17 @@ const App = () => {
       userEmail: user?.email 
     });
     
-    if (user?.id && !isLoading) {
+    // Verificações rigorosas para evitar userId undefined
+    if (isAuthenticated && user?.id && user.id !== 'undefined' && !isLoading) {
+      console.log('[App] Usuário autenticado, definindo userId no store:', user.id);
+      
+      // Definir userId no store de gamificação
+      const gamificationStore = useGamificationStoreV21.getState();
+      if (gamificationStore.userId !== user.id) {
+        gamificationStore.setUserId(user.id);
+        console.log('[App] userId definido no store de gamificação');
+      }
+      
       console.log('[App] Chamando dataSyncService.loadAll para userId:', user.id);
       dataSyncService.loadAll(user.id).catch(error => {
         console.error('[App] Erro no loadAll:', error);
@@ -34,10 +48,11 @@ const App = () => {
         isAuthenticated,
         hasUser: !!user,
         userId: user?.id,
+        userIdValid: user?.id && user.id !== 'undefined',
         isLoading
       });
     }
-  }, [user?.id, isLoading]);
+  }, [isAuthenticated, user?.id, isLoading]);
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

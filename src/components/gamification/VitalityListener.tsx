@@ -5,21 +5,25 @@ import { useHabitStore } from '@/stores/useHabitStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
+import { useVitalityV21 } from '@/hooks/useVitalityV21';
 
-// Flag para controlar logs de debug em produção
-const IS_DEBUG = process.env.NODE_ENV === 'development';
+// Flag para controlar logs de debug em produção - REDUZIDA
+const IS_DEBUG = false; // Desabilitado para reduzir spam no console
 
 export const VitalityListener = () => {
   // ✅ TODOS OS HOOKS NO INÍCIO (antes de qualquer early return)
   const { user, isAuthenticated } = useAuthStore();
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasDataLoaded, setHasDataLoaded] = useState(false);
-  const { xp, vitality, mood, addXp, history } = useGamificationStoreV21();
+  const { xp, vitality, mood, addXp, history, syncVitalityFromSupabase } = useGamificationStoreV21();
   const { setBase, initializeFromGamification } = usePixelBuddyStore();
   const { habits } = useHabitStore();
   const habitLogs = useHabitStore(state => state.logs);
   const { todayTasks } = useTasks();
   const { activeGoals, completedGoals } = useGoals();
+  
+  // ✅ HOOK DE VITALIDADE V2.1 para sincronizar com Supabase
+  const { vitalityState, syncOnOpen, applyEvent } = useVitalityV21();
   
   // ✅ TODOS OS useRef TAMBÉM NO INÍCIO
   const prevXpRef = useRef(xp);
@@ -84,6 +88,21 @@ export const VitalityListener = () => {
         
         // Passar categoria explícita para addXp
         addXp(eventData.type || 'task', eventData.tags, eventData.category);
+        
+        // Aplicar evento na vitalidade do Supabase
+        if (applyEvent) {
+          try {
+            await applyEvent({
+              type: eventType as 'HABIT_DONE' | 'TASK_DONE' | 'GOAL_DONE' | 'XP_GAIN' | 'COIN_GAIN',
+              payload: eventData
+            });
+            if (IS_DEBUG) {
+              console.log(`[VitalityListener] Evento aplicado no Supabase: ${eventType}`);
+            }
+          } catch (vitalityError) {
+            console.error('[VitalityListener] Erro ao aplicar evento na vitalidade:', vitalityError);
+          }
+        }
       } else {
         if (IS_DEBUG) {
           console.warn('⚠️ [VitalityListener] Evento sem tags válidas ignorado:', { eventType, eventData });
@@ -96,7 +115,7 @@ export const VitalityListener = () => {
     } finally {
       isProcessingRef.current = false;
     }
-  }, [addXp]);
+  }, [addXp, applyEvent]);
   
   // Limpar cache de eventos processados - OTIMIZADO
   useEffect(() => {
@@ -179,12 +198,26 @@ export const VitalityListener = () => {
     }
   }, [habits, todayTasks, activeGoals, completedGoals, history, xp, hasDataLoaded, habitLogs, todayString]);
 
+  // ✅ SINCRONIZAR VITALIDADE DO SUPABASE COM O GAMIFICATION STORE
+  useEffect(() => {
+    if (vitalityState.value !== vitality) {
+      if (IS_DEBUG) {
+        console.log('[VitalityListener] Sincronizando vitalidade:', {
+          supabaseValue: vitalityState.value,
+          currentValue: vitality,
+          version: vitalityState.version
+        });
+      }
+      syncVitalityFromSupabase(vitalityState.value);
+    }
+  }, [vitalityState.value, vitalityState.version, vitality, syncVitalityFromSupabase]);
+
   // Aguardar carregamento inicial dos dados - OTIMIZADO
   useEffect(() => {
     const timer = setTimeout(() => {
       if (IS_DEBUG) {
         console.log('[VitalityListener] Carregamento inicial concluído, iniciando detecção de eventos');
-        console.log('[VitalityListener] Inicializando PixelBuddy com:', { xp, vitality });
+        console.log('[VitalityListener] Inicializando PixelBuddy com:', { xp, vitality: vitalityState.value });
       }
       setIsInitialLoading(false);
       
@@ -194,20 +227,23 @@ export const VitalityListener = () => {
         if (IS_DEBUG) console.log('[VitalityListener] FALLBACK: Forçando hasDataLoaded = true após timeout');
       }
       
-      // Sempre inicializar, mesmo com valores 0 (usuário novo)
-      initializeFromGamification(xp, vitality);
+      // Sempre inicializar, usando vitalidade do Supabase
+      initializeFromGamification(xp, vitalityState.value);
     }, 3000); // Aumentado para 3s para dar tempo dos dados carregarem
 
     return () => clearTimeout(timer);
-  }, [hasDataLoaded, xp, vitality, initializeFromGamification]); // Adicionadas dependências
+  }, [hasDataLoaded, xp, vitalityState.value, initializeFromGamification]); // Usar vitalityState.value
 
   // OTIMIZAÇÃO: Memoizar cálculo do PixelBuddy para evitar recálculos desnecessários
   const pixelBuddyAssets = useMemo(() => {
+    // Usar vitalidade do Supabase
+    const currentVitality = vitalityState.value;
+    
     // Atualizar body baseado na vitalidade
     let newBody: string;
-    if (vitality < 25) {
+    if (currentVitality < 25) {
       newBody = '/Nadr00J/bodies/body_lvl1.png';
-    } else if (vitality < 50) {
+    } else if (currentVitality < 50) {
       newBody = '/Nadr00J/bodies/body_lvl2.png';
     } else {
       newBody = '/Nadr00J/bodies/body_lvl3.png';
@@ -215,20 +251,28 @@ export const VitalityListener = () => {
     
     // Atualizar head baseado na vitalidade
     let newHead: string;
-    if (vitality < 25) {
+    if (currentVitality < 25) {
       newHead = '/Nadr00J/heads/head_tired.png';
-    } else if (vitality < 50) {
+    } else if (currentVitality < 50) {
       newHead = '/Nadr00J/heads/head_sad.png';
-    } else if (vitality < 75) {
+    } else if (currentVitality < 75) {
       newHead = '/Nadr00J/heads/head_neutral.png';
-    } else if (vitality < 90) {
+    } else if (currentVitality < 90) {
       newHead = '/Nadr00J/heads/head_happy.png';
     } else {
       newHead = '/Nadr00J/heads/head_confident.png';
     }
     
+    if (IS_DEBUG) {
+      console.log('[VitalityListener] PixelBuddy assets:', {
+        vitalityValue: currentVitality,
+        newBody,
+        newHead
+      });
+    }
+    
     return { newBody, newHead };
-  }, [vitality]); // Apenas recalcula quando vitality muda
+  }, [vitalityState.value]); // Recalcula quando vitalidade do Supabase muda
 
   // Atualizar PixelBuddy quando assets mudam
   useEffect(() => {

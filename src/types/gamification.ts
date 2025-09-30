@@ -39,6 +39,9 @@ export interface HistoryItem {
 export type Aspect = 'bal' | 'str' | 'int' | 'cre' | 'soc';
 
 export interface GamificationState {
+  // identificação do usuário
+  userId: string;
+  
   // métricas principais
   xp: number;
   coins: number;
@@ -70,5 +73,8 @@ export interface GamificationState {
   syncFromSupabase: (data: any) => void;
   syncVitalityFromSupabase: (vitalityValue: number) => void;
   setConfig: (cfg: Partial<GamificationConfig>) => void;
+  setUserId: (userId: string) => void;
+  spendCoins: (amount: number) => Promise<boolean>;
+  addCoins: (amount: number) => Promise<void>;
   init: () => void;
 }

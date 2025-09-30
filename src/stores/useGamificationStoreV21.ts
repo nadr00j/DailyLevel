@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import localforage from 'localforage';
 import dayjs from 'dayjs';
+import { db } from '@/lib/database';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 import type {
   ActionType,
@@ -14,15 +16,12 @@ import defaultConfigJson from '@/config/gamificationConfig.json';
 
 // Forçar recarregamento da configuração
 const defaultConfig = defaultConfigJson as GamificationConfig;
-console.log('[Gamification Debug] Configuração recarregada:', defaultConfig);
 
 import { toast } from '@/components/ui/use-toast';
 import { useVictoryDialog } from '@/stores/useVictoryDialog';
 import { usePixelBuddyStore } from '@/stores/usePixelBuddyStore';
 import { useHabitStore } from './useHabitStore';
-import { useAuthStore } from '@/stores/useAuthStore';
 import { dataSyncService } from '@/lib/DataSyncService';
-import { db } from '@/lib/database';
 
 // util: classifica categoria a partir das tags
 function resolveCategory(tags: string[] | undefined, cfg: GamificationConfig): string | undefined {
@@ -34,11 +33,6 @@ function resolveCategory(tags: string[] | undefined, cfg: GamificationConfig): s
   for (const [name, c] of Object.entries(cfg.categories)) {
     const matchingTags = tags.filter(t => c.tags.includes(t));
     if (matchingTags.length > 0) {
-      console.log('[ResolveCategory Debug] Encontrou categoria por tags:', { 
-        categoryName: name, 
-        matchingTags, 
-        categoryTags: c.tags 
-      });
       return name;
     }
   }
@@ -46,13 +40,9 @@ function resolveCategory(tags: string[] | undefined, cfg: GamificationConfig): s
   // Se não encontrou correspondência, verificar se alguma tag é uma categoria válida
   for (const tag of tags) {
     if (cfg.categories[tag]) {
-      console.log('[ResolveCategory Debug] Encontrou categoria direta:', { tag });
       return tag;
     }
   }
-  
-  // Se não encontrou nada, retornar undefined (sem categoria)
-  console.log('[ResolveCategory Debug] Nenhuma categoria encontrada, retornando undefined');
   return undefined;
 }
 
@@ -118,17 +108,6 @@ function calcVitality(xp30d: number, cfg: GamificationConfig, history: any[]) {
     baseVitality + goalBonus + consistencyBonus + activityBonus
   ));
   
-  // Debug detalhado (removido logs de penalidades que não são mais calculadas aqui)
-  console.log('[Vitality Debug - Local Only]', {
-    baseVitality: Math.round(baseVitality),
-    goalBonus: Math.round(goalBonus),
-    activityBonus: Math.round(activityBonus),
-    consistencyBonus: Math.round(consistencyBonus),
-    localVitality: Math.round(localVitality),
-    completedGoalsToday,
-    hasActivityToday,
-    activeDays
-  });
   
   return localVitality;
 }
@@ -188,10 +167,46 @@ export const useGamificationStoreV21 = create<GamificationState>()(
   persist(
     (set, get) => ({
       // ------- estado inicial -------
-      xp: 0,
-      coins: 0,
+      userId: '',
+      xp: (() => {
+        try {
+          const quickSave = localStorage.getItem('dl-quick-stats');
+          if (quickSave) {
+            const data = JSON.parse(quickSave);
+            console.log('[Store Init] 🔄 Carregando XP do localStorage:', data.xp);
+            return data.xp || 0;
+          }
+        } catch (error) {
+          console.error('[Store Init] Erro ao carregar XP do localStorage:', error);
+        }
+        return 0;
+      })(),
+      coins: (() => {
+        try {
+          const quickSave = localStorage.getItem('dl-quick-stats');
+          if (quickSave) {
+            const data = JSON.parse(quickSave);
+            console.log('[Store Init] 🔄 Carregando Coins do localStorage:', data.coins);
+            return data.coins || 0;
+          }
+        } catch (error) {
+          console.error('[Store Init] Erro ao carregar Coins do localStorage:', error);
+        }
+        return 0;
+      })(),
       xp30d: 0,
-      vitality: 10,
+      vitality: (() => {
+        try {
+          const quickSave = localStorage.getItem('dl-quick-stats');
+          if (quickSave) {
+            const data = JSON.parse(quickSave);
+            return data.vitality || 10;
+          }
+        } catch (error) {
+          console.error('[Store Init] Erro ao carregar Vitality do localStorage:', error);
+        }
+        return 10;
+      })(),
       mood: 'neutral' as const,
       xpMultiplier: 1,
       xpMultiplierExpiry: 0,
@@ -200,30 +215,52 @@ export const useGamificationStoreV21 = create<GamificationState>()(
       cre: 0,
       soc: 0,
       aspect: 'bal' as Aspect,
-      rankIdx: 0,
-      rankTier: 'Bronze',
-      rankDiv: 1,
+      rankIdx: (() => {
+        try {
+          const quickSave = localStorage.getItem('dl-quick-stats');
+          if (quickSave) {
+            const data = JSON.parse(quickSave);
+            return data.rankIdx || 0;
+          }
+        } catch (error) {
+          console.error('[Store Init] Erro ao carregar RankIdx do localStorage:', error);
+        }
+        return 0;
+      })(),
+      rankTier: (() => {
+        try {
+          const quickSave = localStorage.getItem('dl-quick-stats');
+          if (quickSave) {
+            const data = JSON.parse(quickSave);
+            return data.rankTier || 'Bronze';
+          }
+        } catch (error) {
+          console.error('[Store Init] Erro ao carregar RankTier do localStorage:', error);
+        }
+        return 'Bronze';
+      })(),
+      rankDiv: (() => {
+        try {
+          const quickSave = localStorage.getItem('dl-quick-stats');
+          if (quickSave) {
+            const data = JSON.parse(quickSave);
+            return data.rankDiv || 1;
+          }
+        } catch (error) {
+          console.error('[Store Init] Erro ao carregar RankDiv do localStorage:', error);
+        }
+        return 1;
+      })(),
       history: [],
       config: defaultConfig,
 
       // ------- ações -------
       addXp: (type: ActionType, tags?: string[], explicitCategory?: string) => {
-        console.log('[AddXP Debug] Função addXp chamada com:', { type, tags, explicitCategory });
-        
         const state = get();
         // Capturar rank anterior
         const prevRankIdx = state.rankIdx;
         // Usar a configuração atualizada em vez da persistida
         const cfg = defaultConfig;
-        
-        console.log('[AddXP Debug] Estado atual:', {
-          type,
-          tags,
-          baseXp: cfg.points[type],
-          currentXp: state.xp,
-          currentCoins: state.coins,
-          config: cfg
-        });
         
         // Calcular XP base usando a estrutura correta
         let baseXp = cfg.points[type] || 10;
@@ -236,18 +273,9 @@ export const useGamificationStoreV21 = create<GamificationState>()(
         const newXp = state.xp + finalXp;
         const newCoins = Math.floor(newXp * cfg.points.coinsPerXp);
         
-        console.log('[AddXP Debug] Calculado:', {
-          baseXp,
-          multiplier,
-          finalXp,
-          newXp,
-          newCoins
-        });
-        
         // Calcular novo rank baseado no XP total
         const { idx: newRankIdx, tier: newRankTier, div: newRankDiv } = calcRank(newXp);
         const newRank = { tier: newRankTier, div: newRankDiv };
-        console.log('[AddXP Debug] Rank calculado:', { newRankIdx, newRank });
         
         // Garantir que tags seja um array
         const safeTags = tags || [];
@@ -262,9 +290,8 @@ export const useGamificationStoreV21 = create<GamificationState>()(
         let newAspect: Aspect = 'bal';
         try {
           newAspect = calcAspect({ str: newStr, int: newInt, cre: newCre, soc: newSoc });
-          console.log('[AddXP Debug] Aspecto calculado:', newAspect);
         } catch (error) {
-          console.error('[AddXP Debug] Erro ao calcular aspecto:', error);
+          console.error('[AddXP] Erro ao calcular aspecto:', error);
         }
         
         // Calcular vitalidade (XP dos últimos 30 dias)
@@ -274,9 +301,8 @@ export const useGamificationStoreV21 = create<GamificationState>()(
         let newXp30d = 0;
         try {
           newXp30d = rollingSum(recentHistory) + finalXp;
-          console.log('[AddXP Debug] XP30d calculado:', newXp30d);
         } catch (error) {
-          console.error('[AddXP Debug] Erro ao calcular XP30d:', error);
+          console.error('[AddXP] Erro ao calcular XP30d:', error);
           newXp30d = finalXp;
         }
         
@@ -284,27 +310,15 @@ export const useGamificationStoreV21 = create<GamificationState>()(
         // O cálculo local é mantido apenas para fallback/debug
         let newVitality = state.vitality; // Manter valor atual por padrão
         
-        // Tentar obter valor do Supabase se disponível
-        try {
-          // O valor real da vitalidade vem do useVitalityV21 que sincroniza com Supabase
-          // Este cálculo local é apenas para referência e não deve ser usado como valor final
-          const localVitality = Math.floor(calcVitality(newXp30d, cfg, state.history));
-          console.log('[AddXP Debug] Vitalidade local (referência):', localVitality, '| Vitalidade atual (Supabase):', state.vitality);
-          
-          // Usar valor atual do state (que vem do Supabase via useVitalityV21)
-          newVitality = state.vitality;
-        } catch (error) {
-          console.error('[AddXP Debug] Erro ao calcular vitalidade de referência:', error);
-          newVitality = state.vitality; // Manter valor atual
-        }
+        // Usar vitalidade atual do state (sincronizada via useVitalityV21)
+        newVitality = state.vitality;
         
         // Calcular humor baseado na vitalidade
         let newMood = 'neutral';
         try {
           newMood = getMoodFromVitality(newVitality);
-          console.log('[AddXP Debug] Humor calculado:', newMood);
         } catch (error) {
-          console.error('[AddXP Debug] Erro ao calcular humor:', error);
+          console.error('[AddXP] Erro ao calcular humor:', error);
         }
         
         // Atualizar estado
@@ -331,18 +345,32 @@ export const useGamificationStoreV21 = create<GamificationState>()(
               tags: safeTags,
               category: (() => {
                 try {
-                  console.log('[AddXP Debug] Resolvendo categoria:', { tags: safeTags, configCategories: Object.keys(cfg.categories) });
-                  const resolvedCategory = resolveCategory(safeTags, cfg);
-                  console.log('[AddXP Debug] Categoria resolvida:', { tags: safeTags, category: resolvedCategory });
-                  return resolvedCategory;
+                  return resolveCategory(safeTags, cfg);
                 } catch (error) {
-                  console.error('[AddXP Debug] Erro ao resolver categoria:', error);
+                  console.error('[AddXP] Erro ao resolver categoria:', error);
                   return undefined;
                 }
               })()
             }]
           });
-          console.log('[AddXP Debug] Estado atualizado com sucesso');
+
+          // CRÍTICO: Salvar XP/moedas/rank no localStorage imediatamente
+          try {
+            const quickSave = {
+              xp: newXp,
+              coins: newCoins,
+              vitality: newVitality,
+              rankIdx: newRankIdx,
+              rankTier: newRankTier,
+              rankDiv: newRankDiv,
+              lastUpdated: Date.now()
+            };
+            localStorage.setItem('dl-quick-stats', JSON.stringify(quickSave));
+            console.log('[AddXP] 💾 Dados salvos no localStorage:', quickSave);
+          } catch (error) {
+            console.error('[AddXP] Erro ao salvar no localStorage:', error);
+          }
+          
           // Disparar diálogo de vitória se subiu de rank
           if (newRankIdx > prevRankIdx) {
             const roman = ['I','II','III'];
@@ -351,7 +379,7 @@ export const useGamificationStoreV21 = create<GamificationState>()(
             useVictoryDialog.getState().show('Promoção de Rank!', 0, iconPath);
           }
         } catch (error) {
-          console.error('[AddXP Debug] Erro ao atualizar estado:', error);
+          console.error('[AddXP] Erro ao atualizar estado:', error);
         }
         
         // Salvar no history_items do Supabase
@@ -372,47 +400,76 @@ export const useGamificationStoreV21 = create<GamificationState>()(
               
               // Usar categoria explícita se fornecida, senão resolver pelas tags
               if (explicitCategory) {
-                const capitalizedCategory = capitalizeFirstLetter(explicitCategory);
-                console.log('[AddXP Debug] Usando categoria explícita capitalizada:', explicitCategory, '→', capitalizedCategory);
-                return capitalizedCategory;
+                return capitalizeFirstLetter(explicitCategory);
               }
               
               try {
                 const resolvedCategory = resolveCategory(safeTags, cfg);
-                if (resolvedCategory) {
-                  const capitalizedCategory = capitalizeFirstLetter(resolvedCategory);
-                  console.log('[AddXP Debug] Categoria resolvida e capitalizada:', resolvedCategory, '→', capitalizedCategory);
-                  return capitalizedCategory;
-                }
-                console.log('[AddXP Debug] Categoria resolvida pelas tags:', resolvedCategory);
-                return resolvedCategory;
+                return resolvedCategory ? capitalizeFirstLetter(resolvedCategory) : resolvedCategory;
               } catch (error) {
-                console.error('[AddXP Debug] Erro ao resolver categoria para history:', error);
+                console.error('[AddXP] Erro ao resolver categoria para history:', error);
                 return undefined;
               }
             })()
           };
           
-          console.log('[AddXP Debug] Salvando no history_items:', historyEntry);
           db.addHistoryItem(userId, historyEntry)
-            .then(() => {
-              console.log('[AddXP Debug] Item salvo no history_items com sucesso');
-            })
             .catch(err => {
-              console.error('[AddXP Debug] Erro ao salvar no history_items:', err);
+              console.error('[AddXP] Erro ao salvar no history_items:', err);
             });
         }
 
         // Atualizar PixelBuddy automaticamente
         try {
           updatePixelBuddyState(newXp, newVitality, newMood);
-          console.log('[AddXP Debug] PixelBuddy atualizado com sucesso');
         } catch (error) {
-          console.error('[AddXP Debug] Erro ao atualizar PixelBuddy:', error);
+          console.error('[AddXP] Erro ao atualizar PixelBuddy:', error);
         }
-        
-        // Toast será exibido automaticamente pelo GamificationListener
-        console.log('[AddXP Debug] XP adicionado, toast será exibido pelo GamificationListener');
+
+        // CRÍTICO: Salvar dados atualizados no Supabase imediatamente
+        if (userId) {
+          try {
+            // Usar os valores calculados diretamente, não get() que pode estar desatualizado
+            const dataToSave = {
+              userId,
+              xp: newXp,
+              coins: newCoins,
+              xp30d: newXp30d,
+              vitality: newVitality,
+              mood: newMood,
+              str: newStr,
+              int: newInt,
+              cre: newCre,
+              soc: newSoc,
+              aspect: newAspect,
+              rankIdx: newRankIdx,
+              rankTier: newRankTier,
+              rankDiv: newRankDiv,
+              xpMultiplier: state.xpMultiplier,
+              xpMultiplierExpiry: state.xpMultiplierExpiry,
+              history: [...state.history, {
+                ts: now,
+                type,
+                xp: finalXp,
+                coins: Math.floor(finalXp * cfg.points.coinsPerXp),
+                tags: safeTags,
+                category: explicitCategory ? explicitCategory.charAt(0).toUpperCase() + explicitCategory.slice(1).toLowerCase() : resolveCategory(safeTags, cfg)
+              }]
+            };
+            
+            console.log('[AddXP] Salvando no Supabase:', { xp: dataToSave.xp, coins: dataToSave.coins });
+            
+            db.saveGamificationData(dataToSave).then(() => {
+              console.log('[AddXP] ✅ Dados salvos no Supabase com sucesso');
+            }).catch(err => {
+              console.error('[AddXP] ❌ Erro ao salvar no Supabase:', err);
+            });
+          } catch (error) {
+            console.error('[AddXP] Erro ao preparar dados para Supabase:', error);
+          }
+        } else {
+          console.warn('[AddXP] ⚠️ UserId não disponível, não salvando no Supabase');
+        }
       },
 
       setXpMultiplier: (multiplier: number, duration: number) => {
@@ -459,12 +516,6 @@ export const useGamificationStoreV21 = create<GamificationState>()(
         const state = get();
         const newMood = getMoodFromVitality(vitalityValue);
         
-        console.log('[GamificationStore] Sincronizando vitalidade do Supabase:', {
-          anterior: state.vitality,
-          nova: vitalityValue,
-          mood: newMood
-        });
-        
         set({
           vitality: vitalityValue,
           mood: newMood as 'happy' | 'neutral' | 'tired' | 'sad'
@@ -476,44 +527,189 @@ export const useGamificationStoreV21 = create<GamificationState>()(
 
       // Função para sincronizar dados do Supabase
       syncFromSupabase: (data: any) => {
-        console.log('[Gamification V2.1] syncFromSupabase chamado com dados:', data);
+        if (!data) {
+          console.warn('[Gamification] syncFromSupabase: dados vazios');
+          return;
+        }
         
-        if (data) {
-          const newRank = calcRank(data.xp);
-          const newAttrs = calcAttributes(data.history || [], data.config || defaultConfig);
-          const newAspect = calcAspect(newAttrs);
-          
-          console.log('[Gamification V2.1] Calculando novos valores:', {
-            xp: data.xp,
-            newRank,
-            newAttrs,
-            newAspect
-          });
-          
-          set({
-            xp: data.xp || 0,
-            coins: data.coins || 0,
-            xp30d: data.xp30d || 0,
-            str: newAttrs.str,
-            int: newAttrs.int,
-            cre: newAttrs.cre,
-            soc: newAttrs.soc,
-            aspect: newAspect,
+        const currentState = get();
+        
+        console.log('[Gamification] Sincronizando dados do Supabase:', {
+          local: { xp: currentState.xp, coins: currentState.coins },
+          supabase: { xp: data.xp, coins: data.coins }
+        });
+        
+        // Sincronização normal se dados do Supabase parecem válidos
+        const newRank = calcRank(data.xp);
+        const newAttrs = calcAttributes(data.history || [], data.config || defaultConfig);
+        const newAspect = calcAspect(newAttrs);
+        
+        const syncedXp = data.xp || 0;
+        const syncedCoins = data.coins || 0;
+        const syncedVitality = data.vitality || currentState.vitality;
+
+        set({
+          userId: data.userId || currentState.userId,
+          xp: syncedXp,
+          coins: syncedCoins,
+          xp30d: data.xp30d || 0,
+          vitality: syncedVitality,
+          mood: getMoodFromVitality(syncedVitality) as 'happy' | 'neutral' | 'tired' | 'sad',
+          str: newAttrs.str,
+          int: newAttrs.int,
+          cre: newAttrs.cre,
+          soc: newAttrs.soc,
+          aspect: newAspect,
+          rankIdx: newRank.idx,
+          rankTier: newRank.tier,
+          rankDiv: newRank.div,
+          history: data.history || [],
+          config: data.config || defaultConfig
+        });
+
+        // CRÍTICO: Atualizar localStorage com dados do Supabase
+        try {
+          const quickSave = {
+            xp: syncedXp,
+            coins: syncedCoins,
+            vitality: syncedVitality,
             rankIdx: newRank.idx,
             rankTier: newRank.tier,
             rankDiv: newRank.div,
-            history: data.history || [],
-            config: data.config || defaultConfig
-          });
-          
-          console.log('[Gamification V2.1] Store atualizado com dados do Supabase');
-        } else {
-          console.log('[Gamification V2.1] syncFromSupabase: dados vazios ou nulos');
+            lastUpdated: Date.now()
+          };
+          localStorage.setItem('dl-quick-stats', JSON.stringify(quickSave));
+          console.log('[SyncFromSupabase] 💾 Dados atualizados no localStorage:', quickSave);
+        } catch (error) {
+          console.error('[SyncFromSupabase] Erro ao salvar no localStorage:', error);
         }
       },
 
       setConfig: (cfg: Partial<GamificationConfig>) => {
         set({ config: { ...get().config, ...cfg } });
+      },
+
+      setUserId: (userId: string) => {
+        set({ userId });
+      },
+
+      // CRÍTICO: Função para descontar moedas (compras na loja)
+      spendCoins: async (amount: number) => {
+        const state = get();
+        if (state.coins < amount) {
+          console.warn('[SpendCoins] Moedas insuficientes:', { current: state.coins, needed: amount });
+          return false;
+        }
+
+        const newCoins = state.coins - amount;
+        console.log('[SpendCoins] Descontando moedas:', { before: state.coins, amount, after: newCoins });
+
+        // Atualizar estado
+        set({ coins: newCoins });
+
+        // CRÍTICO: Salvar no localStorage imediatamente
+        try {
+          const quickSave = {
+            xp: state.xp,
+            coins: newCoins,
+            vitality: state.vitality,
+            rankIdx: state.rankIdx,
+            rankTier: state.rankTier,
+            rankDiv: state.rankDiv,
+            lastUpdated: Date.now()
+          };
+          localStorage.setItem('dl-quick-stats', JSON.stringify(quickSave));
+          console.log('[SpendCoins] 💾 Moedas atualizadas no localStorage:', quickSave);
+        } catch (error) {
+          console.error('[SpendCoins] Erro ao salvar no localStorage:', error);
+        }
+
+        // CRÍTICO: Salvar no Supabase
+        if (state.userId && state.userId !== 'undefined') {
+          try {
+            await db.saveGamificationData({
+              userId: state.userId,
+              xp: state.xp,
+              coins: newCoins,
+              vitality: state.vitality,
+              mood: state.mood,
+              str: state.str,
+              int: state.int,
+              cre: state.cre,
+              soc: state.soc,
+              aspect: state.aspect,
+              rankIdx: state.rankIdx,
+              rankTier: state.rankTier,
+              rankDiv: state.rankDiv,
+              xpMultiplier: state.xpMultiplier,
+              xpMultiplierExpiry: state.xpMultiplierExpiry,
+              xp30d: state.xp30d
+            });
+            console.log('[SpendCoins] 💾 Moedas salvas no Supabase');
+          } catch (error) {
+            console.error('[SpendCoins] Erro ao salvar no Supabase:', error);
+          }
+        } else {
+          console.warn('[SpendCoins] ⚠️ userId inválido, não salvando no Supabase:', state.userId);
+        }
+
+        return true;
+      },
+
+      // CRÍTICO: Função para adicionar moedas (vendas na loja)
+      addCoins: async (amount: number) => {
+        const state = get();
+        const newCoins = state.coins + amount;
+        console.log('[AddCoins] Adicionando moedas:', { before: state.coins, amount, after: newCoins });
+
+        // Atualizar estado
+        set({ coins: newCoins });
+
+        // CRÍTICO: Salvar no localStorage imediatamente
+        try {
+          const quickSave = {
+            xp: state.xp,
+            coins: newCoins,
+            vitality: state.vitality,
+            rankIdx: state.rankIdx,
+            rankTier: state.rankTier,
+            rankDiv: state.rankDiv,
+            lastUpdated: Date.now()
+          };
+          localStorage.setItem('dl-quick-stats', JSON.stringify(quickSave));
+          console.log('[AddCoins] 💾 Moedas atualizadas no localStorage:', quickSave);
+        } catch (error) {
+          console.error('[AddCoins] Erro ao salvar no localStorage:', error);
+        }
+
+        // CRÍTICO: Salvar no Supabase
+        if (state.userId && state.userId !== 'undefined') {
+          try {
+            await db.saveGamificationData({
+              userId: state.userId,
+              xp: state.xp,
+              coins: newCoins,
+              vitality: state.vitality,
+              mood: state.mood,
+              str: state.str,
+              int: state.int,
+              cre: state.cre,
+              soc: state.soc,
+              aspect: state.aspect,
+              rankIdx: state.rankIdx,
+              rankTier: state.rankTier,
+              rankDiv: state.rankDiv,
+              xpMultiplier: state.xpMultiplier,
+              xpMultiplierExpiry: state.xpMultiplierExpiry,
+              xp30d: state.xp30d
+            });
+            console.log('[AddCoins] 💾 Moedas salvas no Supabase');
+          } catch (error) {
+            console.error('[AddCoins] Erro ao salvar no Supabase:', error);
+          }
+        } else {
+          console.warn('[AddCoins] ⚠️ userId inválido, não salvando no Supabase:', state.userId);
+        }
       },
 
 
@@ -558,6 +754,7 @@ export const useGamificationStoreV21 = create<GamificationState>()(
       name: 'dl.gamification.v21',
       storage,
       partialize: (state) => ({
+        userId: state.userId,
         xp: state.xp,
         coins: state.coins,
         xp30d: state.xp30d,
@@ -591,7 +788,6 @@ export const useGamificationStoreV21 = create<GamificationState>()(
           const currentVitality = state.vitality || 50; // Usar valor persistido ou padrão
           const newMood = getMoodFromVitality(currentVitality);
           
-          console.log('[Rehydrate] Mantendo vitalidade persistida:', currentVitality, '(será sincronizada pelo useVitalityV21)');
           
           // Atualizar apenas XP30d e mood
           state.xp30d = newXp30d;

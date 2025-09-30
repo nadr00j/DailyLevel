@@ -35,17 +35,8 @@ export const PerformanceReports = () => {
   const userId = useAuthStore(state => state.user?.id);
   const monthRef = useRef<HTMLDivElement>(null);
   
-  // Carregar dados do Supabase quando o componente monta
-  useEffect(() => {
-    if (userId) {
-      console.log('🔄 [PerformanceReports] Carregando dados do Supabase...');
-      dataSyncService.loadAll(userId).then(() => {
-        console.log('✅ [PerformanceReports] Dados carregados com sucesso');
-      }).catch(err => {
-        console.error('❌ [PerformanceReports] Erro ao carregar dados:', err);
-      });
-    }
-  }, [userId]);
+  // Dados são carregados pelo App.tsx, não precisamos carregar aqui
+  // useEffect removido para evitar conflitos de sincronização
 
   // Performance filters state
   const [activePeriod, setActivePeriod] = useState<PeriodType>('week');
@@ -117,6 +108,11 @@ export const PerformanceReports = () => {
     
     const filtered = historyList
       .filter(item => {
+        // Verificar se timestamp é válido
+        if (!item.ts || isNaN(item.ts)) {
+          console.warn('[PerformanceReports] Item com timestamp inválido:', item);
+          return false;
+        }
         const day = new Date(item.ts).toISOString().slice(0,10);
         return selectedDays.includes(day);
       })

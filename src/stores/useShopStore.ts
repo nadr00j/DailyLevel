@@ -20,8 +20,8 @@ interface ShopState {
   setConfettiEnabled: (enabled: boolean) => void;
   openSellConfirmation: (item: ShopItem) => void;
   closeSellConfirmation: () => void;
-  buyItem: (itemId: string) => boolean;
-  sellItem: (itemId: string) => boolean;
+  buyItem: (itemId: string) => Promise<boolean>;
+  sellItem: (itemId: string) => Promise<boolean>;
   setItems: (items: ShopItem[]) => void;
   removeItem: (itemId: string) => void;
   cleanupUnwantedItems: () => void;
@@ -273,18 +273,22 @@ export const useShopStore = create<ShopState>()(
         set({ sellConfirmation: { open: false, item: null, sellPrice: 0 } });
       },
       
-      buyItem: (itemId: string) => {
+      buyItem: async (itemId: string) => {
         const { items } = get();
         const item = items.find(i => i.id === itemId);
         if (!item || item.purchased) return false;
         
-        const { coins } = useGamificationStoreV21.getState();
-        if (coins < item.price) return false;
+        const gamificationStore = useGamificationStoreV21.getState();
+        if (gamificationStore.coins < item.price) return false;
         
-        console.log('[Shop Debug] Buying item:', itemId);
+        console.log('[Shop Debug] Buying item:', itemId, 'Price:', item.price);
         
-        // Deduct coins using proper Zustand set
-        useGamificationStoreV21.setState({ coins: coins - item.price });
+        // CRÍTICO: Usar spendCoins para descontar moedas corretamente
+        const success = await gamificationStore.spendCoins(item.price);
+        if (!success) {
+          console.error('[Shop Debug] Falha ao descontar moedas');
+          return false;
+        }
         
         // Apply item effects
         applyItemEffect(itemId);
@@ -319,7 +323,7 @@ export const useShopStore = create<ShopState>()(
         return true;
       },
       
-      sellItem: (itemId: string) => {
+      sellItem: async (itemId: string) => {
         const { items } = get();
         const item = items.find(i => i.id === itemId);
         if (!item || !item.purchased) return false;
@@ -327,9 +331,10 @@ export const useShopStore = create<ShopState>()(
         // Calculate sell price (half of original price)
         const sellPrice = Math.floor(item.price / 2);
         
-        // Add coins to user
-        const { coins } = useGamificationStoreV21.getState();
-        useGamificationStoreV21.setState({ coins: coins + sellPrice });
+        // CRÍTICO: Usar addCoins para adicionar moedas corretamente
+        const gamificationStore = useGamificationStoreV21.getState();
+        await gamificationStore.addCoins(sellPrice);
+        console.log('[Shop Debug] Selling item:', itemId, 'Sell price:', sellPrice);
         
         // Remove item effects if applicable
         removeItemEffect(itemId);

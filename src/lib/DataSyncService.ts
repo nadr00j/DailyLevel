@@ -123,6 +123,11 @@ class DataSyncService {
   
   // Load data from Supabase into stores and localStorage
   async loadAll(userId: string): Promise<void> {
+    if (!userId || userId === 'undefined') {
+      console.error('❌ [DEBUG] DataSyncService.loadAll - userId inválido:', userId);
+      return;
+    }
+    
     console.log('🔄 [DEBUG] DataSyncService.loadAll - Iniciando carregamento para userId:', userId);
     
     // 1. Gamification
@@ -131,18 +136,78 @@ class DataSyncService {
     console.log('🔄 [DEBUG] DataSyncService.loadAll - Dados de gamificação recebidos:', gamification);
     
     if (gamification) {
-      // Carregar dados do Supabase no store V2.1
-      console.log('🔄 [DEBUG] DataSyncService.loadAll - Sincronizando dados no store V2.1...');
-      useGamificationStoreV21.getState().syncFromSupabase(gamification);
-      console.log('✅ [DEBUG] DataSyncService.loadAll - Dados sincronizados no store V2.1');
+      console.log('🔍 [DEBUG] DataSyncService.loadAll - Dados do Supabase:', {
+        xp: gamification.xp,
+        coins: gamification.coins,
+        vitality: gamification.vitality,
+        xp30d: gamification.xp30d
+      });
+      
+      // SEMPRE sincronizar dados do Supabase como fonte da verdade
+      console.log('🔄 [DEBUG] DataSyncService.loadAll - Sincronizando dados do Supabase...');
+      
+      // Se dados do Supabase estão zerados, tentar reconciliação primeiro
+      if ((gamification.xp === 0 && gamification.coins === 0)) {
+        console.log('⚠️ [DEBUG] DataSyncService.loadAll - Dados zerados, tentando reconciliação...');
+        try {
+          await this.reconcileFromHistory(userId);
+          // Recarregar dados após reconciliação
+          const updatedGamification = await db.getGamificationData(userId);
+          if (updatedGamification) {
+            useGamificationStoreV21.getState().syncFromSupabase({ ...updatedGamification, userId });
+            console.log('✅ [DEBUG] DataSyncService.loadAll - Dados reconciliados e sincronizados');
+          }
+        } catch (error) {
+          console.error('❌ [DEBUG] DataSyncService.loadAll - Erro na reconciliação:', error);
+          // Mesmo com erro, sincronizar o que temos
+          useGamificationStoreV21.getState().syncFromSupabase({ ...gamification, userId });
+        }
+      } else {
+        // Dados válidos, sincronizar normalmente
+        useGamificationStoreV21.getState().syncFromSupabase({ ...gamification, userId });
+        console.log('✅ [DEBUG] DataSyncService.loadAll - Dados sincronizados');
+      }
       
       // 1.a. Carregar histórico de ações (history_items)
       try {
         console.log('🔄 [DEBUG] DataSyncService.loadAll - Carregando histórico de ações...');
         const historyItems = await db.getHistoryItems(userId);
         console.log('🔄 [DEBUG] DataSyncService.loadAll - history_items recebidos do banco:', historyItems);
-        useGamificationStoreV21.setState({ history: historyItems });
-        console.log('✅ [DEBUG] DataSyncService.loadAll - history_items carregados no store:', historyItems.length);
+        
+        // CRÍTICO: Converter dados do Supabase para formato do store
+        const convertedHistory = historyItems.map(item => {
+          // Tentar usar o campo 'ts' primeiro, depois 'created_at' como fallback
+          let timestamp;
+          if (item.ts) {
+            // Se 'ts' é string, converter para timestamp
+            timestamp = typeof item.ts === 'string' ? new Date(item.ts).getTime() : item.ts;
+          } else if (item.created_at) {
+            // Fallback para created_at
+            timestamp = new Date(item.created_at).getTime();
+          } else {
+            // Último recurso: timestamp atual
+            timestamp = Date.now();
+          }
+          
+          // Validar se o timestamp é válido
+          if (isNaN(timestamp)) {
+            console.warn('[DataSync] Timestamp inválido encontrado:', { item, calculatedTs: timestamp });
+            timestamp = Date.now(); // Usar timestamp atual como fallback
+          }
+          
+          return {
+            ts: timestamp,
+            xp: item.xp || 0,
+            type: item.type || 'task',
+            tags: item.tags || [],
+            category: item.category || undefined
+          };
+        });
+        
+        console.log('🔄 [DEBUG] DataSyncService.loadAll - Dados convertidos:', convertedHistory.slice(0, 3));
+        
+        useGamificationStoreV21.setState({ history: convertedHistory });
+        console.log('✅ [DEBUG] DataSyncService.loadAll - history_items carregados no store:', convertedHistory.length);
         
         // Verificar se o store foi atualizado
         const storeHistory = useGamificationStoreV21.getState().history;
@@ -242,8 +307,111 @@ class DataSyncService {
     }
   }
 
+  // Reconciliar dados baseado no histórico
+  async reconcileFromHistory(userId: string): Promise<void> {
+    if (!userId || userId === 'undefined') {
+      console.error('❌ [DataSync] reconcileFromHistory - userId inválido:', userId);
+      return;
+    }
+    
+    try {
+      console.log('🔧 [DataSync] Iniciando reconciliação baseada no histórico...');
+      
+      // Buscar histórico completo
+      const historyItems = await db.getHistoryItems(userId);
+      if (!historyItems || historyItems.length === 0) {
+        console.log('⚠️ [DataSync] Nenhum histórico encontrado para reconciliação');
+        return;
+      }
+      
+      // Calcular totais corretos
+      const totalXP = historyItems.reduce((sum, item) => sum + (item.xp || 0), 0);
+      const totalCoins = historyItems.reduce((sum, item) => sum + (item.coins || 0), 0);
+      
+      // Calcular XP dos últimos 30 dias
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const recentHistory = historyItems.filter(item => {
+        const itemDate = new Date(item.created_at);
+        return itemDate >= thirtyDaysAgo;
+      });
+      const xp30d = recentHistory.reduce((sum, item) => sum + (item.xp || 0), 0);
+      
+      console.log('📊 [DataSync] Dados reconciliados:', { totalXP, totalCoins, xp30d });
+      
+      // Atualizar user_gamification no Supabase
+      const correctedData = {
+        xp: totalXP,
+        coins: totalCoins,
+        xp30d: xp30d,
+        updated_at: new Date().toISOString()
+      };
+      
+      await db.saveGamificationData({ userId, ...useGamificationStoreV21.getState(), ...correctedData });
+      
+      // Atualizar store local
+      const completeData = {
+        ...correctedData,
+        userId,
+        history: historyItems.map(item => {
+          // Usar a mesma lógica de conversão de timestamp
+          let timestamp;
+          if (item.ts) {
+            timestamp = typeof item.ts === 'string' ? new Date(item.ts).getTime() : item.ts;
+          } else if (item.created_at) {
+            timestamp = new Date(item.created_at).getTime();
+          } else {
+            timestamp = Date.now();
+          }
+          
+          if (isNaN(timestamp)) {
+            console.warn('[Reconcile] Timestamp inválido encontrado:', { item, calculatedTs: timestamp });
+            timestamp = Date.now();
+          }
+          
+          return {
+            ts: timestamp,
+            xp: item.xp || 0,
+            type: item.type,
+            tags: item.tags || [],
+            category: item.category
+          };
+        }),
+        config: useGamificationStoreV21.getState().config
+      };
+      
+      useGamificationStoreV21.getState().syncFromSupabase(completeData);
+      console.log('✅ [DataSync] Reconciliação concluída com sucesso');
+      
+    } catch (error) {
+      console.error('❌ [DataSync] Erro na reconciliação:', error);
+    }
+  }
+
+  // Verificar e corrigir vitalidade
+  async validateVitality(userId: string): Promise<void> {
+    try {
+      const gm = useGamificationStoreV21.getState();
+      const xp30d = gm.xp30d || 0;
+      const target = gm.config?.points?.vitalityMonthlyTarget || 500;
+      const expectedVitality = Math.min(100, Math.round((xp30d / target) * 100));
+      
+      if (Math.abs(gm.vitality - expectedVitality) > 5) { // Tolerância de 5 pontos
+        console.log(`🔧 [DataSync] Corrigindo vitalidade: ${gm.vitality} → ${expectedVitality}`);
+        gm.syncVitalityFromSupabase(expectedVitality);
+      }
+    } catch (error) {
+      console.warn('⚠️ [DataSync] Erro ao validar vitalidade:', error);
+    }
+  }
+
   // Sync local changes to Supabase
   async syncAll(userId: string): Promise<void> {
+    if (!userId || userId === 'undefined') {
+      console.error('❌ [DEBUG] DataSyncService.syncAll - userId inválido:', userId);
+      return;
+    }
+    
     // Evitar execuções simultâneas
     if (this.isSyncing) {
       console.log('⚠️ [DEBUG] DataSyncService.syncAll - Já está sincronizando, pulando...');

@@ -114,7 +114,10 @@ export const usePixelBuddyStore = create<PixelBuddyState>()(
 
       syncToSupabase: async () => {
         const userId = useAuthStore.getState().user?.id;
-        if (!userId) return;
+        if (!userId || userId === 'undefined') {
+          console.warn('⚠️ [PixelBuddyStore] syncToSupabase cancelado - userId inválido:', userId);
+          return;
+        }
         
         try {
           await dataSyncService.syncAll(userId);
