@@ -1,5 +1,5 @@
-import { useHabitStore } from '@/stores/useHabitStore';
 import { useMemo } from 'react';
+import { useHabitStore } from '@/stores/useHabitStore';
 
 // Function to get current date in Brazil timezone (UTC-3)
 const getBrazilToday = () => {
@@ -51,16 +51,19 @@ export const useHabitCategories = () => {
     return true;
   };
 
+  // Memoizar activeHabits para evitar recriação constante
+  const memoizedActiveHabits = useMemo(() => activeHabits, [activeHabits.length, activeHabits.map(h => h.id).join(',')]);
+  
   const categorizedHabits = useMemo(() => {
-    const habitsToday = activeHabits.filter(isHabitActiveToday);
-    const habitsInactive = activeHabits.filter(h => !isHabitActiveToday(h));
+    const habitsToday = memoizedActiveHabits.filter(isHabitActiveToday);
+    const habitsInactive = memoizedActiveHabits.filter(h => !isHabitActiveToday(h));
     
     return {
-      all: activeHabits,
+      all: memoizedActiveHabits,
       active: habitsToday,
       inactive: habitsInactive
     };
-  }, [activeHabits, logsMap, todayDay, monthPrefix]);
+  }, [memoizedActiveHabits, logsMap, todayDay, monthPrefix]);
 
   return categorizedHabits;
 };

@@ -31,10 +31,18 @@ interface PerformanceStats {
   streak: number;
 }
 
-// Debug flag - set to false to reduce console spam
+// Debug flag - DESABILITADO para parar spam de logs
 const IS_DEBUG = false;
 
-export const PerformanceReports = () => {
+const PerformanceReportsComponent = () => {
+  // 🔍 DEBUG: Rastrear re-renders (TEMPORARIAMENTE DESABILITADO)
+  // const renderCount = useRef(0);
+  // renderCount.current++;
+  // console.log(`🔍 [PERFORMANCE RENDER] #${renderCount.current} - PerformanceReports re-renderizou`, {
+  //   timestamp: Date.now(),
+  //   stack: new Error().stack?.split('\n').slice(1, 4)
+  // });
+
   const userId = useAuthStore(state => state.user?.id);
   const monthRef = useRef<HTMLDivElement>(null);
   
@@ -87,7 +95,15 @@ export const PerformanceReports = () => {
 
   // Close date selector when period changes to 'day'
   useEffect(() => {
+    console.log('🔍 [DROPDOWN DEBUG] useEffect executado:', {
+      activePeriod,
+      showDateSelector,
+      timestamp: Date.now(),
+      stack: new Error().stack?.split('\n').slice(1, 4)
+    });
+    
     if (activePeriod === 'day') {
+      console.log('🔍 [DROPDOWN DEBUG] Fechando dropdown porque period = day');
       setShowDateSelector(false);
     }
   }, [activePeriod]);
@@ -96,11 +112,53 @@ export const PerformanceReports = () => {
   const xp = useGamificationStoreV21(state => state.xp);
   const history = useGamificationStoreV21(state => state.history);
   
+  // 🔍 DEBUG: Rastrear TODOS os hooks que podem causar re-renders
+  const prevHookValues = useRef({
+    xp: 0,
+    historyLength: 0,
+    userId: '',
+    activePeriod: '',
+    activeTab: '',
+    showDateSelector: false,
+    selectedDaysLength: 0,
+    renderKey: 0
+  });
+  
+  const currentHookValues = {
+    xp,
+    historyLength: history.length,
+    userId: userId || '',
+    activePeriod,
+    activeTab,
+    showDateSelector,
+    selectedDaysLength: selectedDays.length,
+    renderKey
+  };
+  
+  // Detectar qual hook mudou
+  Object.keys(currentHookValues).forEach(key => {
+    if (prevHookValues.current[key] !== currentHookValues[key]) {
+      console.log(`🔍 [HOOK CHANGE] ${key} mudou:`, {
+        from: prevHookValues.current[key],
+        to: currentHookValues[key],
+        timestamp: Date.now()
+      });
+    }
+  });
+  
+  prevHookValues.current = currentHookValues;
+  
   // Use history directly from store instead of local state - memoized
   const historyList = useMemo(() => history, [history]);
   
   // Force re-render when history changes significantly - optimized
   useEffect(() => {
+    console.log('🔍 [RENDER DEBUG] Forçando re-render:', {
+      historyLength: historyList.length,
+      renderKey,
+      timestamp: Date.now(),
+      stack: new Error().stack?.split('\n').slice(1, 4)
+    });
     setRenderKey(prev => prev + 1);
   }, [historyList.length]);
   // Memoize filtered history entries based on selectedDays
@@ -150,6 +208,36 @@ export const PerformanceReports = () => {
   const taskData = useTasks();
   const goalData = useGoals();
   
+  // 🔍 DEBUG: Rastrear mudanças nos hooks suspeitos
+  const prevSuspiciousHooks = useRef({
+    activeGoalsLength: 0,
+    completedGoalsLength: 0,
+    todayTasksLength: 0,
+    activeHabitsLength: 0,
+    allHabitsLength: 0
+  });
+  
+  const currentSuspiciousHooks = {
+    activeGoalsLength: goalData.activeGoals?.length || 0,
+    completedGoalsLength: goalData.completedGoals?.length || 0,
+    todayTasksLength: taskData.todayTasks?.length || 0,
+    activeHabitsLength: habitData.activeHabits?.length || 0,
+    allHabitsLength: habitData.allHabits?.length || 0
+  };
+  
+  Object.keys(currentSuspiciousHooks).forEach(key => {
+    if (prevSuspiciousHooks.current[key] !== currentSuspiciousHooks[key]) {
+      console.log(`🔍 [SUSPICIOUS HOOK] ${key} mudou:`, {
+        from: prevSuspiciousHooks.current[key],
+        to: currentSuspiciousHooks[key],
+        timestamp: Date.now(),
+        stack: new Error().stack?.split('\n').slice(1, 3)
+      });
+    }
+  });
+  
+  prevSuspiciousHooks.current = currentSuspiciousHooks;
+  
   const { all: allHabits, active: activeHabits, inactive: inactiveHabits } = useMemo(() => habitData, [habitData]);
   const { todayTasks, weekTasks, laterTasks } = useMemo(() => taskData, [taskData]);
   const { activeGoals, completedGoals, futureGoals } = useMemo(() => goalData, [goalData]);
@@ -182,28 +270,7 @@ export const PerformanceReports = () => {
     activePeriod
   ]);
   
-    // Debug para verificar se useGoals está funcionando
-    if (IS_DEBUG) console.log('[useGoals Debug]', {
-      activeGoals,
-      activeGoalsLength: activeGoals?.length || 0,
-      completedGoals,
-      completedGoalsLength: completedGoals?.length || 0,
-      futureGoals,
-      futureGoalsLength: futureGoals?.length || 0,
-      activeGoalsType: typeof activeGoals,
-      activeGoalsIsArray: Array.isArray(activeGoals),
-      activeGoalsCategories: activeGoals?.map(g => ({ title: g.title, category: g.category })) || [],
-      futureGoalsCategories: futureGoals?.map(g => ({ title: g.title, category: g.category })) || []
-    });
-
-    // Debug para verificar hábitos ativos vs inativos
-    if (IS_DEBUG) console.log('[Habits Debug]', {
-      allHabits: allHabits.length,
-      activeHabits: activeHabits.length,
-      inactiveHabits: inactiveHabits.length,
-      activeHabitsCategories: activeHabits.map(h => ({ name: h.name, category: h.categories?.[0] })),
-      inactiveHabitsCategories: inactiveHabits.map(h => ({ name: h.name, category: h.categories?.[0] }))
-    });
+    // Debug logs removidos para evitar spam durante re-renders constantes
   
   // Simple calculation: tasks/habits = 10xp, goals = 30xp
   const calculatePotentialXP = (category: string) => {
@@ -515,6 +582,14 @@ export const PerformanceReports = () => {
 
   // Initialize possibleDays and selectedDays when period changes
   useEffect(() => {
+    console.log('🔍 [DAYS DEBUG] useEffect de inicialização executado:', {
+      activePeriod,
+      possibleDaysLength: possibleDays.length,
+      selectedDaysLength: selectedDays.length,
+      timestamp: Date.now(),
+      stack: new Error().stack?.split('\n').slice(1, 4)
+    });
+    
     const today = new Date();
     let days: string[] = [];
     if (activePeriod === 'week') {
@@ -582,6 +657,12 @@ export const PerformanceReports = () => {
   }, [userId, activePeriod]);
 
   useEffect(() => {
+    console.log('🔍 [SETTINGS DEBUG] useEffect saveSettings executado:', {
+      userId,
+      activePeriod,
+      timestamp: Date.now(),
+      stack: new Error().stack?.split('\n').slice(1, 4)
+    });
     saveSettings();
   }, [saveSettings]);
 
@@ -705,7 +786,15 @@ export const PerformanceReports = () => {
         {/* Animated round button for date selector */}
         {(activePeriod === 'week' || activePeriod === 'month') && (
           <button
-            onClick={() => setShowDateSelector(!showDateSelector)}
+            onClick={() => {
+              console.log('🔍 [DROPDOWN DEBUG] Botão clicado:', {
+                currentState: showDateSelector,
+                newState: !showDateSelector,
+                activePeriod,
+                timestamp: Date.now()
+              });
+              setShowDateSelector(!showDateSelector);
+            }}
             className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 transition-all duration-200 flex items-center justify-center group"
           >
             <motion.div
@@ -763,15 +852,7 @@ export const PerformanceReports = () => {
                 // Extract day number directly from dateStr to avoid timezone issues
                 const dayNumber = parseInt(dateStr.split('-')[2], 10).toString();
                 
-                // Debug para verificar renderização dos botões
-                if (activePeriod === 'week') {
-                  if (IS_DEBUG) console.log('[Button Render Debug]', {
-                    dateStr,
-                    dayNumber,
-                    possibleDaysLength: possibleDays.length,
-                    possibleDays: possibleDays
-                  });
-                }
+                // Debug log removido para evitar spam
                 
                 return (
                   <button
@@ -866,3 +947,6 @@ export const PerformanceReports = () => {
     </motion.div>
   );
 };
+
+// 🚀 SOLUÇÃO CRÍTICA: React.memo() para prevenir re-renders desnecessários
+export const PerformanceReports = React.memo(PerformanceReportsComponent);

@@ -92,10 +92,14 @@ export const useVitalityV21 = () => {
         
         // Sincronizar com useGamificationStoreV21
         try {
+          // Log removido temporariamente para reduzir spam durante debug
+          
           const { useGamificationStoreV21 } = await import('@/stores/useGamificationStoreV21');
           useGamificationStoreV21.getState().syncVitalityFromSupabase(newVitalityValue);
+          
+          // Log removido temporariamente para reduzir spam durante debug
         } catch (err) {
-          console.warn('[Vitality V2.1] Erro ao sincronizar com GamificationStore:', err);
+          console.error('🔍 [VITALITY DEBUG] ❌ Erro ao sincronizar com GamificationStore:', err);
         }
       } else {
         // Se não há dados, usar valores padrão

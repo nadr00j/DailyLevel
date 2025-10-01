@@ -210,7 +210,7 @@ export const VitalityListener = () => {
       }
       syncVitalityFromSupabase(vitalityState.value);
     }
-  }, [vitalityState.value, vitalityState.version, vitality, syncVitalityFromSupabase]);
+  }, [vitalityState.value, vitalityState.version, vitality]); // REMOVIDO syncVitalityFromSupabase para quebrar o loop
 
   // Aguardar carregamento inicial dos dados - OTIMIZADO
   useEffect(() => {

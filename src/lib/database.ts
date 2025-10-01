@@ -153,10 +153,10 @@ function toGamificationDb(data: AppGamificationData): GamificationDb {
   return {
     id: data.id!,
     user_id: data.userId,
-    xp: data.xp,
-    coins: data.coins,
-    xp30d: data.xp30d,
-    vitality: data.vitality,
+    xp: Math.round(data.xp), // Converter para inteiro
+    coins: Math.round(data.coins), // Converter para inteiro
+    xp30d: Math.round(data.xp30d), // Converter para inteiro
+    vitality: Math.round(data.vitality), // CORRIGIDO: Converter para inteiro
     mood: data.mood,
     xp_multiplier: data.xpMultiplier,
     xp_multiplier_expiry: data.xpMultiplierExpiry,

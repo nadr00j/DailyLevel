@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useGoalStore } from '@/stores/useGoalStore';
 import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { Goal, Milestone } from '@/types';
@@ -11,11 +12,11 @@ export const useGoals = () => {
   // REMOVIDO: addXp agora é chamado apenas pelo VitalityListener
   // const addXp = useGamificationStoreV21.getState().addXp;
 
-  // Computed lists
+  // Computed lists - memoizadas para evitar recriação constante
   const byOrder = (a: Goal, b: Goal) => (a.order ?? 0) - (b.order ?? 0);
-  const futureGoals = goals.filter(g => !g.isCompleted && g.isFuture).sort(byOrder);
-  const activeGoals = goals.filter(g => !g.isCompleted && !g.isFuture).sort(byOrder);
-  const completedGoals = goals.filter(g => g.isCompleted).sort(byOrder);
+  const futureGoals = useMemo(() => goals.filter(g => !g.isCompleted && g.isFuture).sort(byOrder), [goals]);
+  const activeGoals = useMemo(() => goals.filter(g => !g.isCompleted && !g.isFuture).sort(byOrder), [goals]);
+  const completedGoals = useMemo(() => goals.filter(g => g.isCompleted).sort(byOrder), [goals]);
 
   // Update goal progress and grant XP on completion
   const updateGoalProgress = (id: string, newValue: number) => {

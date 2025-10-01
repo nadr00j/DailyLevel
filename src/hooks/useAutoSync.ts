@@ -37,24 +37,36 @@ export function useAutoSync() {
   // Função para sincronizar dados para o Supabase - com proteção contra loops
   const syncToSupabase = async (userId: string) => {
     if (isSyncingRef.current) {
-      console.log('⚠️ Auto-sync: Já está sincronizando, pulando...');
+      console.log('🔍 [SYNC DEBUG] ⚠️ Já está sincronizando, pulando...', {
+        userId,
+        timestamp: Date.now(),
+        stack: new Error().stack?.split('\n').slice(1, 4)
+      });
       return;
     }
     
     try {
       isSyncingRef.current = true;
+      console.log('🔍 [SYNC DEBUG] 🔄 Iniciando sincronização:', {
+        userId,
+        timestamp: Date.now(),
+        stack: new Error().stack?.split('\n').slice(1, 4)
+      });
+      
       const online = await checkSupabaseConnection();
       if (!online) {
-        console.warn('Auto-sync: Sem conexão com Supabase, pulando sync.');
+        console.warn('🔍 [SYNC DEBUG] ⚠️ Sem conexão com Supabase, pulando sync.');
         return;
       }
-      console.log('🔄 Auto-sync: Sincronizando dados...');
+      
+      console.log('🔍 [SYNC DEBUG] 🔄 Chamando dataSyncService.syncAll...');
       await dataSyncService.syncAll(userId);
-      console.log('✅ Auto-sync: Sincronizado!');
+      console.log('🔍 [SYNC DEBUG] ✅ Sincronização concluída!');
     } catch (error) {
-      console.error('❌ Auto-sync: Erro:', error);
+      console.error('🔍 [SYNC DEBUG] ❌ Erro na sincronização:', error);
     } finally {
       isSyncingRef.current = false;
+      console.log('🔍 [SYNC DEBUG] 🏁 Flag isSyncing resetada');
     }
   };
 
@@ -78,13 +90,22 @@ export function useAutoSync() {
         state.xp !== prev.xp || 
         state.coins !== prev.coins ||
         state.xp30d !== prev.xp30d ||
-        state.vitality !== prev.vitality ||
+        // TEMPORARIAMENTE REMOVIDO: state.vitality !== prev.vitality || // Causa loop infinito
         state.history.length !== prev.historyLength
       );
       
       if (hasChanges) {
-        // Reduzido log para evitar spam
-        // console.log('🔄 [AutoSync] Mudança detectada no store de gamificação');
+        console.log('🔍 [AUTOSYNC DEBUG] Mudança detectada no store de gamificação:', {
+          changes: {
+            xp: `${prev.xp} → ${state.xp}`,
+            coins: `${prev.coins} → ${state.coins}`,
+            xp30d: `${prev.xp30d} → ${state.xp30d}`,
+            vitality: `${prev.vitality} → ${state.vitality}`,
+            historyLength: `${prev.historyLength} → ${state.history.length}`
+          },
+          timestamp: Date.now(),
+          stack: new Error().stack?.split('\n').slice(1, 4)
+        });
         
         prev = { 
           xp: state.xp, 
@@ -120,7 +141,7 @@ export function useAutoSync() {
     });
 
     return unsubscribe;
-  }, [isAuthenticated, user, debouncedSync]);
+  }, [isAuthenticated, user?.id]); // CORRIGIDO: Removido debouncedSync das dependências
 
   // Assina mudanças no store de hábitos para auto-sync
   useEffect(() => {

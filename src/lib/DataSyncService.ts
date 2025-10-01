@@ -11,7 +11,7 @@ class DataSyncService {
   private isSyncing = false;
   private hasSyncedHistoryOnce = false;
   private lastCleanupDate = '';
-  private IS_DEBUG = false; // Flag para controlar logs de debug
+  private IS_DEBUG = true; // ATIVADO para rastrear problema de performance
   
   // Function to get current date in Brazil timezone (UTC-3)
   private getBrazilToday(): string {

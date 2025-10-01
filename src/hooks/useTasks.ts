@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTaskStore } from '@/stores/useTaskStore';
 import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { generateId } from '@/lib/uuid';
@@ -131,17 +131,9 @@ export const useTasks = () => {
     return () => clearTimeout(timer);
   }, []); // Executar apenas uma vez ao montar
 
-  // Executar limpeza quando tarefas mudam (opcional - pode ser removido se causar problemas)
-  useEffect(() => {
-    const completedTasks = tasks.filter(t => t.completed);
-    if (completedTasks.length > 0) {
-      const timer = setTimeout(() => {
-        cleanupOldCompletedTasks();
-      }, 1000); // 1 segundo após mudanças
-      
-      return () => clearTimeout(timer);
-    }
-  }, [tasks.length, cleanupOldCompletedTasks]);
+  // REMOVIDO: useEffect que causava loop infinito
+  // Este useEffect estava causando loops de sincronização constantes
+  // A limpeza automática já é feita no useEffect acima (linha 125-132)
 
   // Computed values
   const todayDate = new Date();
@@ -155,12 +147,13 @@ export const useTasks = () => {
     return todayStr >= startStr && todayStr <= endStr;
   };
 
-  const todayTasks = tasks.filter(task =>
+  // Memoizar arrays de tarefas para evitar recriação constante
+  const todayTasks = useMemo(() => tasks.filter(task =>
     task.bucket === 'today' || (task.bucket==='week' && isTodayInTaskWeek(task))
-  ).sort((a,b)=>a.order-b.order);
+  ).sort((a,b)=>a.order-b.order), [tasks, todayStr]);
 
   // update overdue flag lazily
-  const weekList = tasks.filter(task=>task.bucket==='week');
+  const weekList = useMemo(() => tasks.filter(task=>task.bucket==='week'), [tasks]);
   weekList.forEach(t=>{
     if(t.completed) return;
     const limitStr = t.weekEnd || t.weekStart;
@@ -171,9 +164,9 @@ export const useTasks = () => {
     }
   });
 
-  const weekTasks = weekList.filter(t=>!isTodayInTaskWeek(t)).sort((a,b)=>a.order-b.order);
-  const laterTasks = tasks.filter(task => task.bucket === 'later').sort((a, b) => a.order - b.order);
-  const completedTasks = tasks.filter(task => task.completed);
+  const weekTasks = useMemo(() => weekList.filter(t=>!isTodayInTaskWeek(t)).sort((a,b)=>a.order-b.order), [weekList, todayStr]);
+  const laterTasks = useMemo(() => tasks.filter(task => task.bucket === 'later').sort((a, b) => a.order - b.order), [tasks]);
+  const completedTasks = useMemo(() => tasks.filter(task => task.completed), [tasks]);
 
   // Auto-mover tasks entre buckets com base em datas limite
   useEffect(() => {
