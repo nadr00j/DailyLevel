@@ -4,6 +4,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import gamificationConfig from '@/config/gamificationConfig.json';
+import { findCanonicalCategory } from '@/lib/categoryUtils';
 
 export interface ActiveCategory {
   name: string;
@@ -18,7 +19,7 @@ export interface ActiveCategory {
   score: number; // score calculado (0-100)
 }
 
-// Mapeamento de categorias para ícones e cores
+// Mapeamento de categorias canônicas para ícones e cores
 export const CATEGORY_META: Record<string, { icon: string; color: string; displayName: string }> = {
   'Arte': { icon: '🎨', color: 'text-pink-400', displayName: 'Arte' },
   'Estudo': { icon: '📚', color: 'text-indigo-400', displayName: 'Estudo' },
@@ -34,7 +35,6 @@ export const CATEGORY_META: Record<string, { icon: string; color: string; displa
   'Imagem Pessoal': { icon: '📷', color: 'text-blue-400', displayName: 'Imagem Pessoal' },
   'Hobbies': { icon: '🎮', color: 'text-orange-400', displayName: 'Hobbies' },
   'Produtividade': { icon: '⚡', color: 'text-orange-400', displayName: 'Produtividade' },
-  'produtividade': { icon: '⚡', color: 'text-orange-400', displayName: 'Produtividade' },
   'Dormir': { icon: '😴', color: 'text-blue-400', displayName: 'Dormir' },
   'Pessoal': { icon: '👤', color: 'text-blue-500', displayName: 'Pessoal' },
   'Sem Categoria': { icon: '🏷️', color: 'text-gray-400', displayName: 'Sem Categoria' },
@@ -130,13 +130,10 @@ export const useActiveCategories = (period: 'day' | 'week' | 'month' = 'month', 
     //   console.log(`  - ${habit.name}: categorias =`, habit.categories);
     // });
 
-    // Helper to normalize category names
+    // Helper to normalize category names using the new system
     const normalize = (raw?: string) => {
-      const cat = raw?.trim();
-      if (!cat) return 'Sem Categoria';
-      // Find canonical key in CATEGORY_META case-insensitive
-      const key = Object.keys(CATEGORY_META).find(k => k.toLowerCase() === cat.toLowerCase());
-      return key || cat;
+      if (!raw?.trim()) return 'Sem Categoria';
+      return findCanonicalCategory(raw.trim());
     };
     // Processar hábitos
     allHabits.forEach(habit => {

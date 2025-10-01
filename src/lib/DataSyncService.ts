@@ -177,21 +177,11 @@ class DataSyncService {
         
         // CRÍTICO: Converter dados do Supabase para formato do store
         const convertedHistory = historyItems.map(item => {
-          // Tentar usar o campo 'ts' primeiro, depois 'created_at' como fallback
-          let timestamp;
-          if (item.ts) {
-            // Se 'ts' é string, converter para timestamp
-            timestamp = typeof item.ts === 'string' ? new Date(item.ts).getTime() : item.ts;
-          } else if (item.created_at) {
-            // Fallback para created_at
-            timestamp = new Date(item.created_at).getTime();
-          } else {
-            // Último recurso: timestamp atual
-            timestamp = Date.now();
-          }
+          // O campo 'ts' já vem como timestamp do getHistoryItems
+          let timestamp = item.ts;
           
           // Validar se o timestamp é válido
-          if (isNaN(timestamp)) {
+          if (!timestamp || isNaN(timestamp)) {
             console.warn('[DataSync] Timestamp inválido encontrado:', { item, calculatedTs: timestamp });
             timestamp = Date.now(); // Usar timestamp atual como fallback
           }
@@ -199,6 +189,7 @@ class DataSyncService {
           return {
             ts: timestamp,
             xp: item.xp || 0,
+            coins: item.coins || 0, // CORREÇÃO: Incluir moedas na conversão
             type: item.type || 'task',
             tags: item.tags || [],
             category: item.category || undefined
@@ -330,11 +321,9 @@ class DataSyncService {
       const totalCoins = historyItems.reduce((sum, item) => sum + (item.coins || 0), 0);
       
       // Calcular XP dos últimos 30 dias
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
       const recentHistory = historyItems.filter(item => {
-        const itemDate = new Date(item.created_at);
-        return itemDate >= thirtyDaysAgo;
+        return item.ts >= thirtyDaysAgo;
       });
       const xp30d = recentHistory.reduce((sum, item) => sum + (item.xp || 0), 0);
       
@@ -355,17 +344,10 @@ class DataSyncService {
         ...correctedData,
         userId,
         history: historyItems.map(item => {
-          // Usar a mesma lógica de conversão de timestamp
-          let timestamp;
-          if (item.ts) {
-            timestamp = typeof item.ts === 'string' ? new Date(item.ts).getTime() : item.ts;
-          } else if (item.created_at) {
-            timestamp = new Date(item.created_at).getTime();
-          } else {
-            timestamp = Date.now();
-          }
+          // O timestamp já vem correto do getHistoryItems
+          let timestamp = item.ts;
           
-          if (isNaN(timestamp)) {
+          if (!timestamp || isNaN(timestamp)) {
             console.warn('[Reconcile] Timestamp inválido encontrado:', { item, calculatedTs: timestamp });
             timestamp = Date.now();
           }
@@ -373,6 +355,7 @@ class DataSyncService {
           return {
             ts: timestamp,
             xp: item.xp || 0,
+            coins: item.coins || 0, // CORREÇÃO: Incluir moedas também aqui
             type: item.type,
             tags: item.tags || [],
             category: item.category

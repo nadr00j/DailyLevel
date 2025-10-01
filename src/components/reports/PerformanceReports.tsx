@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Calendar, TrendingUp, Target, BarChart3, CalendarDays, CalendarRange, CalendarCheck, SquareCheckBig, ChevronDown, ChevronUp } from 'lucide-react';
 import { useActiveCategories, ActiveCategory, CATEGORY_META } from '@/hooks/useActiveCategories';
+import { findCanonicalCategory } from '@/lib/categoryUtils';
 import { useGamificationStoreV21 } from '@/stores/useGamificationStoreV21';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useHabitStore } from '@/stores/useHabitStore';
@@ -221,8 +222,8 @@ const PerformanceReportsComponent = () => {
     activeGoalsLength: goalData.activeGoals?.length || 0,
     completedGoalsLength: goalData.completedGoals?.length || 0,
     todayTasksLength: taskData.todayTasks?.length || 0,
-    activeHabitsLength: habitData.activeHabits?.length || 0,
-    allHabitsLength: habitData.allHabits?.length || 0
+    activeHabitsLength: habitData.active?.length || 0,
+    allHabitsLength: habitData.all?.length || 0
   };
   
   Object.keys(currentSuspiciousHooks).forEach(key => {
@@ -274,8 +275,8 @@ const PerformanceReportsComponent = () => {
   
   // Simple calculation: tasks/habits = 10xp, goals = 30xp
   const calculatePotentialXP = (category: string) => {
-    // Normalize category to lowercase for case-insensitive comparison
-    const normalizedCategory = category.toLowerCase();
+    // Normalize category using the canonical system
+    const normalizedCategory = findCanonicalCategory(category);
 
     // Count items based on ALL ACTIVE ITEMS (not just completed ones)
     const allActiveItems = [
@@ -292,7 +293,7 @@ const PerformanceReportsComponent = () => {
     ];
 
     const categoryItems = allActiveItems.filter(item => {
-      const itemCategory = (item.category || 'Sem Categoria').toLowerCase();
+      const itemCategory = findCanonicalCategory(item.category || 'Sem Categoria');
       return itemCategory === normalizedCategory;
     });
 
@@ -351,7 +352,7 @@ const PerformanceReportsComponent = () => {
 
   // Calculate real item count (habits + tasks + goals) for a category
   const calculateRealItemCount = (category: string) => {
-    const normalizedCategory = category.toLowerCase();
+    const normalizedCategory = findCanonicalCategory(category);
 
     // Count items based on ALL ACTIVE ITEMS (not just completed ones)
     const allActiveItems = [
@@ -368,7 +369,7 @@ const PerformanceReportsComponent = () => {
     ];
 
     const categoryItems = allActiveItems.filter(item => {
-      const itemCategory = (item.category || 'Sem Categoria').toLowerCase();
+      const itemCategory = findCanonicalCategory(item.category || 'Sem Categoria');
       return itemCategory === normalizedCategory;
     });
 
@@ -437,10 +438,10 @@ const PerformanceReportsComponent = () => {
     // First, add categories from completed items (filteredHistory)
     filteredHistory.forEach(item => {
       const originalCat = item.category || 'Sem Categoria';
-      const normalizedCat = originalCat.toLowerCase();
+      const normalizedCat = findCanonicalCategory(originalCat);
       
       if (!map[normalizedCat]) {
-        map[normalizedCat] = { xp: 0, count: 0, originalName: originalCat };
+        map[normalizedCat] = { xp: 0, count: 0, originalName: normalizedCat };
       }
       map[normalizedCat].xp += item.xp;
       map[normalizedCat].count += 1;
@@ -458,10 +459,10 @@ const PerformanceReportsComponent = () => {
     
     allItems.forEach(item => {
       const originalCat = item.category;
-      const normalizedCat = originalCat.toLowerCase();
+      const normalizedCat = findCanonicalCategory(originalCat);
       
       if (!map[normalizedCat]) {
-        map[normalizedCat] = { xp: 0, count: 0, originalName: originalCat };
+        map[normalizedCat] = { xp: 0, count: 0, originalName: normalizedCat };
       }
       // Don't increment count here as it's already counted in filteredHistory
       // This ensures we have the category even with 0 XP

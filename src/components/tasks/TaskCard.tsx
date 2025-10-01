@@ -91,34 +91,38 @@ export const TaskCard = ({ task, onToggle, onMove, onDelete, onEdit, onView, dra
               )}>
                 {task.title}
               </h3>
-              {/* Intervalo semana */}
-              {task.weekStart && (
-                <span className={cn(
-                  "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium mt-1 ml-2",
-                  weeklyOverdue ? 'bg-red-500/60 text-white' : 'bg-green-500/60 text-white'
-                )}>
-                  <Calendar size={10} className="text-white" />
-                  {format(parseISO(task.weekStart), 'd')}-{task.weekEnd ? format(parseISO(task.weekEnd), 'd') : format(parseISO(task.weekStart), 'd')}
-                </span>
-              )}
-              {/* Badge overdue para outras tarefas (não semanais) */}
+              
+              {/* Badge overdue para outras tarefas (não semanais) - mantém junto ao título */}
               {!task.weekStart && isOverdue && (
                 <span className="text-[10px] px-2 py-0.5 bg-warning text-warning-foreground rounded-full mt-1 ml-2">Atrasada</span>
               )}
-            </div>
-            {task.description && (
-              <p className="text-xs text-muted-foreground truncate max-w-[220px]">{task.description}</p>
-            )}
-            {/* Aviso de atraso para tarefas semanais */}
-            {weeklyOverdue && (
-              <div className="flex items-center gap-1 mt-1">
-                <AlertCircle size={12} className="text-red-500" />
-                <span className="text-[10px] text-red-500 mt-0.5">Tarefa atrasada</span>
-              </div>
-            )}
-            <div className="flex items-center gap-3 mt-1">
-              {task.dueDate && (
-                <div className="flex items-center gap-1">
+              
+              {/* Intervalo semana próximo ao título quando NÃO há descrição */}
+              {task.weekStart && !task.description && (
+                <span className={cn(
+                  "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium mt-1",
+                  weeklyOverdue ? 'bg-red-500/60 text-white' : 'bg-green-500/60 text-white'
+                )}
+                style={{ marginLeft: '0.35rem' }}>
+                  <Calendar size={10} className="text-white" />
+                  {(() => {
+                    const startDay = format(parseISO(task.weekStart), 'd');
+                    const endDay = task.weekEnd ? format(parseISO(task.weekEnd), 'd') : startDay;
+                    
+                    // Se início e fim são iguais, mostrar apenas um dia
+                    if (startDay === endDay) {
+                      return startDay;
+                    }
+                    
+                    // Se diferentes, mostrar intervalo
+                    return `${startDay}-${endDay}`;
+                  })()}
+                </span>
+              )}
+              
+              {/* Data de vencimento próxima ao título quando NÃO há descrição */}
+              {task.dueDate && !task.description && (
+                <div className="flex items-center gap-1 mt-1" style={{ marginLeft: '0.35rem' }}>
                   <Calendar size={12} className={isOverdue ? "text-destructive" : "text-muted-foreground"} />
                   <span className={cn(
                     "text-xs",
@@ -129,6 +133,53 @@ export const TaskCard = ({ task, onToggle, onMove, onDelete, onEdit, onView, dra
                 </div>
               )}
             </div>
+            
+            {task.description && (
+              <p className="text-xs text-muted-foreground truncate max-w-[220px] mt-1">{task.description}</p>
+            )}
+            
+            {/* Intervalo semana abaixo quando HÁ descrição */}
+            {task.weekStart && task.description && (
+              <div className="flex items-center gap-2 mt-2">
+                <span className={cn(
+                  "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium",
+                  weeklyOverdue ? 'bg-red-500/60 text-white' : 'bg-green-500/60 text-white'
+                )}>
+                  <Calendar size={10} className="text-white" />
+                  {(() => {
+                    const startDay = format(parseISO(task.weekStart), 'd');
+                    const endDay = task.weekEnd ? format(parseISO(task.weekEnd), 'd') : startDay;
+                    
+                    // Se início e fim são iguais, mostrar apenas um dia
+                    if (startDay === endDay) {
+                      return startDay;
+                    }
+                    
+                    // Se diferentes, mostrar intervalo
+                    return `${startDay}-${endDay}`;
+                  })()}
+                </span>
+              </div>
+            )}
+            {/* Aviso de atraso para tarefas semanais */}
+            {weeklyOverdue && (
+              <div className="flex items-center gap-1 mt-1">
+                <AlertCircle size={12} className="text-red-500" />
+                <span className="text-[10px] text-red-500 mt-0.5">Tarefa atrasada</span>
+              </div>
+            )}
+            {/* Data de vencimento abaixo quando HÁ descrição */}
+            {task.dueDate && task.description && (
+              <div className="flex items-center gap-1 mt-2">
+                <Calendar size={12} className={isOverdue ? "text-destructive" : "text-muted-foreground"} />
+                <span className={cn(
+                  "text-xs",
+                  isOverdue ? "text-destructive font-medium" : "text-muted-foreground"
+                )}>
+                  {format(new Date(task.dueDate), 'MMM d')}
+                </span>
+              </div>
+            )}
           </div>
 
           <button

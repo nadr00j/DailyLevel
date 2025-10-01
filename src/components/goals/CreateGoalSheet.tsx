@@ -11,6 +11,7 @@ import * as LucideIcons from 'lucide-react';
 import { ColorPickerPopover } from '@/components/ui/ColorPickerPopover';
 import { HeartPulse, Briefcase, DollarSign, BookOpen, Users, Tag } from 'lucide-react';
 import { ChevronDown } from 'lucide-react';
+import { findCanonicalCategory } from '@/lib/categoryUtils';
 import clsx from 'clsx';
 
 // util
@@ -191,8 +192,13 @@ export const CreateGoalSheet = ({ open, onOpenChange, addGoal, defaultBucket }: 
               <div className="flex gap-2 mt-2">
                 <Input placeholder="Nova categoria" value={customCat} onChange={(e)=>setCustomCat(e.target.value)} className="flex-1" />
                 <Button disabled={!customCat.trim()} onClick={()=>{
-                  const name = customCat.trim().toLowerCase().replace(/\s+/g,'-');
-                  if(name){ setCategory(name); setShowCustomCat(false); setCustomCat(''); }
+                  const name = customCat.trim();
+                  if(name){ 
+                    const canonical = findCanonicalCategory(name);
+                    setCategory(canonical); 
+                    setShowCustomCat(false); 
+                    setCustomCat(''); 
+                  }
                 }}>Adicionar</Button>
               </div>
             )}

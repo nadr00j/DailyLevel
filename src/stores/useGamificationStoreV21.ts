@@ -22,6 +22,7 @@ import { useVictoryDialog } from '@/stores/useVictoryDialog';
 import { usePixelBuddyStore } from '@/stores/usePixelBuddyStore';
 import { useHabitStore } from './useHabitStore';
 import { dataSyncService } from '@/lib/DataSyncService';
+import { findCanonicalCategory } from '@/lib/categoryUtils';
 
 // util: classifica categoria a partir das tags
 function resolveCategory(tags: string[] | undefined, cfg: GamificationConfig): string | undefined {
@@ -453,7 +454,7 @@ export const useGamificationStoreV21 = create<GamificationState>()(
                 xp: finalXp,
                 coins: Math.floor(finalXp * cfg.points.coinsPerXp),
                 tags: safeTags,
-                category: explicitCategory ? explicitCategory.charAt(0).toUpperCase() + explicitCategory.slice(1).toLowerCase() : resolveCategory(safeTags, cfg)
+                category: explicitCategory ? findCanonicalCategory(explicitCategory) : resolveCategory(safeTags, cfg)
               }]
             };
             

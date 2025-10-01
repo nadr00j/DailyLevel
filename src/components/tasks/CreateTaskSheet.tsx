@@ -4,11 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Clock, Calendar, ArrowRight, AlertCircle, Tag, Plus, ChevronDown } from 'lucide-react';
+import { Clock, Calendar, ArrowRight, AlertCircle, ChevronDown } from 'lucide-react';
 import { WeekDayPicker } from "@/components/pickers/WeekDayPicker";
+import { CategoryPicker } from "@/components/pickers/CategoryPicker";
 import { TaskBucket } from "@/types";
 import { cn } from "@/lib/utils";
-import * as LucideIcons from 'lucide-react';
 import clsx from 'clsx';
 
 interface CreateTaskSheetProps {
@@ -37,23 +37,7 @@ const textOn = {
   high: 'data-[state=on]:text-red-500'
 } as const;
 
-const CATEGORY_OPTIONS = [
-  { name: 'Arte', icon: 'Paintbrush' },
-  { name: 'Estudo', icon: 'Book' },
-  { name: 'Leitura', icon: 'BookOpen' },
-  { name: 'Finanças', icon: 'DollarSign' },
-  { name: 'Fitness', icon: 'Dumbbell' },
-  { name: 'Nutrição', icon: 'Apple' },
-  { name: 'Saúde', icon: 'HeartPulse' },
-  { name: 'Mente', icon: 'Brain' },
-  { name: 'Social', icon: 'Users' },
-  { name: 'Trabalho', icon: 'Monitor' },
-  { name: 'Casa', icon: 'Home' },
-  { name: 'Imagem Pessoal', icon: 'Camera' },
-  { name: 'Hobbies', icon: 'Gamepad2' },
-  { name: 'Produtividade', icon: 'Clock' },
-  { name: 'Outro', icon: 'Sparkles' },
-];
+// Removido CATEGORY_OPTIONS - agora usando CategoryPicker que já tem todas as categorias
 
 export const CreateTaskSheet = ({ open, onOpenChange, defaultBucket, addTask, showBucketSelect }: CreateTaskSheetProps) => {
   const [title, setTitle] = useState("");
@@ -64,8 +48,7 @@ export const CreateTaskSheet = ({ open, onOpenChange, defaultBucket, addTask, sh
   const [weekStart, setWeekStart] = useState<string | undefined>();
   const [weekEnd, setWeekEnd] = useState<string | undefined>();
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [showCustomCat, setShowCustomCat] = useState(false);
-  const [customCat, setCustomCat] = useState('');
+  // Removido showCustomCat e customCat - CategoryPicker já gerencia isso
 
   const handleCreate = async () => {
     if (!title.trim()) return;
@@ -83,8 +66,6 @@ export const CreateTaskSheet = ({ open, onOpenChange, defaultBucket, addTask, sh
     setDescription("");
     setCategory("");
     setShowAdvanced(false);
-    setShowCustomCat(false);
-    setCustomCat('');
     onOpenChange(false);
   };
 
@@ -133,44 +114,14 @@ export const CreateTaskSheet = ({ open, onOpenChange, defaultBucket, addTask, sh
               <div className="mt-4 space-y-4">
                 {/* Categories */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Categorias</label>
-                  <div className="flex flex-wrap gap-2">
-                    {CATEGORY_OPTIONS.map(opt=>{
-                      const selected = category === opt.name;
-                      return (
-                        <Button key={opt.name} size="sm" variant={selected ? 'default' : 'outline'} className="gap-1" onClick={()=>{
-                          if(opt.name==='Outro'){
-                            setShowCustomCat(prev=>!prev);
-                            return;
-                          }
-                          if(selected){
-                            setCategory('');
-                          }else{
-                            setCategory(opt.name);
-                          }
-                        }}>
-                          {React.createElement((LucideIcons as any)[opt.icon] || (LucideIcons as any).Tag, { size:14 })}
-                          {opt.name}
-                        </Button>
-                      );
-                    })}
-                  </div>
-
-                  {showCustomCat && (
-                    <div className="flex gap-2 mt-2">
-                      <Input placeholder="Nova categoria" value={customCat} onChange={(e)=>setCustomCat(e.target.value)} className="flex-1" />
-                      <Button disabled={!customCat.trim()} onClick={()=>{
-                        const name = customCat.trim();
-                        if(name){
-                          setCategory(name);
-                          setCustomCat('');
-                          setShowCustomCat(false);
-                        }
-                      }}>
-                        Adicionar
-                      </Button>
-                    </div>
-                  )}
+                  <label className="text-sm font-medium">Categoria</label>
+                  <CategoryPicker
+                    value={category}
+                    onChange={(value) => setCategory(Array.isArray(value) ? value[0] || '' : value)}
+                    placeholder="Selecione uma categoria"
+                    allowCustom={true}
+                    showSearch={true}
+                  />
                 </div>
               </div>
             )}
