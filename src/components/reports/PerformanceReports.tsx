@@ -182,21 +182,21 @@ const PerformanceReportsComponent = () => {
     
     // Debug para verificar filtro de dias
     if (IS_DEBUG) {
-      console.log('[Day Filter Debug]', {
-        activePeriod,
-        selectedDays,
-        selectedDaysLength: selectedDays.length,
-        historyListLength: historyList.length,
-        filteredLength: filtered.length,
-        filteredDays: [...new Set(filtered.map(item => new Date(item.ts).toISOString().slice(0,10)))],
-        allHistoryDays: [...new Set(historyList.map(item => new Date(item.ts).toISOString().slice(0,10)))],
-        sampleHistoryItems: historyList.slice(0, 5).map(item => ({
-          type: item.type,
-          category: item.category,
-          tags: item.tags,
-          ts: new Date(item.ts).toISOString().slice(0, 10)
-        }))
-      });
+    console.log('[Day Filter Debug]', {
+      activePeriod,
+      selectedDays,
+      selectedDaysLength: selectedDays.length,
+      historyListLength: historyList.length,
+      filteredLength: filtered.length,
+      filteredDays: [...new Set(filtered.map(item => new Date(item.ts).toISOString().slice(0,10)))],
+      allHistoryDays: [...new Set(historyList.map(item => new Date(item.ts).toISOString().slice(0,10)))],
+      sampleHistoryItems: historyList.slice(0, 5).map(item => ({
+        type: item.type,
+        category: item.category,
+        tags: item.tags,
+        ts: new Date(item.ts).toISOString().slice(0, 10)
+      }))
+    });
     }
     
     return filtered;

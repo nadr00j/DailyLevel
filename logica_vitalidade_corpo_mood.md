@@ -246,8 +246,8 @@ function updatePixelBuddyState(xp: number, vitality: number, mood: string) {
 
 ```typescript
 function getMoodFromVitality(vitality: number): string {
-  if (vitality < 25) return 'tired';
-  if (vitality < 50) return 'sad';
+  if (vitality < 25) return 'sad';
+  if (vitality < 50) return 'tired';
   if (vitality < 75) return 'neutral';
   return 'happy';
 }
@@ -595,8 +595,8 @@ const finalVitality = Math.max(0, 10 - 15) = 0%; // Vitalidade mínima
 
 // Resultado:
 // - Corpo: body_lvl1.png (XP < 200)
-// - Cabeça: head_tired.png (vitality < 25)
-// - Humor: tired
+// - Cabeça: head_sad.png (vitality < 25)
+// - Humor: sad
 ```
 
 ### Exemplo 2: Usuário Engajado

@@ -5,8 +5,8 @@
     "milestone": 50,
     "goal": 30,
     "coinsPerXp": 0.1,
-    "vitalityMonthlyTarget": 500,
-    "vitalityDecayPerMissedDay": 5
+    "vitalityMonthlyTarget": 300,
+    "vitalityDecayPerMissedDay": 2
   },
   "streaks": { "bonus7": 10, "bonus30": 30 },
   "categories": {

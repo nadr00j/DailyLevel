@@ -5,28 +5,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
 import { Task } from "@/types";
-import { AlertCircle, Tag, ChevronDown, Clock, Calendar, ArrowRight } from "lucide-react";
+import { AlertCircle, ChevronDown, Calendar, ArrowRight, Paintbrush, BookOpen, DollarSign, Dumbbell, Apple, HeartPulse, Brain, Users, Monitor, Camera, Clock, Tag } from "lucide-react";
 import { WeekDayPicker } from "@/components/pickers/WeekDayPicker";
 import { cn } from "@/lib/utils";
-import * as LucideIcons from 'lucide-react';
 import clsx from 'clsx';
 
 const CATEGORY_OPTIONS = [
-  { name: 'Arte', icon: 'Paintbrush' },
-  { name: 'Estudo', icon: 'Book' },
-  { name: 'Leitura', icon: 'BookOpen' },
-  { name: 'Finanças', icon: 'DollarSign' },
-  { name: 'Fitness', icon: 'Dumbbell' },
-  { name: 'Nutrição', icon: 'Apple' },
-  { name: 'Saúde', icon: 'HeartPulse' },
-  { name: 'Mente', icon: 'Brain' },
-  { name: 'Social', icon: 'Users' },
-  { name: 'Trabalho', icon: 'Monitor' },
-  { name: 'Casa', icon: 'Home' },
-  { name: 'Imagem Pessoal', icon: 'Camera' },
-  { name: 'Hobbies', icon: 'Gamepad2' },
-  { name: 'Produtividade', icon: 'Clock' },
-  { name: 'Outro', icon: 'Sparkles' },
+  { name: 'arte', label: 'Arte', icon: Paintbrush },
+  { name: 'estudo', label: 'Estudo', icon: BookOpen },
+  { name: 'financas', label: 'Finanças', icon: DollarSign },
+  { name: 'fitness', label: 'Fitness', icon: Dumbbell },
+  { name: 'nutricao', label: 'Nutrição', icon: Apple },
+  { name: 'saude', label: 'Saúde', icon: HeartPulse },
+  { name: 'mente', label: 'Mente', icon: Brain },
+  { name: 'social', label: 'Social', icon: Users },
+  { name: 'trabalho', label: 'Trabalho', icon: Monitor },
+  { name: 'imagem-pessoal', label: 'Imagem Pessoal', icon: Camera },
+  { name: 'hobbies', label: 'Hobbies', icon: Paintbrush },
+  { name: 'produtividade', label: 'Produtividade', icon: Clock },
+  { name: 'personal', label: 'Pessoal', icon: Users },
+  { name: 'Outro', label: 'Outro', icon: Tag },
 ];
 
 interface EditTaskSheetProps {
@@ -76,8 +74,6 @@ export const EditTaskSheet = ({ task, open, onOpenChange, onSave }: EditTaskShee
       setWeekStart(task.weekStart);
       setWeekEnd(task.weekEnd);
       setShowAdvanced(false);
-      setShowCustomCat(false);
-      setCustomCat('');
       setBucket(task.bucket);
     }
   }, [task]);
@@ -134,24 +130,17 @@ export const EditTaskSheet = ({ task, open, onOpenChange, onSave }: EditTaskShee
               <div className="mt-4 space-y-4">
                 {/* Categories */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Categorias</label>
+                  <label className="text-sm font-medium">Categoria</label>
                   <div className="flex flex-wrap gap-2">
                     {CATEGORY_OPTIONS.map(opt=>{
-                      const selected = category === opt.name;
+                      const selected = category===opt.name;
                       return (
-                        <Button key={opt.name} size="sm" variant={selected ? 'default' : 'outline'} className="gap-1" onClick={()=>{
-                          if(opt.name==='Outro'){
-                            setShowCustomCat(prev=>!prev);
-                            return;
-                          }
-                          if(selected){
-                            setCategory('');
-                          }else{
-                            setCategory(opt.name);
-                          }
+                        <Button key={opt.name} size="sm" variant={selected?'default':'outline'} className="gap-1" onClick={()=>{
+                          if(opt.name==='Outro') { setShowCustomCat(prev=>!prev); return; }
+                          setCategory(opt.name); setShowCustomCat(false);
                         }}>
-                          {React.createElement((LucideIcons as any)[opt.icon] || (LucideIcons as any).Tag, { size:14 })}
-                          {opt.name}
+                          <opt.icon size={14}/>
+                          {opt.label}
                         </Button>
                       );
                     })}
@@ -161,15 +150,9 @@ export const EditTaskSheet = ({ task, open, onOpenChange, onSave }: EditTaskShee
                     <div className="flex gap-2 mt-2">
                       <Input placeholder="Nova categoria" value={customCat} onChange={(e)=>setCustomCat(e.target.value)} className="flex-1" />
                       <Button disabled={!customCat.trim()} onClick={()=>{
-                        const name = customCat.trim();
-                        if(name){
-                          setCategory(name);
-                          setCustomCat('');
-                          setShowCustomCat(false);
-                        }
-                      }}>
-                        Adicionar
-                      </Button>
+                        const name=customCat.trim().toLowerCase().replace(/\s+/g,'-');
+                        if(name){ setCategory(name); setShowCustomCat(false); setCustomCat(''); }
+                      }}>Adicionar</Button>
                     </div>
                   )}
                 </div>

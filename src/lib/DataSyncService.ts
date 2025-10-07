@@ -288,15 +288,14 @@ class DataSyncService {
       if (this.IS_DEBUG) console.log('⚠️ [DEBUG] DataSyncService.loadAll - Nenhuma meta encontrada no Supabase');
     }
 
-    // 6. Shop Items
+    // 6. Shop Items: usar nova função de sincronização
+    if (this.IS_DEBUG) console.log('🔄 [DEBUG] DataSyncService.loadAll - Carregando itens da loja...');
     const shopItems = await db.getShopItems(userId);
-    useShopStore.setState({ items: [...defaultItems] }); // reset
-    for (const item of shopItems) {
-      const current = useShopStore.getState().items.find(i => i.id === item.id);
-      if (current) {
-        useShopStore.setState({ items: useShopStore.getState().items.map(i => i.id === item.id ? { ...i, purchased: item.purchased } : i) });
-      }
-    }
+    if (this.IS_DEBUG) console.log('🔄 [DEBUG] DataSyncService.loadAll - Itens da loja recebidos:', shopItems.length);
+    
+    // CRÍTICO: Usar syncFromSupabase para garantir que dados do Supabase sejam aplicados
+    useShopStore.getState().syncFromSupabase(shopItems);
+    if (this.IS_DEBUG) console.log('✅ [DEBUG] DataSyncService.loadAll - Itens da loja sincronizados');
   }
 
   // Reconciliar dados baseado no histórico

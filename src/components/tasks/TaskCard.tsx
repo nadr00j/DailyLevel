@@ -45,7 +45,7 @@ export const TaskCard = ({ task, onToggle, onMove, onDelete, onEdit, onView, dra
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       className={cn(
-        "card-glass p-4 rounded-xl border-l-4 transition-all duration-200",
+        "card-glass p-4 rounded-xl border-l-4 transition-all duration-200 select-none",
         priorityBorder[task.priority],
         task.completed && "opacity-60"
       )}

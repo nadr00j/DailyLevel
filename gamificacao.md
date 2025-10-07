@@ -304,7 +304,7 @@ score_c = clamp01( (W_c * XP30d_c^decay / target30d_c) + bonusStreak_c/100 ) × 
 **Cabeça (Expressões)**
 - `head_neutral.png` - Expressão neutra
 - `head_happy.png` - Feliz/Animada (vitalidade >60%)
-- `head_tired.png` - Cansada/Sonolenta (vitalidade 25-60%)
+- `head_tired.png` - Cansada/Sonolenta (vitalidade 25-50%)
 - `head_sad.png` - Triste/Derrotada (vitalidade <25%)
 - `head_confident.png` - Confiante/Determinado (streak >7 dias)
 - `head_evolved.png` - Evoluída, olhos brilhando (God Mode)

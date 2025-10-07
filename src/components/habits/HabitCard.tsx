@@ -151,7 +151,7 @@ export const HabitCard: React.FC<Props> = ({ habit, onEdit, onView, dragHandlePr
   };
 
   return (
-    <div className={clsx('p-4 rounded-xl', hasDescription ? 'space-y-3' : 'space-y-1')} style={{backgroundColor:'#131315'}}>
+    <div className={clsx('p-4 rounded-xl select-none', hasDescription ? 'space-y-3' : 'space-y-1')} style={{backgroundColor:'#131315'}}>
       {/* Header */}
       <div className={clsx('flex gap-2', hasDescription ? 'items-start' : 'items-center')}>
         {/* Drag handle */}

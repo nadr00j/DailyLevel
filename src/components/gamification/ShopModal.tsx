@@ -443,7 +443,7 @@ export const ShopModal = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors select-none ${
                     activeTab === tab.id
                       ? 'border-b-2 border-primary text-primary'
                       : 'text-muted-foreground hover:text-foreground'

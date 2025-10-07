@@ -252,9 +252,9 @@ export const VitalityListener = () => {
     // Atualizar head baseado na vitalidade
     let newHead: string;
     if (currentVitality < 25) {
-      newHead = '/Nadr00J/heads/head_tired.png';
-    } else if (currentVitality < 50) {
       newHead = '/Nadr00J/heads/head_sad.png';
+    } else if (currentVitality < 50) {
+      newHead = '/Nadr00J/heads/head_tired.png';
     } else if (currentVitality < 75) {
       newHead = '/Nadr00J/heads/head_neutral.png';
     } else if (currentVitality < 90) {

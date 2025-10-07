@@ -6,6 +6,7 @@ import { usePixelBuddyStore } from '@/stores/usePixelBuddyStore';
 import { fireGoldenConfetti } from '@/lib/confetti';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { dataSyncService } from '@/lib/DataSyncService';
+import { db } from '@/lib/database';
 import type { ShopItem } from '@/types';
 
 interface ShopState {
@@ -27,6 +28,7 @@ interface ShopState {
   cleanupUnwantedItems: () => void;
   resetShop: () => void;
   clearShopCache: () => Promise<void>;
+  syncFromSupabase: (supabaseItems: ShopItem[]) => void;
 }
 
 export const defaultItems: ShopItem[] = [
@@ -309,15 +311,34 @@ export const useShopStore = create<ShopState>()(
           });
         }
         
-        set({
-          items: items.map(i => 
-            i.id === itemId ? { ...i, purchased: true } : i
-          )
-        });
-        // Persistir no Supabase
+        // Atualizar estado local
+        const updatedItems = items.map(i => 
+          i.id === itemId ? { ...i, purchased: true } : i
+        );
+        set({ items: updatedItems });
+        
+        console.log('[Shop Debug] Item marcado como comprado localmente:', itemId);
+        
+        // CRÍTICO: Persistir no Supabase imediatamente
         const auth = useAuthStore.getState();
         if (auth.user) {
-          dataSyncService.syncAll(auth.user.id).catch(console.error);
+          console.log('[Shop Debug] Sincronizando compra com Supabase...');
+          try {
+            // Salvar item específico no Supabase
+            const purchasedItem = updatedItems.find(i => i.id === itemId);
+            if (purchasedItem) {
+              await db.saveShopItem(auth.user.id, purchasedItem as any);
+              console.log('[Shop Debug] ✅ Item salvo no Supabase:', itemId);
+            }
+            
+            // Sincronizar todos os dados
+            await dataSyncService.syncAll(auth.user.id);
+            console.log('[Shop Debug] ✅ Sincronização completa realizada');
+          } catch (error) {
+            console.error('[Shop Debug] ❌ Erro ao sincronizar com Supabase:', error);
+          }
+        } else {
+          console.warn('[Shop Debug] ⚠️ Usuário não autenticado, não foi possível sincronizar');
         }
         
         return true;
@@ -349,16 +370,37 @@ export const useShopStore = create<ShopState>()(
           }
         }
         
+        // Atualizar estado local
+        const updatedItems = items.map(i => 
+          i.id === itemId ? { ...i, purchased: false } : i
+        );
         set({
-          items: items.map(i => 
-            i.id === itemId ? { ...i, purchased: false } : i
-          ),
+          items: updatedItems,
           sellConfirmation: { open: false, item: null, sellPrice: 0 }
         });
-        // Persistir no Supabase
+        
+        console.log('[Shop Debug] Item marcado como vendido localmente:', itemId);
+        
+        // CRÍTICO: Persistir no Supabase imediatamente
         const auth2 = useAuthStore.getState();
         if (auth2.user) {
-          dataSyncService.syncAll(auth2.user.id).catch(console.error);
+          console.log('[Shop Debug] Sincronizando venda com Supabase...');
+          try {
+            // Salvar item específico no Supabase
+            const soldItem = updatedItems.find(i => i.id === itemId);
+            if (soldItem) {
+              await db.saveShopItem(auth2.user.id, soldItem as any);
+              console.log('[Shop Debug] ✅ Item vendido salvo no Supabase:', itemId);
+            }
+            
+            // Sincronizar todos os dados
+            await dataSyncService.syncAll(auth2.user.id);
+            console.log('[Shop Debug] ✅ Sincronização completa realizada');
+          } catch (error) {
+            console.error('[Shop Debug] ❌ Erro ao sincronizar venda com Supabase:', error);
+          }
+        } else {
+          console.warn('[Shop Debug] ⚠️ Usuário não autenticado, não foi possível sincronizar');
         }
         
         return true;
@@ -413,6 +455,35 @@ export const useShopStore = create<ShopState>()(
         } catch (error) {
           console.error('[Shop Debug] Error clearing shop cache:', error);
         }
+      },
+
+      // CRÍTICO: Sincronizar dados do Supabase como fonte da verdade
+      syncFromSupabase: (supabaseItems: ShopItem[]) => {
+        console.log('[Shop Debug] Sincronizando dados do Supabase:', supabaseItems.length, 'itens');
+        
+        const { items: currentItems } = get();
+        
+        // Criar mapa dos itens atuais
+        const updatedItems = [...defaultItems];
+        
+        // Aplicar dados do Supabase (comprado/não comprado)
+        for (const supabaseItem of supabaseItems) {
+          const itemIndex = updatedItems.findIndex(item => item.id === supabaseItem.id);
+          if (itemIndex !== -1) {
+            updatedItems[itemIndex] = {
+              ...updatedItems[itemIndex],
+              purchased: supabaseItem.purchased
+            };
+            console.log('[Shop Debug] Item sincronizado:', supabaseItem.id, 'purchased:', supabaseItem.purchased);
+          }
+        }
+        
+        // Atualizar estado
+        set({ items: updatedItems });
+        
+        console.log('[Shop Debug] Sincronização concluída. Itens comprados:', 
+          updatedItems.filter(item => item.purchased).length
+        );
       }
     }),
     {

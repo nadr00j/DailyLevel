@@ -53,7 +53,7 @@ export const GoalCard = ({ goal, onOptions, onToggle, onDelete, onMove, onEdit, 
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       className={cn(
-        "p-4 rounded-xl transition-all duration-200 space-y-2 relative",
+        "p-4 rounded-xl transition-all duration-200 space-y-2 relative select-none",
         goal.isCompleted && "opacity-75"
       )}
       style={{backgroundColor: goal.color ? blendWithDark(goal.color,0.25) : '#1c1c1e'}}

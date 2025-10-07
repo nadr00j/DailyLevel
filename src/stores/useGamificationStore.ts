@@ -465,8 +465,8 @@ function updatePixelBuddyState(xp: number, vitality: number, mood: string) {
 
 // Função para determinar o humor baseado na vitalidade
 function getMoodFromVitality(vitality: number): string {
-  if (vitality < 25) return 'tired';
-  if (vitality < 50) return 'sad';
+  if (vitality < 25) return 'sad';
+  if (vitality < 50) return 'tired';
   if (vitality < 75) return 'neutral';
   if (vitality < 90) return 'happy';
   return 'confident';

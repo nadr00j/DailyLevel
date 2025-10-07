@@ -66,7 +66,7 @@ function calcVitality(xp30d: number, cfg: GamificationConfig, history: any[]) {
   // automaticamente pelo sistema Supabase (vitality_close_day) UMA VEZ POR DIA.
   // NÃO calcular penalidades aqui para evitar duplicação!
   
-  // 2. METAS: Bônus por metas concluídas (sem penalidade)
+  // 2. METAS: Bônus por metas concluídas (AUMENTADO)
   let goalBonus = 0;
   const completedGoalsToday = history.filter(item => 
     item.type === 'goal' && 
@@ -74,16 +74,17 @@ function calcVitality(xp30d: number, cfg: GamificationConfig, history: any[]) {
     item.ts <= todayEnd
   ).length;
   
-  goalBonus = completedGoalsToday * 5; // 5 pontos por meta concluída
+  goalBonus = completedGoalsToday * 15; // AUMENTADO: 15 pontos por meta concluída
   
-  // 3. USO DO APP: Bônus por atividade hoje (sem penalidade para evitar duplicação)
+  // 3. USO DO APP: Bônus por atividade hoje (AUMENTADO)
   let activityBonus = 0;
-  const hasActivityToday = history.some(item => 
+  const activitiesToday = history.filter(item => 
     item.ts >= todayStart && item.ts <= todayEnd
-  );
+  ).length;
   
-  if (hasActivityToday) {
-    activityBonus = 2; // Pequeno bônus por usar o app hoje
+  if (activitiesToday > 0) {
+    // Bônus progressivo: mais atividades = mais bônus
+    activityBonus = Math.min(20, 5 + (activitiesToday * 2)); // 5 base + 2 por atividade, máximo 20
   }
   
   // 4. CONSISTÊNCIA: Bônus por uso diário nos últimos 7 dias
@@ -100,13 +101,29 @@ function calcVitality(xp30d: number, cfg: GamificationConfig, history: any[]) {
     return history.some(item => item.ts >= dayStart && item.ts <= dayEnd);
   }).length;
   
-  consistencyBonus = (activeDays / 7) * 15; // Até 15 pontos por consistência
+  consistencyBonus = (activeDays / 7) * 25; // AUMENTADO: Até 25 pontos por consistência
   
-  // 5. CALCULAR VITALIDADE FINAL (apenas bônus locais)
+  // 5. BÔNUS POR HÁBITOS E TAREFAS COMPLETADAS HOJE (NOVO)
+  let completionBonus = 0;
+  const habitsCompletedToday = history.filter(item => 
+    item.type === 'habit' && 
+    item.ts >= todayStart && 
+    item.ts <= todayEnd
+  ).length;
+  
+  const tasksCompletedToday = history.filter(item => 
+    item.type === 'task' && 
+    item.ts >= todayStart && 
+    item.ts <= todayEnd
+  ).length;
+  
+  completionBonus = (habitsCompletedToday * 3) + (tasksCompletedToday * 4); // 3 por hábito, 4 por tarefa
+  
+  // 6. CALCULAR VITALIDADE FINAL (apenas bônus locais)
   // IMPORTANTE: As penalidades são aplicadas pelo Supabase via vitality_close_day()
   // Este valor é usado apenas para referência local
   const localVitality = Math.max(0, Math.min(100, 
-    baseVitality + goalBonus + consistencyBonus + activityBonus
+    baseVitality + goalBonus + consistencyBonus + activityBonus + completionBonus
   ));
   
   
@@ -820,9 +837,9 @@ function updatePixelBuddyState(xp: number, vitality: number, mood: string) {
   // Atualizar head baseado na vitalidade e humor
   let newHead: string;
   if (vitality < 25) {
-    newHead = '/Nadr00J/heads/head_tired.png';
-  } else if (vitality < 50) {
     newHead = '/Nadr00J/heads/head_sad.png';
+  } else if (vitality < 50) {
+    newHead = '/Nadr00J/heads/head_tired.png';
   } else if (vitality < 75) {
     newHead = '/Nadr00J/heads/head_neutral.png';
   } else if (vitality < 90) {
@@ -843,8 +860,8 @@ function updatePixelBuddyState(xp: number, vitality: number, mood: string) {
 
 // Função para determinar o humor baseado na vitalidade
 function getMoodFromVitality(vitality: number): string {
-  if (vitality < 25) return 'tired';
-  if (vitality < 50) return 'sad';
+  if (vitality < 25) return 'sad';
+  if (vitality < 50) return 'tired';
   if (vitality < 75) return 'neutral';
   if (vitality < 90) return 'happy';
   return 'confident';

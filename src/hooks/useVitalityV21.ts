@@ -200,8 +200,8 @@ export const useVitalityV21 = () => {
 
   // Função para determinar o mood baseado na vitalidade
   const getMoodFromVitality = useCallback((vitality: number): 'tired' | 'sad' | 'neutral' | 'happy' | 'confident' => {
-    if (vitality < 25) return 'tired';
-    if (vitality < 50) return 'sad';
+    if (vitality < 25) return 'sad';
+    if (vitality < 50) return 'tired';
     if (vitality < 75) return 'neutral';
     if (vitality < 90) return 'happy';
     return 'confident';
@@ -220,8 +220,8 @@ export const useVitalityV21 = () => {
 
   // Função para determinar a cabeça baseada na vitalidade
   const getHeadFromVitality = useCallback((vitality: number): string => {
-    if (vitality < 25) return '/Nadr00J/heads/head_tired.png';
-    if (vitality < 50) return '/Nadr00J/heads/head_sad.png';
+    if (vitality < 25) return '/Nadr00J/heads/head_sad.png';
+    if (vitality < 50) return '/Nadr00J/heads/head_tired.png';
     if (vitality < 75) return '/Nadr00J/heads/head_neutral.png';
     if (vitality < 90) return '/Nadr00J/heads/head_happy.png';
     return '/Nadr00J/heads/head_confident.png';

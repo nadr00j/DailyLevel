@@ -4,9 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Clock, Calendar, ArrowRight, AlertCircle, ChevronDown } from 'lucide-react';
+import { Calendar, ArrowRight, AlertCircle, ChevronDown, Paintbrush, BookOpen, DollarSign, Dumbbell, Apple, HeartPulse, Brain, Users, Monitor, Camera, Clock, Tag } from 'lucide-react';
 import { WeekDayPicker } from "@/components/pickers/WeekDayPicker";
-import { CategoryPicker } from "@/components/pickers/CategoryPicker";
 import { TaskBucket } from "@/types";
 import { cn } from "@/lib/utils";
 import clsx from 'clsx';
@@ -37,7 +36,22 @@ const textOn = {
   high: 'data-[state=on]:text-red-500'
 } as const;
 
-// Removido CATEGORY_OPTIONS - agora usando CategoryPicker que já tem todas as categorias
+const CATEGORY_OPTIONS = [
+  { name: 'arte', label: 'Arte', icon: Paintbrush },
+  { name: 'estudo', label: 'Estudo', icon: BookOpen },
+  { name: 'financas', label: 'Finanças', icon: DollarSign },
+  { name: 'fitness', label: 'Fitness', icon: Dumbbell },
+  { name: 'nutricao', label: 'Nutrição', icon: Apple },
+  { name: 'saude', label: 'Saúde', icon: HeartPulse },
+  { name: 'mente', label: 'Mente', icon: Brain },
+  { name: 'social', label: 'Social', icon: Users },
+  { name: 'trabalho', label: 'Trabalho', icon: Monitor },
+  { name: 'imagem-pessoal', label: 'Imagem Pessoal', icon: Camera },
+  { name: 'hobbies', label: 'Hobbies', icon: Paintbrush },
+  { name: 'produtividade', label: 'Produtividade', icon: Clock },
+  { name: 'personal', label: 'Pessoal', icon: Users },
+  { name: 'Outro', label: 'Outro', icon: Tag },
+];
 
 export const CreateTaskSheet = ({ open, onOpenChange, defaultBucket, addTask, showBucketSelect }: CreateTaskSheetProps) => {
   const [title, setTitle] = useState("");
@@ -48,7 +62,8 @@ export const CreateTaskSheet = ({ open, onOpenChange, defaultBucket, addTask, sh
   const [weekStart, setWeekStart] = useState<string | undefined>();
   const [weekEnd, setWeekEnd] = useState<string | undefined>();
   const [showAdvanced, setShowAdvanced] = useState(false);
-  // Removido showCustomCat e customCat - CategoryPicker já gerencia isso
+  const [showCustomCat, setShowCustomCat] = useState(false);
+  const [customCat, setCustomCat] = useState('');
 
   const handleCreate = async () => {
     if (!title.trim()) return;
@@ -115,13 +130,30 @@ export const CreateTaskSheet = ({ open, onOpenChange, defaultBucket, addTask, sh
                 {/* Categories */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Categoria</label>
-                  <CategoryPicker
-                    value={category}
-                    onChange={(value) => setCategory(Array.isArray(value) ? value[0] || '' : value)}
-                    placeholder="Selecione uma categoria"
-                    allowCustom={true}
-                    showSearch={true}
-                  />
+                  <div className="flex flex-wrap gap-2">
+                    {CATEGORY_OPTIONS.map(opt=>{
+                      const selected = category===opt.name;
+                      return (
+                        <Button key={opt.name} size="sm" variant={selected?'default':'outline'} className="gap-1" onClick={()=>{
+                          if(opt.name==='Outro') { setShowCustomCat(prev=>!prev); return; }
+                          setCategory(opt.name); setShowCustomCat(false);
+                        }}>
+                          <opt.icon size={14}/>
+                          {opt.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+
+                  {showCustomCat && (
+                    <div className="flex gap-2 mt-2">
+                      <Input placeholder="Nova categoria" value={customCat} onChange={(e)=>setCustomCat(e.target.value)} className="flex-1" />
+                      <Button disabled={!customCat.trim()} onClick={()=>{
+                        const name=customCat.trim().toLowerCase().replace(/\s+/g,'-');
+                        if(name){ setCategory(name); setShowCustomCat(false); setCustomCat(''); }
+                      }}>Adicionar</Button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
