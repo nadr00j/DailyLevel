@@ -517,28 +517,45 @@ export class DatabaseService {
     }
     
     const dbData = toGamificationDb(data);
-    // check existing
-    const existing = await this.getGamificationData(data.userId);
+    
+    console.log('💾 [DEBUG] saveGamificationData - Salvando com vitalidade:', dbData.vitality);
+    
+    // 🔄 MÉTODO SEGURO: Tentar UPDATE primeiro, depois INSERT se não existir
     let result;
-    if (existing) {
-      const { data: d, error } = await supabase
-        .from('user_gamification')
-        .update(dbData)
-        .eq('user_id', data.userId)
-        .select()
-        .single();
-      if (error) throw error;
-      result = d as GamificationDb;
-    } else {
-      const { data: d, error } = await supabase
+    
+    // Primeiro, tentar UPDATE
+    const { data: updateResult, error: updateError } = await supabase
+      .from('user_gamification')
+      .update(dbData)
+      .eq('user_id', data.userId)
+      .select()
+      .single();
+    
+    if (updateError && updateError.code === 'PGRST116') {
+      // Registro não existe, fazer INSERT
+      console.log('💾 [DEBUG] Registro não existe, fazendo INSERT...');
+      const { data: insertResult, error: insertError } = await supabase
         .from('user_gamification')
         .insert(dbData)
         .select()
         .single();
-      if (error) throw error;
-      result = d as GamificationDb;
+        
+      if (insertError) {
+        console.error('❌ [DEBUG] saveGamificationData - Erro no INSERT:', insertError);
+        throw insertError;
+      }
+      
+      result = insertResult;
+    } else if (updateError) {
+      console.error('❌ [DEBUG] saveGamificationData - Erro no UPDATE:', updateError);
+      throw updateError;
+    } else {
+      result = updateResult;
     }
-    return toGamification(result);
+    
+    console.log('✅ [DEBUG] saveGamificationData - Dados salvos com vitalidade:', result.vitality);
+    
+    return toGamification(result as GamificationDb);
   }
 
   async addGamificationHistory(history: GamificationHistory): Promise<void> {

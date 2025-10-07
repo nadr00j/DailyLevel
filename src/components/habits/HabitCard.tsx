@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Habit } from '@/types/habit';
 import { useHabitStore } from '@/stores/useHabitStore';
 import { useHeatmapColor } from '@/hooks/useHeatmapColor';
@@ -151,14 +152,22 @@ export const HabitCard: React.FC<Props> = ({ habit, onEdit, onView, dragHandlePr
   };
 
   return (
-    <div className={clsx('p-4 rounded-xl select-none', hasDescription ? 'space-y-3' : 'space-y-1')} style={{backgroundColor:'#131315'}}>
+    <motion.div 
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className={clsx('p-4 rounded-xl select-none', hasDescription ? 'space-y-3' : 'space-y-1')} 
+      style={{backgroundColor:'#131315'}}
+    >
       {/* Header */}
       <div className={clsx('flex gap-2', hasDescription ? 'items-start' : 'items-center')}>
         {/* Drag handle */}
         {dragHandleProps && (
           <button
             {...dragHandleProps}
-            className="mt-2 mb-1 cursor-grab text-muted-foreground hover:text-foreground flex-shrink-0"
+            className="mt-2 mb-1 cursor-grab text-muted-foreground hover:text-foreground flex-shrink-0 touch-none"
+            style={{ touchAction: 'none' }}
             onClick={(e)=>e.stopPropagation()}
           >
             <LucideIcons.GripVertical size={16} />
@@ -341,6 +350,6 @@ export const HabitCard: React.FC<Props> = ({ habit, onEdit, onView, dragHandlePr
           ))}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };

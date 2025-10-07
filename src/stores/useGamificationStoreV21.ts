@@ -74,7 +74,7 @@ function calcVitality(xp30d: number, cfg: GamificationConfig, history: any[]) {
     item.ts <= todayEnd
   ).length;
   
-  goalBonus = completedGoalsToday * 15; // AUMENTADO: 15 pontos por meta concluída
+  goalBonus = completedGoalsToday * 25; // SUPER AUMENTADO: 25 pontos por meta concluída
   
   // 3. USO DO APP: Bônus por atividade hoje (AUMENTADO)
   let activityBonus = 0;
@@ -83,8 +83,8 @@ function calcVitality(xp30d: number, cfg: GamificationConfig, history: any[]) {
   ).length;
   
   if (activitiesToday > 0) {
-    // Bônus progressivo: mais atividades = mais bônus
-    activityBonus = Math.min(20, 5 + (activitiesToday * 2)); // 5 base + 2 por atividade, máximo 20
+    // Bônus progressivo SUPER AUMENTADO: mais atividades = muito mais bônus
+    activityBonus = Math.min(40, 10 + (activitiesToday * 4)); // 10 base + 4 por atividade, máximo 40
   }
   
   // 4. CONSISTÊNCIA: Bônus por uso diário nos últimos 7 dias
@@ -101,7 +101,7 @@ function calcVitality(xp30d: number, cfg: GamificationConfig, history: any[]) {
     return history.some(item => item.ts >= dayStart && item.ts <= dayEnd);
   }).length;
   
-  consistencyBonus = (activeDays / 7) * 25; // AUMENTADO: Até 25 pontos por consistência
+  consistencyBonus = (activeDays / 7) * 35; // SUPER AUMENTADO: Até 35 pontos por consistência
   
   // 5. BÔNUS POR HÁBITOS E TAREFAS COMPLETADAS HOJE (NOVO)
   let completionBonus = 0;
@@ -117,13 +117,27 @@ function calcVitality(xp30d: number, cfg: GamificationConfig, history: any[]) {
     item.ts <= todayEnd
   ).length;
   
-  completionBonus = (habitsCompletedToday * 3) + (tasksCompletedToday * 4); // 3 por hábito, 4 por tarefa
+  completionBonus = (habitsCompletedToday * 8) + (tasksCompletedToday * 10); // SUPER AUMENTADO: 8 por hábito, 10 por tarefa
   
-  // 6. CALCULAR VITALIDADE FINAL (apenas bônus locais)
+  // 6. BÔNUS DE PRODUTIVIDADE: Bônus extra por completar múltiplas atividades (NOVO)
+  let productivityBonus = 0;
+  const totalCompletions = habitsCompletedToday + tasksCompletedToday + completedGoalsToday;
+  
+  if (totalCompletions >= 3) {
+    productivityBonus = 15; // Bônus por ser produtivo (3+ atividades)
+  }
+  if (totalCompletions >= 5) {
+    productivityBonus = 25; // Bônus maior por alta produtividade (5+ atividades)
+  }
+  if (totalCompletions >= 8) {
+    productivityBonus = 40; // Bônus máximo por super produtividade (8+ atividades)
+  }
+  
+  // 7. CALCULAR VITALIDADE FINAL (apenas bônus locais)
   // IMPORTANTE: As penalidades são aplicadas pelo Supabase via vitality_close_day()
   // Este valor é usado apenas para referência local
   const localVitality = Math.max(0, Math.min(100, 
-    baseVitality + goalBonus + consistencyBonus + activityBonus + completionBonus
+    baseVitality + goalBonus + consistencyBonus + activityBonus + completionBonus + productivityBonus
   ));
   
   
@@ -324,12 +338,68 @@ export const useGamificationStoreV21 = create<GamificationState>()(
           newXp30d = finalXp;
         }
         
-        // IMPORTANTE: Usar vitalidade do Supabase (via useVitalityV21) ao invés de calcular localmente
-        // O cálculo local é mantido apenas para fallback/debug
-        let newVitality = state.vitality; // Manter valor atual por padrão
+        // RECALCULAR VITALIDADE: Usar o cálculo local atualizado com os novos bônus
+        let newVitality = state.vitality; // Fallback
         
-        // Usar vitalidade atual do state (sincronizada via useVitalityV21)
-        newVitality = state.vitality;
+        try {
+          // Incluir a nova ação no histórico para o cálculo
+          const updatedHistory = [...state.history, {
+            ts: now,
+            type,
+            xp: finalXp,
+            coins: Math.floor(finalXp * cfg.points.coinsPerXp),
+            tags: safeTags,
+            category: explicitCategory || resolveCategory(safeTags, cfg)
+          }];
+          
+          // Calcular vitalidade com o histórico atualizado
+          newVitality = Math.floor(calcVitality(newXp30d, cfg, updatedHistory));
+          
+          console.log('🎉 [VITALITY BOOST] VITALIDADE RECALCULADA! 🎉', {
+            '🔸 ANTES': state.vitality,
+            '🔸 DEPOIS': newVitality,
+            '🔸 MUDANÇA': `+${newVitality - state.vitality}`,
+            '🔸 XP30D': newXp30d,
+            '🔸 HISTÓRICO': updatedHistory.length
+          });
+          
+          // Log detalhado dos bônus
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const todayStart = today.getTime();
+          const todayEnd = todayStart + (24 * 60 * 60 * 1000) - 1;
+          
+          const todayActivities = updatedHistory.filter(item => 
+            item.ts >= todayStart && item.ts <= todayEnd
+          );
+          
+          const habitsToday = todayActivities.filter(item => item.type === 'habit').length;
+          const tasksToday = todayActivities.filter(item => item.type === 'task').length;
+          const goalsToday = todayActivities.filter(item => item.type === 'goal').length;
+          
+          const baseVitality = Math.min(100, (newXp30d / cfg.points.vitalityMonthlyTarget) * 100);
+          const goalBonus = goalsToday * 25;
+          const activityBonus = todayActivities.length > 0 ? Math.min(40, 10 + (todayActivities.length * 4)) : 0;
+          const completionBonus = (habitsToday * 8) + (tasksToday * 10);
+          
+          const totalCompletions = habitsToday + tasksToday + goalsToday;
+          let productivityBonus = 0;
+          if (totalCompletions >= 3) productivityBonus = 15;
+          if (totalCompletions >= 5) productivityBonus = 25;
+          if (totalCompletions >= 8) productivityBonus = 40;
+          
+          console.log('📊 [VITALITY BREAKDOWN] Detalhamento dos bônus:', {
+            '🎯 Base (XP30d)': Math.round(baseVitality * 100) / 100,
+            '🏆 Metas (25 cada)': goalBonus,
+            '⚡ Atividade': activityBonus,
+            '✅ Conclusões': completionBonus,
+            '🚀 Produtividade': productivityBonus,
+            '📅 Hoje': { hábitos: habitsToday, tarefas: tasksToday, metas: goalsToday }
+          });
+        } catch (error) {
+          console.error('[AddXP] ❌ Erro ao recalcular vitalidade:', error);
+          newVitality = state.vitality; // Manter valor atual em caso de erro
+        }
         
         // Calcular humor baseado na vitalidade
         let newMood = 'neutral';
@@ -475,10 +545,34 @@ export const useGamificationStoreV21 = create<GamificationState>()(
               }]
             };
             
-            console.log('[AddXP] Salvando no Supabase:', { xp: dataToSave.xp, coins: dataToSave.coins });
+            console.log('[AddXP] 🔄 Salvando no Supabase COM VITALIDADE RECALCULADA:', { 
+              xp: dataToSave.xp, 
+              coins: dataToSave.coins, 
+              vitality: dataToSave.vitality 
+            });
             
-            db.saveGamificationData(dataToSave).then(() => {
-              console.log('[AddXP] ✅ Dados salvos no Supabase com sucesso');
+            db.saveGamificationData(dataToSave).then((savedData) => {
+              console.log('[AddXP] ✅ Dados salvos no Supabase com sucesso (incluindo vitalidade):', savedData.vitality);
+              
+              // 🛡️ PROTEÇÃO: Marcar que acabamos de salvar para evitar sobrescrita
+              const protectionFlag = {
+                vitality: newVitality,
+                timestamp: Date.now(),
+                protected: true
+              };
+              localStorage.setItem('dl-vitality-protection', JSON.stringify(protectionFlag));
+              
+              console.log('[AddXP] 🛡️ Proteção de vitalidade ativada por 15 segundos');
+              
+              // 🔄 FORÇAR ATUALIZAÇÃO: Garantir que o estado local está correto
+              const currentState = get();
+              if (currentState.vitality !== newVitality) {
+                console.log('[AddXP] 🔄 Corrigindo vitalidade no estado local:', {
+                  atual: currentState.vitality,
+                  correto: newVitality
+                });
+                set({ vitality: newVitality });
+              }
             }).catch(err => {
               console.error('[AddXP] ❌ Erro ao salvar no Supabase:', err);
             });
@@ -564,7 +658,66 @@ export const useGamificationStoreV21 = create<GamificationState>()(
         
         const syncedXp = data.xp || 0;
         const syncedCoins = data.coins || 0;
-        const syncedVitality = data.vitality || currentState.vitality;
+        
+        // 🧠 INTELIGÊNCIA DE VITALIDADE: Não sobrescrever se foi recalculada recentemente
+        let syncedVitality = data.vitality || currentState.vitality;
+        
+        // 🛡️ VERIFICAR PROTEÇÃO DE VITALIDADE (prioridade máxima)
+        const protectionData = localStorage.getItem('dl-vitality-protection');
+        if (protectionData) {
+          try {
+            const protection = JSON.parse(protectionData);
+            const timeSinceProtection = Date.now() - (protection.timestamp || 0);
+            
+            if (timeSinceProtection < 15000 && protection.protected) {
+              // Proteção ativa - manter vitalidade protegida
+              syncedVitality = protection.vitality;
+              console.log('[SyncFromSupabase] 🛡️ PROTEÇÃO ATIVA - Mantendo vitalidade protegida:', {
+                supabaseVitality: data.vitality,
+                protectedVitality: protection.vitality,
+                timeSinceProtection: `${timeSinceProtection}ms`
+              });
+              
+              // Se passou de 15 segundos, remover proteção
+              if (timeSinceProtection >= 15000) {
+                localStorage.removeItem('dl-vitality-protection');
+                console.log('[SyncFromSupabase] 🛡️ Proteção expirada, removendo...');
+              }
+              
+              // Continuar com a sincronização usando a vitalidade protegida
+            } else {
+              // Proteção expirada ou inativa, usar lógica de fallback
+              const localStorage_data = localStorage.getItem('dl-quick-stats');
+              if (localStorage_data) {
+                try {
+                  const quickSave = JSON.parse(localStorage_data);
+                  const timeSinceUpdate = Date.now() - (quickSave.lastUpdated || 0);
+                  
+                  if (timeSinceUpdate < 10000 && quickSave.vitality > data.vitality) {
+                    // Se foi atualizada recentemente e é maior que a do Supabase, manter a local
+                    syncedVitality = quickSave.vitality;
+                    console.log('[SyncFromSupabase] 🧠 Mantendo vitalidade local recente:', {
+                      supabaseVitality: data.vitality,
+                      localVitality: quickSave.vitality,
+                      timeSinceUpdate: `${timeSinceUpdate}ms`
+                    });
+                  } else {
+                    syncedVitality = data.vitality || currentState.vitality;
+                    console.log('[SyncFromSupabase] 📥 Usando vitalidade do Supabase:', {
+                      supabaseVitality: data.vitality,
+                      timeSinceUpdate: `${timeSinceUpdate}ms`
+                    });
+                  }
+                } catch (error) {
+                  console.error('[SyncFromSupabase] Erro ao verificar localStorage:', error);
+                  syncedVitality = data.vitality || currentState.vitality;
+                }
+              }
+            }
+          } catch (error) {
+            console.error('[SyncFromSupabase] Erro ao verificar proteção:', error);
+          }
+        }
 
         set({
           userId: data.userId || currentState.userId,

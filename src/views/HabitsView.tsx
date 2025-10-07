@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Calendar, CalendarCheck, CalendarX, ChevronDown, Briefcase, HeartPulse, Brain, Users, Home, Camera, Clock, Paintbrush, BookOpen, DollarSign, Dumbbell, Apple, Monitor, Tag } from 'lucide-react';
-import { DndContext, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
+import { DndContext, PointerSensor, TouchSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { useHabitStore } from '@/stores/useHabitStore';
 import { useMemo, useEffect } from 'react';
@@ -115,7 +115,21 @@ export const HabitsView = () => {
   const habitCategoryOrder = settings.habitCategoryOrder;
   const collapsed = settings.habitCategoryCollapsed;
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { 
+      activationConstraint: { 
+        distance: 5,
+        delay: 100,
+        tolerance: 5
+      } 
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 100,
+        tolerance: 5
+      }
+    })
+  );
 
   const handleDragEndFactory = (group: Habit[])=> (event:any)=>{
     const {active, over}=event;
@@ -250,7 +264,7 @@ export const HabitsView = () => {
                     {orderedCats(groupedToday).map(cat=>{ const list=groupedToday[cat]; if(!list) return null; return (
                       <SortableCategory key={cat} id={cat}>
                         <div key={cat}>
-                          <button className="w-full bg-[#18181b] rounded-xl p-3 mb-2 flex items-center justify-between" onClick={()=>toggleGroup(cat)}>
+                          <button className="w-full bg-[#18181b] rounded-xl p-3 mb-2 flex items-center justify-between select-none" onClick={()=>toggleGroup(cat)}>
                             <div className="flex items-center gap-2">
                               {(()=>{
                                 const meta = (CAT_META as any)[cat] || {};
@@ -304,7 +318,7 @@ export const HabitsView = () => {
                     {orderedCats(groupedInactive).map(cat=>{ const list=groupedInactive[cat]; if(!list) return null; return (
                       <SortableCategory key={cat} id={cat}>
                         <div key={cat}>
-                          <button className="w-full bg-[#18181b] rounded-xl p-3 mb-2 flex items-center justify-between" onClick={()=>toggleGroup(cat)}>
+                          <button className="w-full bg-[#18181b] rounded-xl p-3 mb-2 flex items-center justify-between select-none" onClick={()=>toggleGroup(cat)}>
                             <div className="flex items-center gap-2">
                               {(()=>{
                                 const meta = (CAT_META as any)[cat] || {};

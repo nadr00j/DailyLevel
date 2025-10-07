@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { GoalCard } from '@/components/goals/GoalCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useState, useEffect } from 'react';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { AnimatePresence, motion } from 'framer-motion';
 import { HeartPulse, Briefcase, DollarSign, BookOpen, Users, ChevronDown, Tag, Paintbrush, Dumbbell, Apple, Monitor, Brain, Camera, Clock, Book } from 'lucide-react';
@@ -84,7 +84,21 @@ export const GoalsView = () => {
   const totalGoals = activeGoals.length + completedGoals.length;
   const averageProgress = totalGoals>0 ? (completedGoals.length/totalGoals)*100 : 0;
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { 
+      activationConstraint: { 
+        distance: 5,
+        delay: 100,
+        tolerance: 5
+      } 
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 100,
+        tolerance: 5
+      }
+    })
+  );
 
   const handleDragEndFactory = (list: Goal[]) => (event:any)=>{
     const {active, over}=event;
@@ -160,7 +174,7 @@ export const GoalsView = () => {
 
   const renderCategory = (cat:string, list:Goal[])=> (
     <div>
-      <button className="w-full bg-[#18181b] rounded-xl p-3 mb-2 flex items-center justify-between" onClick={()=>toggleGroup(cat)}>
+      <button className="w-full bg-[#18181b] rounded-xl p-3 mb-2 flex items-center justify-between select-none" onClick={()=>toggleGroup(cat)}>
         <div className="flex items-center gap-2">
           {(()=>{ const Icon=GOAL_CAT_META[cat]?.icon; return Icon? <Icon size={16} className="text-white"/>:null;})()}
           <span className="font-semibold text-sm">{formatCategoryLabel(cat)} <span className="text-muted-foreground">({list.length})</span></span>

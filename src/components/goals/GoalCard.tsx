@@ -63,7 +63,8 @@ export const GoalCard = ({ goal, onOptions, onToggle, onDelete, onMove, onEdit, 
         {dragHandleProps && (
           <button
             {...dragHandleProps}
-            className="mr-2 mt-1 cursor-grab text-muted-foreground hover:text-foreground flex-shrink-0"
+            className="mr-2 mt-1 cursor-grab text-muted-foreground hover:text-foreground flex-shrink-0 touch-none"
+            style={{ touchAction: 'none' }}
             onClick={(e)=>e.stopPropagation()}
           >
             <GripVertical size={14} />

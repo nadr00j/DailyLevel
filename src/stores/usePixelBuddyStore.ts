@@ -123,8 +123,9 @@ export const usePixelBuddyStore = create<PixelBuddyState>()(
         }
         
         try {
-          await dataSyncService.syncAll(userId);
-          if (IS_DEBUG) console.log('✅ [DEBUG] PixelBuddyStore - Estado sincronizado com Supabase');
+          // 🚨 CRÍTICO: Pular gamificação para evitar sobrescrever vitalidade recalculada
+          await dataSyncService.syncAll(userId, true); // skipGamification = true
+          if (IS_DEBUG) console.log('✅ [DEBUG] PixelBuddyStore - Estado sincronizado com Supabase (sem gamificação)');
         } catch (error) {
           console.error('❌ [DEBUG] PixelBuddyStore - Erro ao sincronizar com Supabase:', error);
         }

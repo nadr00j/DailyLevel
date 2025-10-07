@@ -30,7 +30,7 @@ export const TabBar = ({ activeTab, onTabChange }: TabBarProps) => {
                 onClick={() => onTabChange(tab.id)}
                 className={cn(
                   "relative flex-1 flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-200 basis-0",
-                  "hover:bg-accent/50",
+                  "hover:bg-accent/50 select-none",
                   isActive && "text-primary"
                 )}
               >

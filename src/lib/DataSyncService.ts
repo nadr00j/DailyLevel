@@ -389,7 +389,7 @@ class DataSyncService {
   }
 
   // Sync local changes to Supabase
-  async syncAll(userId: string): Promise<void> {
+  async syncAll(userId: string, skipGamification: boolean = false): Promise<void> {
     if (!userId || userId === 'undefined') {
       console.error('❌ [DEBUG] DataSyncService.syncAll - userId inválido:', userId);
       return;
@@ -406,11 +406,15 @@ class DataSyncService {
     if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Stack trace:', new Error().stack);
     
     try {
-      // 1. Gamification
-      if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Iniciando gamificação...');
-      const gm = useGamificationStoreV21.getState();
-      await db.saveGamificationData({ userId, ...gm });
-      if (this.IS_DEBUG) console.log('✅ [DEBUG] DataSyncService.syncAll - Gamificação salva');
+      // 1. Gamification (pular se solicitado)
+      if (!skipGamification) {
+        if (this.IS_DEBUG) console.log('🔍 [DEBUG] DataSyncService.syncAll - Iniciando gamificação...');
+        const gm = useGamificationStoreV21.getState();
+        await db.saveGamificationData({ userId, ...gm });
+        if (this.IS_DEBUG) console.log('✅ [DEBUG] DataSyncService.syncAll - Gamificação salva');
+      } else {
+        if (this.IS_DEBUG) console.log('⏭️ [DEBUG] DataSyncService.syncAll - Pulando gamificação (skipGamification=true)');
+      }
     // 1.a. Histórico de gamificação gerenciado diretamente em addHistoryItem; removido do syncAll para evitar duplicações
     
     // 2. Tasks: sincronizar a partir do store
