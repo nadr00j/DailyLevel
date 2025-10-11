@@ -815,7 +815,7 @@ export class DatabaseService {
 
   // ===== CATEGORY SETTINGS =====
   // Get category settings for a user and type
-  async getCategorySettings(userId: string, type: 'habits' | 'goals' | 'tasks'): Promise<CategorySettingsGroup> {
+  async getCategorySettings(userId: string, type: 'habits' | 'goals' | 'tasks' | 'tasks-today' | 'tasks-week' | 'tasks-later'): Promise<CategorySettingsGroup> {
     const { data, error } = await supabase
       .from('category_settings')
       .select('*')
@@ -882,7 +882,7 @@ export class DatabaseService {
   }
 
   // Update single category setting
-  async updateCategorySetting(userId: string, type: 'habits' | 'goals' | 'tasks', categoryName: string, updates: Partial<{ order: number; isCollapsed: boolean }>): Promise<void> {
+  async updateCategorySetting(userId: string, type: 'habits' | 'goals' | 'tasks' | 'tasks-today' | 'tasks-week' | 'tasks-later', categoryName: string, updates: Partial<{ order: number; isCollapsed: boolean }>): Promise<void> {
     const { error } = await supabase
       .from('category_settings')
       .upsert([{

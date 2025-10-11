@@ -86,8 +86,10 @@ export const TasksView = () => {
 
   // Use new category settings hook
   const { settings, saveTaskCategoryOrder, toggleTaskCategory } = useCategorySettings();
-  const taskCategoryOrder = settings.taskCategoryOrder;
-  const collapsed = settings.taskCategoryCollapsed;
+  
+  // Get bucket-specific settings
+  const getTaskCategoryOrder = (bucket: TaskBucket) => settings.taskCategoryOrder[bucket];
+  const getTaskCategoryCollapsed = (bucket: TaskBucket) => settings.taskCategoryCollapsed[bucket];
 
   const [activeBucket, setActiveBucket] = useState<TaskBucket>('today');
   const [openCreate, setOpenCreate] = useState(false);
@@ -132,9 +134,9 @@ export const TasksView = () => {
     return map;
   };
 
-  // Get ordered categories
-  const orderedCats = (grp: Record<string, Task[]>) => {
-    let order = [...taskCategoryOrder];
+  // Get ordered categories for specific bucket
+  const orderedCats = (grp: Record<string, Task[]>, bucket: TaskBucket) => {
+    let order = [...getTaskCategoryOrder(bucket)];
     const keys = Object.keys(grp);
     keys.forEach(k => { if (!order.includes(k)) order.push(k); });
     // remove categories not present
@@ -142,8 +144,8 @@ export const TasksView = () => {
     return order;
   };
 
-  // Handle category drag end
-  const handleCategoryDragEnd = (grpCats: string[]) => (event: any) => {
+  // Handle category drag end for specific bucket
+  const handleCategoryDragEnd = (bucket: TaskBucket, grpCats: string[]) => (event: any) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     
@@ -160,11 +162,11 @@ export const TasksView = () => {
     if (oldIdx === -1 || newIdx === -1) return;
     
     const newOrder = arrayMove(grpCats, oldIdx, newIdx);
-    saveTaskCategoryOrder(newOrder);
+    saveTaskCategoryOrder(bucket, newOrder);
   };
 
-  const toggleGroup = (cat: string) => {
-    toggleTaskCategory(cat);
+  const toggleGroup = (bucket: TaskBucket, cat: string) => {
+    toggleTaskCategory(bucket, cat);
   };
 
 
@@ -220,13 +222,14 @@ export const TasksView = () => {
 
           {taskBuckets.map(({ bucket, tasks }) => {
             const groupedTasks = groupByCategory(tasks);
-            const orderedCategories = orderedCats(groupedTasks);
+            const orderedCategories = orderedCats(groupedTasks, bucket);
+            const collapsed = getTaskCategoryCollapsed(bucket);
             
             return (
               <TabsContent key={bucket} value={bucket} className="mt-4">
                 {tasks.length > 0 ? (
                   <div className="space-y-4">
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd(orderedCategories)}>
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd(bucket, orderedCategories)}>
                       <SortableContext items={orderedCategories.map(cat => `category-${cat}`)} strategy={verticalListSortingStrategy}>
                         {orderedCategories.map(cat => {
                           const categoryTasks = groupedTasks[cat];
@@ -244,7 +247,7 @@ export const TasksView = () => {
                             <SortableCategory key={cat} id={cat}>
                               {({ categoryDragHandleProps }: any) => (
                                 <div key={cat}>
-                                  <button className="w-full bg-[#18181b] rounded-xl p-3 mb-2 flex items-center justify-between select-none" onClick={() => toggleGroup(cat)}>
+                                  <button className="w-full bg-[#18181b] rounded-xl p-3 mb-2 flex items-center justify-between select-none" onClick={() => toggleGroup(bucket, cat)}>
                                     <div className="flex items-center gap-2">
                                       <button 
                                         {...categoryDragHandleProps}

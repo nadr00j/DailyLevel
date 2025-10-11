@@ -8,8 +8,17 @@ interface CategorySettings {
   habitCategoryCollapsed: Record<string, boolean>;
   goalCategoryOrder: string[];
   goalCategoryCollapsed: Record<string, boolean>;
-  taskCategoryOrder: string[];
-  taskCategoryCollapsed: Record<string, boolean>;
+  // Tarefas agora têm configurações por bucket
+  taskCategoryOrder: {
+    today: string[];
+    week: string[];
+    later: string[];
+  };
+  taskCategoryCollapsed: {
+    today: Record<string, boolean>;
+    week: Record<string, boolean>;
+    later: Record<string, boolean>;
+  };
 }
 
 export const useCategorySettings = () => {
@@ -21,8 +30,16 @@ export const useCategorySettings = () => {
       habitCategoryCollapsed: JSON.parse(localStorage.getItem('dl.habitCategoryCollapsed') || '{}'),
       goalCategoryOrder: JSON.parse(localStorage.getItem('dl.goalCategoryOrder') || '[]'),
       goalCategoryCollapsed: JSON.parse(localStorage.getItem('dl.goalCategoryCollapsed') || '{}'),
-      taskCategoryOrder: JSON.parse(localStorage.getItem('dl.taskCategoryOrder') || '[]'),
-      taskCategoryCollapsed: JSON.parse(localStorage.getItem('dl.taskCategoryCollapsed') || '{}')
+      taskCategoryOrder: {
+        today: JSON.parse(localStorage.getItem('dl.taskCategoryOrder.today') || '[]'),
+        week: JSON.parse(localStorage.getItem('dl.taskCategoryOrder.week') || '[]'),
+        later: JSON.parse(localStorage.getItem('dl.taskCategoryOrder.later') || '[]')
+      },
+      taskCategoryCollapsed: {
+        today: JSON.parse(localStorage.getItem('dl.taskCategoryCollapsed.today') || '{}'),
+        week: JSON.parse(localStorage.getItem('dl.taskCategoryCollapsed.week') || '{}'),
+        later: JSON.parse(localStorage.getItem('dl.taskCategoryCollapsed.later') || '{}')
+      }
     };
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -34,10 +51,12 @@ export const useCategorySettings = () => {
     setIsLoading(true);
     try {
       // Load from Supabase first
-      const [habitSettings, goalSettings, taskSettings] = await Promise.all([
+      const [habitSettings, goalSettings, taskTodaySettings, taskWeekSettings, taskLaterSettings] = await Promise.all([
         db.getCategorySettings(userId, 'habits'),
         db.getCategorySettings(userId, 'goals'),
-        db.getCategorySettings(userId, 'tasks')
+        db.getCategorySettings(userId, 'tasks-today'),
+        db.getCategorySettings(userId, 'tasks-week'),
+        db.getCategorySettings(userId, 'tasks-later')
       ]);
       
       // Convert Supabase data to our format
@@ -55,11 +74,25 @@ export const useCategorySettings = () => {
         Object.entries(goalSettings).map(([name, config]) => [name, config.isCollapsed])
       );
 
-      const taskOrder = Object.entries(taskSettings)
+      const taskTodayOrder = Object.entries(taskTodaySettings)
         .sort(([,a], [,b]) => a.order - b.order)
         .map(([name]) => name);
-      const taskCollapsed = Object.fromEntries(
-        Object.entries(taskSettings).map(([name, config]) => [name, config.isCollapsed])
+      const taskTodayCollapsed = Object.fromEntries(
+        Object.entries(taskTodaySettings).map(([name, config]) => [name, config.isCollapsed])
+      );
+
+      const taskWeekOrder = Object.entries(taskWeekSettings)
+        .sort(([,a], [,b]) => a.order - b.order)
+        .map(([name]) => name);
+      const taskWeekCollapsed = Object.fromEntries(
+        Object.entries(taskWeekSettings).map(([name, config]) => [name, config.isCollapsed])
+      );
+
+      const taskLaterOrder = Object.entries(taskLaterSettings)
+        .sort(([,a], [,b]) => a.order - b.order)
+        .map(([name]) => name);
+      const taskLaterCollapsed = Object.fromEntries(
+        Object.entries(taskLaterSettings).map(([name, config]) => [name, config.isCollapsed])
       );
 
       // Get current localStorage data
@@ -67,8 +100,12 @@ export const useCategorySettings = () => {
       const currentHabitCollapsed = JSON.parse(localStorage.getItem('dl.habitCategoryCollapsed') || '{}');
       const currentGoalOrder = JSON.parse(localStorage.getItem('dl.goalCategoryOrder') || '[]');
       const currentGoalCollapsed = JSON.parse(localStorage.getItem('dl.goalCategoryCollapsed') || '{}');
-      const currentTaskOrder = JSON.parse(localStorage.getItem('dl.taskCategoryOrder') || '[]');
-      const currentTaskCollapsed = JSON.parse(localStorage.getItem('dl.taskCategoryCollapsed') || '{}');
+      const currentTaskTodayOrder = JSON.parse(localStorage.getItem('dl.taskCategoryOrder.today') || '[]');
+      const currentTaskTodayCollapsed = JSON.parse(localStorage.getItem('dl.taskCategoryCollapsed.today') || '{}');
+      const currentTaskWeekOrder = JSON.parse(localStorage.getItem('dl.taskCategoryOrder.week') || '[]');
+      const currentTaskWeekCollapsed = JSON.parse(localStorage.getItem('dl.taskCategoryCollapsed.week') || '{}');
+      const currentTaskLaterOrder = JSON.parse(localStorage.getItem('dl.taskCategoryOrder.later') || '[]');
+      const currentTaskLaterCollapsed = JSON.parse(localStorage.getItem('dl.taskCategoryCollapsed.later') || '{}');
 
       // Only update state if Supabase data is different from localStorage
       const hasChanges = 
@@ -76,8 +113,12 @@ export const useCategorySettings = () => {
         JSON.stringify(habitCollapsed) !== JSON.stringify(currentHabitCollapsed) ||
         JSON.stringify(goalOrder) !== JSON.stringify(currentGoalOrder) ||
         JSON.stringify(goalCollapsed) !== JSON.stringify(currentGoalCollapsed) ||
-        JSON.stringify(taskOrder) !== JSON.stringify(currentTaskOrder) ||
-        JSON.stringify(taskCollapsed) !== JSON.stringify(currentTaskCollapsed);
+        JSON.stringify(taskTodayOrder) !== JSON.stringify(currentTaskTodayOrder) ||
+        JSON.stringify(taskTodayCollapsed) !== JSON.stringify(currentTaskTodayCollapsed) ||
+        JSON.stringify(taskWeekOrder) !== JSON.stringify(currentTaskWeekOrder) ||
+        JSON.stringify(taskWeekCollapsed) !== JSON.stringify(currentTaskWeekCollapsed) ||
+        JSON.stringify(taskLaterOrder) !== JSON.stringify(currentTaskLaterOrder) ||
+        JSON.stringify(taskLaterCollapsed) !== JSON.stringify(currentTaskLaterCollapsed);
 
       if (hasChanges) {
         console.log('🔄 [DEBUG] Supabase data differs from localStorage, updating...');
@@ -88,8 +129,16 @@ export const useCategorySettings = () => {
           habitCategoryCollapsed: habitCollapsed,
           goalCategoryOrder: goalOrder,
           goalCategoryCollapsed: goalCollapsed,
-          taskCategoryOrder: taskOrder,
-          taskCategoryCollapsed: taskCollapsed
+          taskCategoryOrder: {
+            today: taskTodayOrder,
+            week: taskWeekOrder,
+            later: taskLaterOrder
+          },
+          taskCategoryCollapsed: {
+            today: taskTodayCollapsed,
+            week: taskWeekCollapsed,
+            later: taskLaterCollapsed
+          }
         });
         
         // Update localStorage as cache
@@ -97,8 +146,12 @@ export const useCategorySettings = () => {
         localStorage.setItem('dl.habitCategoryCollapsed', JSON.stringify(habitCollapsed));
         localStorage.setItem('dl.goalCategoryOrder', JSON.stringify(goalOrder));
         localStorage.setItem('dl.goalCategoryCollapsed', JSON.stringify(goalCollapsed));
-        localStorage.setItem('dl.taskCategoryOrder', JSON.stringify(taskOrder));
-        localStorage.setItem('dl.taskCategoryCollapsed', JSON.stringify(taskCollapsed));
+        localStorage.setItem('dl.taskCategoryOrder.today', JSON.stringify(taskTodayOrder));
+        localStorage.setItem('dl.taskCategoryCollapsed.today', JSON.stringify(taskTodayCollapsed));
+        localStorage.setItem('dl.taskCategoryOrder.week', JSON.stringify(taskWeekOrder));
+        localStorage.setItem('dl.taskCategoryCollapsed.week', JSON.stringify(taskWeekCollapsed));
+        localStorage.setItem('dl.taskCategoryOrder.later', JSON.stringify(taskLaterOrder));
+        localStorage.setItem('dl.taskCategoryCollapsed.later', JSON.stringify(taskLaterCollapsed));
       } else {
         console.log('✅ [DEBUG] Supabase data matches localStorage, no update needed');
       }
@@ -268,57 +321,75 @@ export const useCategorySettings = () => {
     }
   }, [userId, settings]);
 
-  // Save task category order
-  const saveTaskCategoryOrder = useCallback(async (newOrder: string[]) => {
+  // Save task category order for specific bucket
+  const saveTaskCategoryOrder = useCallback(async (bucket: 'today' | 'week' | 'later', newOrder: string[]) => {
     if (!userId) return;
     
-    console.log('💾 [DEBUG] Saving task category order:', newOrder);
+    console.log('💾 [DEBUG] Saving task category order:', { bucket, newOrder });
     
     // Update state optimistically
-    setSettings(prev => ({ ...prev, taskCategoryOrder: newOrder }));
+    setSettings(prev => ({
+      ...prev,
+      taskCategoryOrder: {
+        ...prev.taskCategoryOrder,
+        [bucket]: newOrder
+      }
+    }));
     
     try {
-      // Save each category's order to Supabase
+      // Save each category's order to Supabase with bucket-specific type
       await Promise.all(newOrder.map((categoryName, index) =>
-        db.updateCategorySetting(userId, 'tasks', categoryName, {
-          isCollapsed: settings.taskCategoryCollapsed[categoryName] || false,
+        db.updateCategorySetting(userId, `tasks-${bucket}` as any, categoryName, {
+          isCollapsed: settings.taskCategoryCollapsed[bucket][categoryName] || false,
           order: index
         })
       ));
       
       // Update localStorage as cache
-      localStorage.setItem('dl.taskCategoryOrder', JSON.stringify(newOrder));
+      localStorage.setItem(`dl.taskCategoryOrder.${bucket}`, JSON.stringify(newOrder));
       
     } catch (error) {
       console.error('Erro ao salvar ordem das categorias de tarefa:', error);
       // Revert state on error
-      setSettings(prev => ({ ...prev, taskCategoryOrder: settings.taskCategoryOrder }));
+      setSettings(prev => ({
+        ...prev,
+        taskCategoryOrder: {
+          ...prev.taskCategoryOrder,
+          [bucket]: settings.taskCategoryOrder[bucket]
+        }
+      }));
     }
   }, [userId, settings]);
 
-  // Toggle task category collapsed state
-  const toggleTaskCategory = useCallback(async (categoryName: string) => {
+  // Toggle task category collapsed state for specific bucket
+  const toggleTaskCategory = useCallback(async (bucket: 'today' | 'week' | 'later', categoryName: string) => {
     if (!userId) return;
     
-    const newCollapsed = !settings.taskCategoryCollapsed[categoryName];
-    console.log('👁️ [DEBUG] Toggling task category collapsed:', categoryName, newCollapsed);
+    const newCollapsed = !settings.taskCategoryCollapsed[bucket][categoryName];
+    console.log('👁️ [DEBUG] Toggling task category collapsed:', { bucket, categoryName, newCollapsed });
     
     // Update state optimistically
     setSettings(prev => ({
       ...prev,
-      taskCategoryCollapsed: { ...prev.taskCategoryCollapsed, [categoryName]: newCollapsed }
+      taskCategoryCollapsed: {
+        ...prev.taskCategoryCollapsed,
+        [bucket]: {
+          ...prev.taskCategoryCollapsed[bucket],
+          [categoryName]: newCollapsed
+        }
+      }
     }));
     
     try {
-      // Save to Supabase
-      await db.updateCategorySetting(userId, 'tasks', categoryName, {
+      // Save to Supabase with bucket-specific type
+      await db.updateCategorySetting(userId, `tasks-${bucket}` as any, categoryName, {
         isCollapsed: newCollapsed,
-        order: settings.taskCategoryOrder.indexOf(categoryName)
+        order: settings.taskCategoryOrder[bucket].indexOf(categoryName)
       });
       
       // Update localStorage as cache
-      localStorage.setItem('dl.taskCategoryCollapsed', JSON.stringify({
-        ...settings.taskCategoryCollapsed,
+      localStorage.setItem(`dl.taskCategoryCollapsed.${bucket}`, JSON.stringify({
+        ...settings.taskCategoryCollapsed[bucket],
         [categoryName]: newCollapsed
       }));
       
@@ -327,7 +398,13 @@ export const useCategorySettings = () => {
       // Revert state on error
       setSettings(prev => ({
         ...prev,
-        taskCategoryCollapsed: { ...prev.taskCategoryCollapsed, [categoryName]: !newCollapsed }
+        taskCategoryCollapsed: {
+          ...prev.taskCategoryCollapsed,
+          [bucket]: {
+            ...prev.taskCategoryCollapsed[bucket],
+            [categoryName]: !newCollapsed
+          }
+        }
       }));
     }
   }, [userId, settings]);
