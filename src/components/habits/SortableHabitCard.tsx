@@ -10,14 +10,28 @@ interface Props {
 }
 
 export const SortableHabitCard: React.FC<Props> = ({ habit, ...handlers }) => {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: habit.id, animateLayoutChanges: defaultAnimateLayoutChanges });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
+    id: `habit-${habit.id}`,
+    animateLayoutChanges: defaultAnimateLayoutChanges,
+    data: {
+      type: 'habit-card',
+      id: habit.id
+    }
+  });
+  
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
-    transition
+    transition,
+    opacity: isDragging ? 0.5 : 1,
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      {...attributes}
+      data-sortable-type="habit-card"
+    >
       <HabitCard habit={habit} dragHandleProps={listeners} {...handlers} />
     </div>
   );

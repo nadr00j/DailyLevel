@@ -13,7 +13,6 @@ interface TaskCardProps {
   onDelete?: () => void;
   onEdit?: () => void;
   onView?: () => void;
-  dragHandleProps?: any;
 }
 
 const bucketColors = {
@@ -34,7 +33,7 @@ const priorityBorder = {
   high: 'border-l-red-500'
 };
 
-export const TaskCard = ({ task, onToggle, onMove, onDelete, onEdit, onView, dragHandleProps }: TaskCardProps) => {
+export const TaskCard = ({ task, onToggle, onMove, onDelete, onEdit, onView }: TaskCardProps) => {
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && !task.completed;
   const weeklyOverdue = task.weekStart && task.overdue && !task.completed;
 
@@ -45,12 +44,10 @@ export const TaskCard = ({ task, onToggle, onMove, onDelete, onEdit, onView, dra
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       className={cn(
-        "card-glass p-4 rounded-xl border-l-4 transition-all duration-200 select-none touch-none",
+        "card-glass p-4 rounded-xl border-l-4 transition-all duration-200 select-none",
         priorityBorder[task.priority],
         task.completed && "opacity-60"
       )}
-      style={{ touchAction: 'none' }}
-      {...dragHandleProps}
     >
       <div className="flex items-center justify-between gap-3">
         {/* Menu agora à esquerda */}

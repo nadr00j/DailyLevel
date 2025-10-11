@@ -29,14 +29,16 @@ export const useTasks = () => {
     }
   }, []);
 
-  const createTask = useCallback((taskData: Omit<Task,'id'|'createdAt'|'updatedAt'|'order'>) => {
+  const createTask = useCallback(async (taskData: Omit<Task,'id'|'createdAt'|'updatedAt'|'order'>) => {
     const now = new Date().toISOString();
     const newTask: Task = { ...taskData, id: generateId(), createdAt: now, updatedAt: now, order: tasks.length };
     addTask(newTask);
     return newTask;
   }, [addTask, tasks.length]);
 
-  const editTask = useCallback((task: Task) => updateTask(task), [updateTask]);
+  const editTask = useCallback(async (task: Task) => {
+    updateTask(task);
+  }, [updateTask]);
 
   const removeTask = deleteTask;
 
@@ -108,14 +110,6 @@ export const useTasks = () => {
     if(task) updateTask({ ...task, bucket: newBucket, updatedAt: new Date().toISOString() });
   }, [tasks, updateTask]);
 
-  const reorderTasksStore = useCallback(async (reorderedTasks: Task[]) => {
-    const tasksWithNewOrder = reorderedTasks.map((task, index) => ({
-      ...task,
-      order: index,
-      updatedAt: new Date().toISOString()
-    }));
-    await saveTasks(tasksWithNewOrder);
-  }, [saveTasks]);
 
   useEffect(() => {
     // No-op; tasks are hydrated by DataSyncService
@@ -193,7 +187,6 @@ export const useTasks = () => {
     deleteTask: removeTask,
     toggleTask: toggleTaskStatus,
     moveTask,
-    reorderTasks: reorderTasksStore,
     cleanupOldCompletedTasks
   };
 };

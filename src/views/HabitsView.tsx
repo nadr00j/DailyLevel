@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Calendar, CalendarCheck, CalendarX, ChevronDown, Briefcase, HeartPulse, Brain, Users, Home, Camera, Clock, Paintbrush, BookOpen, DollarSign, Dumbbell, Apple, Monitor, Tag } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { DndContext, PointerSensor, TouchSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { useHabitStore } from '@/stores/useHabitStore';
@@ -118,14 +119,14 @@ export const HabitsView = () => {
   const sensors = useSensors(
     useSensor(PointerSensor, { 
       activationConstraint: { 
-        distance: 5,
-        delay: 100,
+        distance: 8,
+        delay: 150,
         tolerance: 5
       } 
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 100,
+        delay: 200,
         tolerance: 5
       }
     })
@@ -134,8 +135,19 @@ export const HabitsView = () => {
   const handleDragEndFactory = (group: Habit[])=> (event:any)=>{
     const {active, over}=event;
     if(!over || active.id===over.id) return;
-    const oldIndex = group.findIndex(h=>h.id===active.id);
-    const newIndex = group.findIndex(h=>h.id===over.id);
+    
+    // Verificar se é um card de hábito sendo arrastado
+    if(!active.id.toString().startsWith('habit-')) return;
+    
+    // Extrair IDs reais dos prefixos
+    const activeId = active.id.toString().replace('habit-', '');
+    const overId = over.id.toString().replace('habit-', '');
+    
+    const oldIndex = group.findIndex(h=>h.id===activeId);
+    const newIndex = group.findIndex(h=>h.id===overId);
+    
+    if(oldIndex === -1 || newIndex === -1) return;
+    
     const newOrdered=arrayMove(group, oldIndex, newIndex);
     reorderHabits(newOrdered);
   };
@@ -166,8 +178,19 @@ export const HabitsView = () => {
   const handleCategoryDragEnd = (grpCats:string[])=> (event:any)=>{
     const {active, over}=event;
     if(!over || active.id===over.id) return;
-    const oldIdx = grpCats.findIndex(c=>c===active.id);
-    const newIdx = grpCats.findIndex(c=>c===over.id);
+    
+    // Verificar se é uma categoria sendo arrastada
+    if(!active.id.toString().startsWith('category-')) return;
+    
+    // Extrair IDs reais dos prefixos
+    const activeId = active.id.toString().replace('category-', '');
+    const overId = over.id.toString().replace('category-', '');
+    
+    const oldIdx = grpCats.findIndex(c=>c===activeId);
+    const newIdx = grpCats.findIndex(c=>c===overId);
+    
+    if(oldIdx === -1 || newIdx === -1) return;
+    
     const newOrder=arrayMove(grpCats,oldIdx,newIdx);
     saveHabitCategoryOrder(newOrder);
   };
@@ -260,12 +283,21 @@ export const HabitsView = () => {
             {habitsToday.length>0 ? (
               <div className="space-y-4">
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd(orderedCats(groupedToday))}>
-                  <SortableContext items={orderedCats(groupedToday)} strategy={verticalListSortingStrategy}>
+                  <SortableContext items={orderedCats(groupedToday).map(cat => `category-${cat}`)} strategy={verticalListSortingStrategy}>
                     {orderedCats(groupedToday).map(cat=>{ const list=groupedToday[cat]; if(!list) return null; return (
                       <SortableCategory key={cat} id={cat}>
+                        {({ categoryDragHandleProps }: any) => (
                         <div key={cat}>
                           <button className="w-full bg-[#18181b] rounded-xl p-3 mb-2 flex items-center justify-between select-none" onClick={()=>toggleGroup(cat)}>
                             <div className="flex items-center gap-2">
+                              <button 
+                                {...categoryDragHandleProps}
+                                className="cursor-grab touch-none p-1 hover:bg-white/10 rounded transition-colors"
+                                style={{ touchAction: 'none' }}
+                                onClick={(e)=>e.stopPropagation()}
+                              >
+                                <LucideIcons.GripVertical size={14} className="text-muted-foreground" />
+                              </button>
                               {(()=>{
                                 const meta = (CAT_META as any)[cat] || {};
                                 if(!meta.icon) return null;
@@ -288,7 +320,7 @@ export const HabitsView = () => {
                                 transition={{ duration: 0.25, ease: 'easeInOut' }}
                               >
                                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndFactory(list)}>
-                                  <SortableContext items={list.map(h=>h.id)} strategy={verticalListSortingStrategy}>
+                                  <SortableContext items={list.map(h=>`habit-${h.id}`)} strategy={verticalListSortingStrategy}>
                                     <div className="space-y-3 pt-2">
                                       {list.map(habit=> (
                                         <SortableHabitCard key={habit.id} habit={habit} onEdit={(h)=>{setEditingHabit(h); setOpenCreate(true);}} onView={()=>setViewHabit(habit)} />
@@ -300,6 +332,7 @@ export const HabitsView = () => {
                             )}
                           </AnimatePresence>
                         </div>
+                        )}
                       </SortableCategory>
                     );})}
                   </SortableContext>
@@ -314,12 +347,21 @@ export const HabitsView = () => {
             {habitsInactive.length>0 ? (
               <div className="space-y-4">
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd(orderedCats(groupedInactive))}>
-                  <SortableContext items={orderedCats(groupedInactive)} strategy={verticalListSortingStrategy}>
+                  <SortableContext items={orderedCats(groupedInactive).map(cat => `category-${cat}`)} strategy={verticalListSortingStrategy}>
                     {orderedCats(groupedInactive).map(cat=>{ const list=groupedInactive[cat]; if(!list) return null; return (
                       <SortableCategory key={cat} id={cat}>
+                        {({ categoryDragHandleProps }: any) => (
                         <div key={cat}>
                           <button className="w-full bg-[#18181b] rounded-xl p-3 mb-2 flex items-center justify-between select-none" onClick={()=>toggleGroup(cat)}>
                             <div className="flex items-center gap-2">
+                              <button 
+                                {...categoryDragHandleProps}
+                                className="cursor-grab touch-none p-1 hover:bg-white/10 rounded transition-colors"
+                                style={{ touchAction: 'none' }}
+                                onClick={(e)=>e.stopPropagation()}
+                              >
+                                <LucideIcons.GripVertical size={14} className="text-muted-foreground" />
+                              </button>
                               {(()=>{
                                 const meta = (CAT_META as any)[cat] || {};
                                 if(!meta.icon) return null;
@@ -342,7 +384,7 @@ export const HabitsView = () => {
                                 transition={{ duration: 0.25, ease: 'easeInOut' }}
                               >
                                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndFactory(list)}>
-                                  <SortableContext items={list.map(h=>h.id)} strategy={verticalListSortingStrategy}>
+                                  <SortableContext items={list.map(h=>`habit-${h.id}`)} strategy={verticalListSortingStrategy}>
                                     <div className="space-y-3 pt-2">
                                       {list.map(habit=> (
                                         <SortableHabitCard key={habit.id} habit={habit} onEdit={(h)=>{setEditingHabit(h); setOpenCreate(true);}} onView={()=>setViewHabit(habit)} />
@@ -354,6 +396,7 @@ export const HabitsView = () => {
                             )}
                           </AnimatePresence>
                         </div>
+                        )}
                       </SortableCategory>
                     );})}
                   </SortableContext>

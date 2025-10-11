@@ -8,6 +8,8 @@ interface CategorySettings {
   habitCategoryCollapsed: Record<string, boolean>;
   goalCategoryOrder: string[];
   goalCategoryCollapsed: Record<string, boolean>;
+  taskCategoryOrder: string[];
+  taskCategoryCollapsed: Record<string, boolean>;
 }
 
 export const useCategorySettings = () => {
@@ -18,7 +20,9 @@ export const useCategorySettings = () => {
       habitCategoryOrder: JSON.parse(localStorage.getItem('dl.habitCategoryOrder') || '[]'),
       habitCategoryCollapsed: JSON.parse(localStorage.getItem('dl.habitCategoryCollapsed') || '{}'),
       goalCategoryOrder: JSON.parse(localStorage.getItem('dl.goalCategoryOrder') || '[]'),
-      goalCategoryCollapsed: JSON.parse(localStorage.getItem('dl.goalCategoryCollapsed') || '{}')
+      goalCategoryCollapsed: JSON.parse(localStorage.getItem('dl.goalCategoryCollapsed') || '{}'),
+      taskCategoryOrder: JSON.parse(localStorage.getItem('dl.taskCategoryOrder') || '[]'),
+      taskCategoryCollapsed: JSON.parse(localStorage.getItem('dl.taskCategoryCollapsed') || '{}')
     };
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -30,9 +34,10 @@ export const useCategorySettings = () => {
     setIsLoading(true);
     try {
       // Load from Supabase first
-      const [habitSettings, goalSettings] = await Promise.all([
+      const [habitSettings, goalSettings, taskSettings] = await Promise.all([
         db.getCategorySettings(userId, 'habits'),
-        db.getCategorySettings(userId, 'goals')
+        db.getCategorySettings(userId, 'goals'),
+        db.getCategorySettings(userId, 'tasks')
       ]);
       
       // Convert Supabase data to our format
@@ -50,18 +55,29 @@ export const useCategorySettings = () => {
         Object.entries(goalSettings).map(([name, config]) => [name, config.isCollapsed])
       );
 
+      const taskOrder = Object.entries(taskSettings)
+        .sort(([,a], [,b]) => a.order - b.order)
+        .map(([name]) => name);
+      const taskCollapsed = Object.fromEntries(
+        Object.entries(taskSettings).map(([name, config]) => [name, config.isCollapsed])
+      );
+
       // Get current localStorage data
       const currentHabitOrder = JSON.parse(localStorage.getItem('dl.habitCategoryOrder') || '[]');
       const currentHabitCollapsed = JSON.parse(localStorage.getItem('dl.habitCategoryCollapsed') || '{}');
       const currentGoalOrder = JSON.parse(localStorage.getItem('dl.goalCategoryOrder') || '[]');
       const currentGoalCollapsed = JSON.parse(localStorage.getItem('dl.goalCategoryCollapsed') || '{}');
+      const currentTaskOrder = JSON.parse(localStorage.getItem('dl.taskCategoryOrder') || '[]');
+      const currentTaskCollapsed = JSON.parse(localStorage.getItem('dl.taskCategoryCollapsed') || '{}');
 
       // Only update state if Supabase data is different from localStorage
       const hasChanges = 
         JSON.stringify(habitOrder) !== JSON.stringify(currentHabitOrder) ||
         JSON.stringify(habitCollapsed) !== JSON.stringify(currentHabitCollapsed) ||
         JSON.stringify(goalOrder) !== JSON.stringify(currentGoalOrder) ||
-        JSON.stringify(goalCollapsed) !== JSON.stringify(currentGoalCollapsed);
+        JSON.stringify(goalCollapsed) !== JSON.stringify(currentGoalCollapsed) ||
+        JSON.stringify(taskOrder) !== JSON.stringify(currentTaskOrder) ||
+        JSON.stringify(taskCollapsed) !== JSON.stringify(currentTaskCollapsed);
 
       if (hasChanges) {
         console.log('🔄 [DEBUG] Supabase data differs from localStorage, updating...');
@@ -71,7 +87,9 @@ export const useCategorySettings = () => {
           habitCategoryOrder: habitOrder,
           habitCategoryCollapsed: habitCollapsed,
           goalCategoryOrder: goalOrder,
-          goalCategoryCollapsed: goalCollapsed
+          goalCategoryCollapsed: goalCollapsed,
+          taskCategoryOrder: taskOrder,
+          taskCategoryCollapsed: taskCollapsed
         });
         
         // Update localStorage as cache
@@ -79,6 +97,8 @@ export const useCategorySettings = () => {
         localStorage.setItem('dl.habitCategoryCollapsed', JSON.stringify(habitCollapsed));
         localStorage.setItem('dl.goalCategoryOrder', JSON.stringify(goalOrder));
         localStorage.setItem('dl.goalCategoryCollapsed', JSON.stringify(goalCollapsed));
+        localStorage.setItem('dl.taskCategoryOrder', JSON.stringify(taskOrder));
+        localStorage.setItem('dl.taskCategoryCollapsed', JSON.stringify(taskCollapsed));
       } else {
         console.log('✅ [DEBUG] Supabase data matches localStorage, no update needed');
       }
@@ -248,6 +268,70 @@ export const useCategorySettings = () => {
     }
   }, [userId, settings]);
 
+  // Save task category order
+  const saveTaskCategoryOrder = useCallback(async (newOrder: string[]) => {
+    if (!userId) return;
+    
+    console.log('💾 [DEBUG] Saving task category order:', newOrder);
+    
+    // Update state optimistically
+    setSettings(prev => ({ ...prev, taskCategoryOrder: newOrder }));
+    
+    try {
+      // Save each category's order to Supabase
+      await Promise.all(newOrder.map((categoryName, index) =>
+        db.updateCategorySetting(userId, 'tasks', categoryName, {
+          isCollapsed: settings.taskCategoryCollapsed[categoryName] || false,
+          order: index
+        })
+      ));
+      
+      // Update localStorage as cache
+      localStorage.setItem('dl.taskCategoryOrder', JSON.stringify(newOrder));
+      
+    } catch (error) {
+      console.error('Erro ao salvar ordem das categorias de tarefa:', error);
+      // Revert state on error
+      setSettings(prev => ({ ...prev, taskCategoryOrder: settings.taskCategoryOrder }));
+    }
+  }, [userId, settings]);
+
+  // Toggle task category collapsed state
+  const toggleTaskCategory = useCallback(async (categoryName: string) => {
+    if (!userId) return;
+    
+    const newCollapsed = !settings.taskCategoryCollapsed[categoryName];
+    console.log('👁️ [DEBUG] Toggling task category collapsed:', categoryName, newCollapsed);
+    
+    // Update state optimistically
+    setSettings(prev => ({
+      ...prev,
+      taskCategoryCollapsed: { ...prev.taskCategoryCollapsed, [categoryName]: newCollapsed }
+    }));
+    
+    try {
+      // Save to Supabase
+      await db.updateCategorySetting(userId, 'tasks', categoryName, {
+        isCollapsed: newCollapsed,
+        order: settings.taskCategoryOrder.indexOf(categoryName)
+      });
+      
+      // Update localStorage as cache
+      localStorage.setItem('dl.taskCategoryCollapsed', JSON.stringify({
+        ...settings.taskCategoryCollapsed,
+        [categoryName]: newCollapsed
+      }));
+      
+    } catch (error) {
+      console.error('Erro ao salvar estado da categoria de tarefa:', error);
+      // Revert state on error
+      setSettings(prev => ({
+        ...prev,
+        taskCategoryCollapsed: { ...prev.taskCategoryCollapsed, [categoryName]: !newCollapsed }
+      }));
+    }
+  }, [userId, settings]);
+
   // Load settings on mount
   useEffect(() => {
     loadSettings();
@@ -259,7 +343,9 @@ export const useCategorySettings = () => {
     loadSettings,
     saveHabitCategoryOrder,
     saveGoalCategoryOrder,
+    saveTaskCategoryOrder,
     toggleHabitCategory,
-    toggleGoalCategory
+    toggleGoalCategory,
+    toggleTaskCategory
   };
 };

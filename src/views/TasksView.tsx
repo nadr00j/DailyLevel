@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, Clock, Calendar, ArrowRight, ChevronDown, Monitor, HeartPulse, Brain, Users, Home, Camera, Paintbrush, BookOpen, DollarSign, Dumbbell, Apple, Tag, GripVertical } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
+import { DndContext, PointerSensor, TouchSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
-import { motion } from 'framer-motion';
-import { Plus, Clock, Calendar, ArrowRight } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { Button } from '@/components/ui/button';
 import { TaskCard } from '@/components/tasks/TaskCard';
@@ -12,6 +13,8 @@ import type { Task } from '@/types';
 import { CreateTaskSheet } from '@/components/tasks/CreateTaskSheet';
 import { EditTaskSheet } from '@/components/tasks/EditTaskSheet';
 import { TaskDetailSheet } from '@/components/tasks/TaskDetailSheet';
+import { SortableCategory } from '@/components/habits/SortableCategory';
+import { useCategorySettings } from '@/hooks/useCategorySettings';
 
 const bucketIcons = {
   today: Clock,
@@ -25,6 +28,50 @@ const bucketLabels = {
   later: 'Depois'
 };
 
+// mapa categoria -> ícone e classe de cor do texto para tarefas
+const TASK_CAT_META: Record<string,{icon:any,color:string}> = {
+  'Trabalho': { icon: Monitor, color: 'text-green-500' },
+  'trabalho': { icon: Monitor, color: 'text-green-500' },
+  'Saúde': { icon: HeartPulse, color: 'text-red-500' },
+  'saude': { icon: HeartPulse, color: 'text-red-500' },
+  'Mente': { icon: Brain, color: 'text-purple-500' },
+  'mente': { icon: Brain, color: 'text-purple-500' },
+  'Social': { icon: Users, color: 'text-yellow-500' },
+  'social': { icon: Users, color: 'text-yellow-500' },
+  'Casa': { icon: Home, color: 'text-blue-500' },
+  'casa': { icon: Home, color: 'text-blue-500' },
+  'Imagem Pessoal': { icon: Camera, color: 'text-blue-400' },
+  'imagem pessoal': { icon: Camera, color: 'text-blue-400' },
+  'Produtividade': { icon: Clock, color: 'text-orange-400' },
+  'produtividade': { icon: Clock, color: 'text-orange-400' },
+  'Arte': { icon: Paintbrush, color: 'text-pink-400' },
+  'arte': { icon: Paintbrush, color: 'text-pink-400' },
+  'Leitura': { icon: BookOpen, color: 'text-indigo-400' },
+  'leitura': { icon: BookOpen, color: 'text-indigo-400' },
+  'Finanças': { icon: DollarSign, color: 'text-yellow-300' },
+  'financas': { icon: DollarSign, color: 'text-yellow-300' },
+  'finanças': { icon: DollarSign, color: 'text-yellow-300' },
+  'Fitness': { icon: Dumbbell, color: 'text-lime-400' },
+  'fitness': { icon: Dumbbell, color: 'text-lime-400' },
+  'Nutrição': { icon: Apple, color: 'text-emerald-400' },
+  'nutricao': { icon: Apple, color: 'text-emerald-400' },
+  'nutrição': { icon: Apple, color: 'text-emerald-400' },
+  'Sem Categoria': { icon: Tag, color: '' },
+  'sem categoria': { icon: Tag, color: '' },
+};
+
+// Função para normalizar nome da categoria
+const normalizeCategoryName = (name: string): string => {
+  if (!name) return 'Sem Categoria';
+  return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+};
+
+// Função para obter metadados da categoria
+const getCategoryMeta = (categoryName: string) => {
+  const normalized = normalizeCategoryName(categoryName);
+  return TASK_CAT_META[normalized] || TASK_CAT_META[categoryName.toLowerCase()] || TASK_CAT_META['Sem Categoria'];
+};
+
 export const TasksView = () => {
   const { 
     todayTasks, 
@@ -35,8 +82,12 @@ export const TasksView = () => {
     deleteTask,
     addTask,
     updateTask,
-    reorderTasks,
   } = useTasks();
+
+  // Use new category settings hook
+  const { settings, saveTaskCategoryOrder, toggleTaskCategory } = useCategorySettings();
+  const taskCategoryOrder = settings.taskCategoryOrder;
+  const collapsed = settings.taskCategoryCollapsed;
 
   const [activeBucket, setActiveBucket] = useState<TaskBucket>('today');
   const [openCreate, setOpenCreate] = useState(false);
@@ -53,20 +104,73 @@ export const TasksView = () => {
   const totalTasks = todayTasks.length + weekTasks.length + laterTasks.length;
   const completedTasks = [...todayTasks, ...weekTasks, ...laterTasks].filter(t => t.completed).length;
 
-  // drag sensors removed
+  // Sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, { 
+      activationConstraint: { 
+        distance: 8,
+        delay: 150,
+        tolerance: 5
+      } 
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 5
+      }
+    })
+  );
 
-  const handleDragEnd = (event:any, tasksArr: typeof todayTasks, bucket: TaskBucket)=>{
-     const {active, over}=event;
-     if(!over || active.id===over.id) return;
-     const oldIndex = tasksArr.findIndex(t=>t.id===active.id);
-     const newIndex = tasksArr.findIndex(t=>t.id===over.id);
-     const newOrder = arrayMove(tasksArr, oldIndex, newIndex);
-     reorderTasks(newOrder);
-  }
+  // Group tasks by category
+  const groupByCategory = (list: Task[]) => {
+    const map: Record<string, Task[]> = {};
+    list.forEach(t => {
+      const key = normalizeCategoryName(t.category || 'Sem Categoria');
+      if (!map[key]) map[key] = [];
+      map[key].push(t);
+    });
+    return map;
+  };
+
+  // Get ordered categories
+  const orderedCats = (grp: Record<string, Task[]>) => {
+    let order = [...taskCategoryOrder];
+    const keys = Object.keys(grp);
+    keys.forEach(k => { if (!order.includes(k)) order.push(k); });
+    // remove categories not present
+    order = order.filter(k => keys.includes(k));
+    return order;
+  };
+
+  // Handle category drag end
+  const handleCategoryDragEnd = (grpCats: string[]) => (event: any) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    
+    // Verificar se é uma categoria sendo arrastada
+    if (!active.id.toString().startsWith('category-')) return;
+    
+    // Extrair IDs reais dos prefixos
+    const activeId = active.id.toString().replace('category-', '');
+    const overId = over.id.toString().replace('category-', '');
+    
+    const oldIdx = grpCats.findIndex(c => c === activeId);
+    const newIdx = grpCats.findIndex(c => c === overId);
+    
+    if (oldIdx === -1 || newIdx === -1) return;
+    
+    const newOrder = arrayMove(grpCats, oldIdx, newIdx);
+    saveTaskCategoryOrder(newOrder);
+  };
+
+  const toggleGroup = (cat: string) => {
+    toggleTaskCategory(cat);
+  };
+
 
   return (
     <>
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-6 select-none">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -114,80 +218,140 @@ export const TasksView = () => {
             })}
           </TabsList>
 
-          {taskBuckets.map(({ bucket, tasks }) => (
-            <TabsContent key={bucket} value={bucket} className="mt-4">
-              {tasks.length > 0 ? (
-                <div className="space-y-3">
-                  {/* Pending tasks */}
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-medium text-muted-foreground mb-3">
-                      Pendentes ({tasks.filter(t=>!t.completed).length})
-                    </h3>
-                    {tasks
-                      .filter(task=>!task.completed)
-                      .sort((a,b)=>({high:0,medium:1,low:2}[a.priority]-({high:0,medium:1,low:2}[b.priority])) )
-                      .map(task=> (
-                        <TaskCard
-                          key={task.id}
-                          task={task}
-                          onToggle={()=>toggleTask(task.id)}
-                          onMove={(b)=>moveTask(task.id,b)}
-                          onDelete={()=>deleteTask(task.id)}
-                          onEdit={()=>setEditingTask(task)}
-                          onView={()=>setViewTask(task)}
-                        />
-                      ))}
-                  </div>
+          {taskBuckets.map(({ bucket, tasks }) => {
+            const groupedTasks = groupByCategory(tasks);
+            const orderedCategories = orderedCats(groupedTasks);
+            
+            return (
+              <TabsContent key={bucket} value={bucket} className="mt-4">
+                {tasks.length > 0 ? (
+                  <div className="space-y-4">
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd(orderedCategories)}>
+                      <SortableContext items={orderedCategories.map(cat => `category-${cat}`)} strategy={verticalListSortingStrategy}>
+                        {orderedCategories.map(cat => {
+                          const categoryTasks = groupedTasks[cat];
+                          if (!categoryTasks) return null;
 
-                  {/* Completed tasks */}
-                  {tasks.filter(task => task.completed).length > 0 && (
-                    <div className="mt-6">
-                      <h3 className="text-sm font-medium text-muted-foreground mb-3">
-                        Concluídas ({tasks.filter(task => task.completed).length})
-                      </h3>
-                      <div className="space-y-3">
-                        {tasks
-                          .filter(task => task.completed)
-                          .sort((a,b)=>({high:0,medium:1,low:2}[a.priority]-({high:0,medium:1,low:2}[b.priority])) )
-                          .map((task) => (
-                            <TaskCard
-                              key={task.id}
-                              task={task}
-                              onToggle={() => toggleTask(task.id)}
-                              onMove={(newBucket) => moveTask(task.id, newBucket)}
-                              onDelete={() => deleteTask(task.id)}
-                              onEdit={() => setEditingTask(task)}
-                              onView={()=>setViewTask(task)}
-                            />
-                          ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="card-glass p-8 rounded-xl text-center"
-                >
-                  <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                    {React.createElement(bucketIcons[bucket], { 
-                      size: 24, 
-                      className: "text-muted-foreground" 
-                    })}
+                          const pendingTasks = categoryTasks
+                            .filter(task => !task.completed)
+                            .sort((a, b) => ({ high: 0, medium: 1, low: 2 }[a.priority] - { high: 0, medium: 1, low: 2 }[b.priority]));
+                          
+                          const completedTasks = categoryTasks
+                            .filter(task => task.completed)
+                            .sort((a, b) => ({ high: 0, medium: 1, low: 2 }[a.priority] - { high: 0, medium: 1, low: 2 }[b.priority]));
+
+                          return (
+                            <SortableCategory key={cat} id={cat}>
+                              {({ categoryDragHandleProps }: any) => (
+                                <div key={cat}>
+                                  <button className="w-full bg-[#18181b] rounded-xl p-3 mb-2 flex items-center justify-between select-none" onClick={() => toggleGroup(cat)}>
+                                    <div className="flex items-center gap-2">
+                                      <button 
+                                        {...categoryDragHandleProps}
+                                        className="cursor-grab touch-none p-1 hover:bg-white/10 rounded transition-colors"
+                                        style={{ touchAction: 'none' }}
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <GripVertical size={14} className="text-muted-foreground" />
+                                      </button>
+                                      {(() => {
+                                        const meta = getCategoryMeta(cat);
+                                        if (!meta.icon) return null;
+                                        const IconComp = meta.icon;
+                                        return <IconComp size={16} className="text-white" />;
+                                      })()}
+                                      <span className="font-semibold text-sm">{cat} <span className="text-muted-foreground">({categoryTasks.length})</span></span>
+                                    </div>
+                                    <span className="w-7 h-7 rounded-full flex items-center justify-center transition-transform" style={{ backgroundColor: '#2b2b31cc' }}>
+                                      <ChevronDown size={14} className={`transition-transform duration-300 ${collapsed[cat] ? '-rotate-90' : ''}`} />
+                                    </span>
+                                  </button>
+                                  <AnimatePresence initial={false}>
+                                    {!collapsed[cat] && (
+                                      <motion.div
+                                        key="content"
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{ duration: 0.25, ease: 'easeInOut' }}
+                                      >
+                                        <div className="space-y-3 pt-2">
+                                          {/* Pending tasks */}
+                                          {pendingTasks.length > 0 && (
+                                            <div className="space-y-3">
+                                              <h4 className="text-xs font-medium text-muted-foreground ml-3">
+                                                Pendentes ({pendingTasks.length})
+                                              </h4>
+                                              {pendingTasks.map(task => (
+                                                <TaskCard
+                                                  key={task.id}
+                                                  task={task}
+                                                  onToggle={() => toggleTask(task.id)}
+                                                  onMove={(b) => moveTask(task.id, b)}
+                                                  onDelete={() => deleteTask(task.id)}
+                                                  onEdit={() => setEditingTask(task)}
+                                                  onView={() => setViewTask(task)}
+                                                />
+                                              ))}
+                                            </div>
+                                          )}
+
+                                          {/* Completed tasks */}
+                                          {completedTasks.length > 0 && (
+                                            <div className="space-y-3 mt-4">
+                                              <h4 className="text-xs font-medium text-muted-foreground ml-3">
+                                                Concluídas ({completedTasks.length})
+                                              </h4>
+                                              {completedTasks.map(task => (
+                                                <TaskCard
+                                                  key={task.id}
+                                                  task={task}
+                                                  onToggle={() => toggleTask(task.id)}
+                                                  onMove={(b) => moveTask(task.id, b)}
+                                                  onDelete={() => deleteTask(task.id)}
+                                                  onEdit={() => setEditingTask(task)}
+                                                  onView={() => setViewTask(task)}
+                                                />
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
+                              )}
+                            </SortableCategory>
+                          );
+                        })}
+                      </SortableContext>
+                    </DndContext>
                   </div>
-                  <h3 className="font-semibold mb-2">Nenhuma tarefa em {bucketLabels[bucket].toLowerCase()}</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Adicione tarefas para começar seu planejamento de {bucketLabels[bucket].toLowerCase()}
-                  </p>
-                  <Button variant="outline" className="flex items-center gap-2 mx-auto" onClick={() => { setChooseBucket(false); setOpenCreate(true);} }>
-                    <Plus size={16} />
-                    Adicionar Tarefa
-                  </Button>
-                </motion.div>
-              )}
-            </TabsContent>
-          ))}
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="card-glass p-8 rounded-xl text-center"
+                  >
+                    <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                      {React.createElement(bucketIcons[bucket], { 
+                        size: 24, 
+                        className: "text-muted-foreground" 
+                      })}
+                    </div>
+                    <h3 className="font-semibold mb-2">Nenhuma tarefa em {bucketLabels[bucket].toLowerCase()}</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Adicione tarefas para começar seu planejamento de {bucketLabels[bucket].toLowerCase()}
+                    </p>
+                    <Button variant="outline" className="flex items-center gap-2 mx-auto" onClick={() => { setChooseBucket(false); setOpenCreate(true); }}>
+                      <Plus size={16} />
+                      Adicionar Tarefa
+                    </Button>
+                  </motion.div>
+                )}
+              </TabsContent>
+            );
+          })}
         </Tabs>
       </motion.div>
     </div>

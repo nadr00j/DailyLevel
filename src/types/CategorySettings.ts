@@ -1,7 +1,7 @@
 export interface CategorySetting {
   id?: string;
   userId: string;
-  type: 'habits' | 'goals';
+  type: 'habits' | 'goals' | 'tasks';
   categoryName: string;
   categoryOrder: number;
   isCollapsed: boolean;
@@ -12,7 +12,7 @@ export interface CategorySetting {
 export interface CategorySettingsDb {
   id: string;
   user_id: string;
-  type: 'habits' | 'goals';
+  type: 'habits' | 'goals' | 'tasks';
   category_name: string;
   category_order: number;
   is_collapsed: boolean;

@@ -1,4 +1,4 @@
-import { Plus, Target, CalendarClock, CheckCircle } from 'lucide-react';
+import { Plus, Target, CalendarClock, CheckCircle, GripVertical } from 'lucide-react';
 import type { Goal } from '@/types';
 import { CreateGoalSheet } from '@/components/goals/CreateGoalSheet';
 import { EditGoalSheet } from '@/components/goals/EditGoalSheet';
@@ -87,14 +87,14 @@ export const GoalsView = () => {
   const sensors = useSensors(
     useSensor(PointerSensor, { 
       activationConstraint: { 
-        distance: 5,
-        delay: 100,
+        distance: 8,
+        delay: 150,
         tolerance: 5
       } 
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 100,
+        delay: 200,
         tolerance: 5
       }
     })
@@ -103,8 +103,19 @@ export const GoalsView = () => {
   const handleDragEndFactory = (list: Goal[]) => (event:any)=>{
     const {active, over}=event;
     if(!over || active.id===over.id) return;
-    const oldIndex = list.findIndex(g=>g.id===active.id);
-    const newIndex = list.findIndex(g=>g.id===over.id);
+    
+    // Verificar se é um card de meta sendo arrastado
+    if(!active.id.toString().startsWith('goal-')) return;
+    
+    // Extrair IDs reais dos prefixos
+    const activeId = active.id.toString().replace('goal-', '');
+    const overId = over.id.toString().replace('goal-', '');
+    
+    const oldIndex = list.findIndex(g=>g.id===activeId);
+    const newIndex = list.findIndex(g=>g.id===overId);
+    
+    if(oldIndex === -1 || newIndex === -1) return;
+    
     const newOrdered=arrayMove(list, oldIndex, newIndex);
     reorderGoals(newOrdered);
   };
@@ -154,7 +165,20 @@ export const GoalsView = () => {
   const handleCategoryDragEnd=(cats:string[])=> (event:any)=>{
     const {active,over}=event;
     if(!over||active.id===over.id) return;
-    const newOrder=arrayMove(cats,cats.indexOf(active.id),cats.indexOf(over.id));
+    
+    // Verificar se é uma categoria sendo arrastada
+    if(!active.id.toString().startsWith('category-')) return;
+    
+    // Extrair IDs reais dos prefixos
+    const activeId = active.id.toString().replace('category-', '');
+    const overId = over.id.toString().replace('category-', '');
+    
+    const oldIdx = cats.indexOf(activeId);
+    const newIdx = cats.indexOf(overId);
+    
+    if(oldIdx === -1 || newIdx === -1) return;
+    
+    const newOrder=arrayMove(cats, oldIdx, newIdx);
     saveGoalCategoryOrder(newOrder);
     setActiveCat(null);
   };
@@ -172,10 +196,20 @@ export const GoalsView = () => {
     reorderGoals(newBucketOrdered);
   };
 
-  const renderCategory = (cat:string, list:Goal[])=> (
+  const renderCategory = (cat:string, list:Goal[], categoryDragHandleProps?: any)=> (
     <div>
       <button className="w-full bg-[#18181b] rounded-xl p-3 mb-2 flex items-center justify-between select-none" onClick={()=>toggleGroup(cat)}>
         <div className="flex items-center gap-2">
+          {categoryDragHandleProps && (
+            <button 
+              {...categoryDragHandleProps}
+              className="cursor-grab touch-none p-1 hover:bg-white/10 rounded transition-colors"
+              style={{ touchAction: 'none' }}
+              onClick={(e)=>e.stopPropagation()}
+            >
+              <GripVertical size={14} className="text-muted-foreground" />
+            </button>
+          )}
           {(()=>{ const Icon=GOAL_CAT_META[cat]?.icon; return Icon? <Icon size={16} className="text-white"/>:null;})()}
           <span className="font-semibold text-sm">{formatCategoryLabel(cat)} <span className="text-muted-foreground">({list.length})</span></span>
         </div>
@@ -193,7 +227,7 @@ export const GoalsView = () => {
             transition={{duration:0.25}}
           >
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndFactory(list)}>
-              <SortableContext items={list.map(g=>g.id)} strategy={verticalListSortingStrategy}>
+              <SortableContext items={list.map(g=>`goal-${g.id}`)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-3 pt-2">
                   {list.map(goal=> (
                     <SortableGoalCard key={goal.id} goal={goal} onToggle={()=>completeGoal(goal)} onDelete={()=>deleteGoal(goal.id)} onMove={(to)=>{ if(to==='future') updateGoal({...goal, isFuture:true}); else updateGoal({...goal, isFuture:false}); }} onEdit={()=>setEditingGoal(goal)} onView={()=>setViewGoal(goal)} />
@@ -274,18 +308,18 @@ export const GoalsView = () => {
             {activeGoals.length>0? (
               <div className="space-y-4">
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd(orderedCats(groupedActive))} onDragStart={(e)=>setActiveCat(e.active.id as string)}>
-                <SortableContext items={orderedCats(groupedActive)} strategy={verticalListSortingStrategy}>
+                <SortableContext items={orderedCats(groupedActive).map(cat => `category-${cat}`)} strategy={verticalListSortingStrategy}>
               {orderedCats(groupedActive).map(cat=>{ const list=groupedActive[cat]; if(!list) return null; return (
                 <SortableCategory key={`active-${cat}`} id={cat}>
-                  {renderCategory(cat,list)}
+                  {({ categoryDragHandleProps }) => renderCategory(cat, list, categoryDragHandleProps)}
                 </SortableCategory>
               );})}
               </SortableContext>
               <DragOverlay dropAnimation={null}>
                 {activeCat ? (
-                  <SortableCategory id={activeCat}>
-                    {renderCategory(activeCat, groupedActive[activeCat]||[])}
-                  </SortableCategory>
+                  <div>
+                    {renderCategory(activeCat.replace('category-', ''), groupedActive[activeCat.replace('category-', '')]||[])}
+                  </div>
                 ) : null}
               </DragOverlay>
               </DndContext>
@@ -305,16 +339,20 @@ export const GoalsView = () => {
           <TabsContent value="urgent" className="mt-4">
             {futureGoals.length>0 ? (
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd(orderedCats(groupedFuture))} onDragStart={(e)=>setActiveCat(e.active.id as string)}>
-                <SortableContext items={orderedCats(groupedFuture)} strategy={verticalListSortingStrategy}>
+                <SortableContext items={orderedCats(groupedFuture).map(cat => `category-${cat}`)} strategy={verticalListSortingStrategy}>
                   <div className="space-y-4">
                     {orderedCats(groupedFuture).map(cat=>{const list=groupedFuture[cat]; if(!list) return null; return (
-                      <SortableCategory key={`future-${cat}`} id={cat}>{renderCategory(cat,list)}</SortableCategory>
+                      <SortableCategory key={`future-${cat}`} id={cat}>
+                        {({ categoryDragHandleProps }) => renderCategory(cat, list, categoryDragHandleProps)}
+                      </SortableCategory>
                     );})}
                   </div>
                 </SortableContext>
                 <DragOverlay dropAnimation={null}>
                   {activeCat ? (
-                    <SortableCategory id={activeCat}>{renderCategory(activeCat, groupedFuture[activeCat]||[])}</SortableCategory>
+                    <div>
+                      {renderCategory(activeCat.replace('category-', ''), groupedFuture[activeCat.replace('category-', '')]||[])}
+                    </div>
                   ) : null}
                 </DragOverlay>
               </DndContext>
@@ -339,16 +377,18 @@ export const GoalsView = () => {
                   </p>
                 </div>
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd(orderedCats(groupedCompleted))} onDragStart={(e)=>setActiveCat(e.active.id as string)}>
-                <SortableContext items={orderedCats(groupedCompleted)} strategy={verticalListSortingStrategy}>
+                <SortableContext items={orderedCats(groupedCompleted).map(cat => `category-${cat}`)} strategy={verticalListSortingStrategy}>
                   {orderedCats(groupedCompleted).map(cat=>{ const list=groupedCompleted[cat]; if(!list) return null; return (
                     <SortableCategory key={`completed-${cat}`} id={cat}>
-                      {renderCategory(cat,list)}
+                      {({ categoryDragHandleProps }) => renderCategory(cat, list, categoryDragHandleProps)}
                     </SortableCategory>
                   );})}
                 </SortableContext>
                 <DragOverlay dropAnimation={null}>
                   {activeCat ? (
-                    <SortableCategory id={activeCat}>{renderCategory(activeCat, groupedCompleted[activeCat]||[])}</SortableCategory>
+                    <div>
+                      {renderCategory(activeCat.replace('category-', ''), groupedCompleted[activeCat.replace('category-', '')]||[])}
+                    </div>
                   ) : null}
                 </DragOverlay>
               </DndContext>

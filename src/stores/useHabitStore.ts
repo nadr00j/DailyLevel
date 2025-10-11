@@ -140,7 +140,25 @@ export const useHabitStore = create<HabitState>((set, get) => ({
           // Verifica se completou o hábito hoje
           const habit = state.habits[habitId];
           const today = getBrazilToday(); // Use Brazil timezone
-          const isCompleted = habit && newCount === habit.targetCount && date === today;
+          
+          let isCompleted = false;
+          if (habit && date === today) {
+            if (habit.targetInterval === 'monthly') {
+              // Para hábitos mensais: considera completo quando atinge 1 por dia
+              // Mas só ganha XP quando completa o objetivo mensal total
+              const monthPrefix = today.slice(0, 7); // YYYY-MM
+              const habitLogs = state.logs[habitId] ?? {};
+              const completedDaysThisMonth = Object.keys(habitLogs).filter(d => 
+                d.startsWith(monthPrefix) && habitLogs[d] > 0
+              ).length;
+              
+              // Se com esta conclusão atingiu o target mensal, ganha XP
+              isCompleted = (completedDaysThisMonth + 1) >= habit.targetCount;
+            } else {
+              // Para diários e semanais: lógica original
+              isCompleted = newCount === habit.targetCount;
+            }
+          }
           
           console.log('[HabitStore Debug] Verificando conclusão:', { 
             hasHabit: !!habit, 
@@ -202,9 +220,20 @@ export const useHabitStore = create<HabitState>((set, get) => ({
         if (!habit) {
           return null;
         }
+        
         const count = (get().logs[habitId]?.[date]) ?? 0;
-        const ratio = Math.min(1, count / habit.targetCount);
-        return { count, targetCount: habit.targetCount, ratio };
+        
+        // Para hábitos mensais, o target por dia é sempre 1
+        // O targetCount representa quantos dias diferentes no mês devem ser completados
+        let dailyTarget: number;
+        if (habit.targetInterval === 'monthly') {
+          dailyTarget = 1; // Sempre 1 conclusão por dia para hábitos mensais
+        } else {
+          dailyTarget = habit.targetCount; // Para diários e semanais, usa o target normal
+        }
+        
+        const ratio = Math.min(1, count / dailyTarget);
+        return { count, targetCount: dailyTarget, ratio };
       },
 
       setCategoryOrder: (order)=>{

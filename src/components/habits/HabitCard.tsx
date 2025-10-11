@@ -71,6 +71,7 @@ export const HabitCard: React.FC<Props> = ({ habit, onEdit, onView, dragHandlePr
   const decrementCompletion = useHabitStore(s=>s.decrementCompletion);
   const deleteHabit = useHabitStore(s=>s.deleteHabit);
   const getProgress = useHabitStore(s=>s.getProgressForDate);
+  const logsMap = useHabitStore(s=>s.logs); // Adicionar acesso aos logs
 
   const todayStr = getBrazilToday(); // Use Brazil timezone
 
@@ -123,7 +124,15 @@ export const HabitCard: React.FC<Props> = ({ habit, onEdit, onView, dragHandlePr
 
   // progresso de hoje
   const todayProgress = getProgress(habit.id, todayStr);
-  const isCompletedToday = todayProgress ? todayProgress.count >= habit.targetCount : false;
+  let isCompletedToday: boolean;
+  
+  if (habit.targetInterval === 'monthly') {
+    // Para hábitos mensais, considera completo se tem pelo menos 1 conclusão hoje
+    isCompletedToday = todayProgress ? todayProgress.count >= 1 : false;
+  } else {
+    // Para diários e semanais, usa o target normal
+    isCompletedToday = todayProgress ? todayProgress.count >= habit.targetCount : false;
+  }
 
   const hasDescription = !!habit.description?.trim();
 
@@ -138,15 +147,25 @@ export const HabitCard: React.FC<Props> = ({ habit, onEdit, onView, dragHandlePr
     const progress = getProgress(habit.id, dateStr);
     if (!progress) return;
 
-    if (progress.count < habit.targetCount) {
-      // incrementa
-      console.log('[HabitCard Debug] Incrementando hábito');
-      logCompletion(habit.id, dateStr);
-    } else {
-      // já completo: reset para 0
-      console.log('[HabitCard Debug] Resetando hábito');
-      for (let i = 0; i < progress.count; i++) {
+    if (habit.targetInterval === 'monthly') {
+      // Para hábitos mensais: sempre toggle entre 0 e 1
+      if (progress.count < 1) {
+        console.log('[HabitCard Debug] Incrementando hábito mensal (0 -> 1)');
+        logCompletion(habit.id, dateStr);
+      } else {
+        console.log('[HabitCard Debug] Resetando hábito mensal (1 -> 0)');
         decrementCompletion(habit.id, dateStr);
+      }
+    } else {
+      // Para diários e semanais: lógica original
+      if (progress.count < habit.targetCount) {
+        console.log('[HabitCard Debug] Incrementando hábito');
+        logCompletion(habit.id, dateStr);
+      } else {
+        console.log('[HabitCard Debug] Resetando hábito');
+        for (let i = 0; i < progress.count; i++) {
+          decrementCompletion(habit.id, dateStr);
+        }
       }
     }
   };
@@ -209,21 +228,42 @@ export const HabitCard: React.FC<Props> = ({ habit, onEdit, onView, dragHandlePr
           <span
             className="absolute inset-0 rounded-lg pointer-events-none z-0"
             style={(() => {
-              const segments = habit.targetCount;
-              const completed = todayProgress?.count || 0;
-              const segAngle = 360 / segments;
-              const gapAngle = segments === 1 ? 0 : segAngle * 0.3; // sem gap se apenas 1 segmento
-              const filledSegmentsAngle = completed * segAngle;
+              if (habit.targetInterval === 'monthly') {
+                // Para hábitos mensais, mostrar progresso do mês inteiro
+                const today = new Date();
+                const monthPrefix = today.toISOString().slice(0, 7); // YYYY-MM
+                const habitLogs = logsMap[habit.id] ?? {};
+                const completedDaysThisMonth = Object.keys(habitLogs).filter(d => 
+                  d.startsWith(monthPrefix) && habitLogs[d] > 0
+                ).length;
+                
+                const monthlyProgress = completedDaysThisMonth / habit.targetCount;
+                const completedAngle = Math.min(360, monthlyProgress * 360);
+                
+                return {
+                  backgroundImage: `conic-gradient(${habit.color} 0deg ${completedAngle}deg, ${blendWithDark(habit.color, 0.3)} ${completedAngle}deg 360deg)`,
+                  mask: 'radial-gradient(transparent 55%, black 58%)',
+                  WebkitMask: 'radial-gradient(transparent 55%, black 58%)',
+                  transition: 'background-image 0.3s linear'
+                } as React.CSSProperties;
+              } else {
+                // Para diários e semanais, lógica original com segmentos
+                const segments = habit.targetCount;
+                const completed = todayProgress?.count || 0;
+                const segAngle = 360 / segments;
+                const gapAngle = segments === 1 ? 0 : segAngle * 0.3; // sem gap se apenas 1 segmento
+                const filledSegmentsAngle = completed * segAngle;
 
-              const baseRing = `repeating-conic-gradient(${blendWithDark(habit.color, 0.3)} 0deg ${segAngle - gapAngle}deg, transparent ${segAngle - gapAngle}deg ${segAngle}deg)`;
-              const progressRing = `conic-gradient(${habit.color} 0deg ${filledSegmentsAngle}deg, transparent ${filledSegmentsAngle}deg 360deg)`;
+                const baseRing = `repeating-conic-gradient(${blendWithDark(habit.color, 0.3)} 0deg ${segAngle - gapAngle}deg, transparent ${segAngle - gapAngle}deg ${segAngle}deg)`;
+                const progressRing = `conic-gradient(${habit.color} 0deg ${filledSegmentsAngle}deg, transparent ${filledSegmentsAngle}deg 360deg)`;
 
-              return {
-                backgroundImage: `${progressRing}, ${baseRing}`,
-                mask: 'radial-gradient(transparent 55%, black 58%)',
-                WebkitMask: 'radial-gradient(transparent 55%, black 58%)',
-                transition: 'background-image 0.3s linear'
-              } as React.CSSProperties;
+                return {
+                  backgroundImage: `${progressRing}, ${baseRing}`,
+                  mask: 'radial-gradient(transparent 55%, black 58%)',
+                  WebkitMask: 'radial-gradient(transparent 55%, black 58%)',
+                  transition: 'background-image 0.3s linear'
+                } as React.CSSProperties;
+              }
             })()}
           />
 
